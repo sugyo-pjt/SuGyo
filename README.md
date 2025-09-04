@@ -1,5 +1,10 @@
 # 수어 학습 플랫폼 레포지토리 입니다.
 
+## 하단 NavBar
+화면간의 이동을 위해 하단에 존재하는 navbar 기능
+
+
+
 ## 브랜치 관리
 1. Master와 Develop 브랜치는 기습 push 금지. Merge Request 보내기
 2. Front / Back / AI 브랜치에서는 파트별 기능 합치는 부분

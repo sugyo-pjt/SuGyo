@@ -19,18 +19,21 @@ fun MainScreen() {
     
     // 현재 라우트에 따라 선택된 탭 결정 (Screen.kt의 route와 일치)
     val selectedTab = when (currentRoute) {
-        "home" -> BottomTab.HOME
+        "search" -> BottomTab.SEARCH
         "learning" -> BottomTab.LEARNING
         "chat" -> BottomTab.CHAT
         "game" -> BottomTab.GAME
         "mypage" -> BottomTab.MYPAGE
-        else -> BottomTab.HOME  // 기본값
+        else -> BottomTab.SEARCH  // 기본값
     }
+    
+    // 홈화면이 아닐 때만 네비게이션 바 표시
+    val showBottomBar = currentRoute != "home"
     
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
     val onTabSelected = { tab: BottomTab ->
         val route = when (tab) {
-            BottomTab.HOME -> "home"
+            BottomTab.SEARCH -> "search"
             BottomTab.LEARNING -> "learning"
             BottomTab.CHAT -> "chat"
             BottomTab.GAME -> "game"
@@ -53,10 +56,12 @@ fun MainScreen() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            CustomBottomNavigationBar(
-                selectedTab = selectedTab,
-                onTabSelected = onTabSelected
-            )
+            if (showBottomBar) {
+                CustomBottomNavigationBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = onTabSelected
+                )
+            }
         }
     ) { innerPadding ->
         NavGraph(

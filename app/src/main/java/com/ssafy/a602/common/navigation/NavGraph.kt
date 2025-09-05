@@ -27,6 +27,18 @@ fun NavGraph(
         composable(Screen.Home.route) { 
             HomeScreen()
         }
+        composable(Screen.Search.route) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "검색 화면",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
         composable(Screen.Learning.route) { 
             Box(
                 modifier = Modifier.fillMaxSize(),

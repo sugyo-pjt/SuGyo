@@ -64,7 +64,7 @@ fun CustomBottomNavigationBar(
 @Preview(showBackground = true)
 @Composable
 fun CustomBottomNavigationBarPreview() {
-    var selectedTab by remember { mutableStateOf(BottomTab.HOME) }
+    var selectedTab by remember { mutableStateOf(BottomTab.SEARCH) }
 
     Column {
         Spacer(modifier = Modifier.weight(1f))

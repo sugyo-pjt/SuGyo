@@ -6,7 +6,7 @@ enum class BottomTab(
     val label: String,
     val iconRes: Int
 ) {
-    HOME("홈", R.drawable.nav_home),
+    SEARCH("검색", R.drawable.nav_search),
     LEARNING("학습", R.drawable.nav_learning),
     CHAT("챗봇", R.drawable.nav_chat),
     GAME("게임", R.drawable.nav_game),

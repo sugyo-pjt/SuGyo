@@ -12,7 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.ssafy.a602.home.HomeScreen
-import com.ssafy.a602.game.GameScreen
+import com.ssafy.a602.game.SongsScreen
 
 @Composable
 fun NavGraph(
@@ -52,7 +52,7 @@ fun NavGraph(
             }
         }
         composable(Screen.Game.route) { 
-            GameScreen()
+            SongsScreen()
         }
         composable(Screen.MyPage.route) { 
             Box(

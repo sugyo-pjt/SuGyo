@@ -76,7 +76,7 @@ fun GameResultScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = CardBackground // 등급 카드와 같은 배경색
                 )
             )
         },

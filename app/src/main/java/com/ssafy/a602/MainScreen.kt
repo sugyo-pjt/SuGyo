@@ -36,13 +36,14 @@ fun MainScreen(
 
     // 바텀바 표시 규칙
     // - 로그인/홈 화면에서는 네비게이션 바 숨김
-    // - 리듬게임 준비/플레이 화면에서도 숨김 (게임 중 UI 몰입을 위해)
+    // - 리듬게임 준비/플레이/결과 화면에서도 숨김 (게임 중 UI 몰입을 위해)
     val showBottomBar = when (currentRoute) {
         "login" -> false
         "home" -> false
         null -> false
         else -> !(currentRoute?.startsWith("game_preparation") == true ||
-                currentRoute?.startsWith("game_play") == true)
+                currentRoute?.startsWith("game_play") == true ||
+                currentRoute?.startsWith("game_result") == true)
     }
 
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)

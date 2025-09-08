@@ -18,8 +18,8 @@ import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.login.LoginScreen
 @Composable
 fun NavGraph(
-    navController: NavHostController, // 화면 전환을 수행하는 컨트롤러(상위에서 rememberNavController()로 생성)
-    modifier: Modifier = Modifier     // 상위에서 전달받은 Modifier(여기선 통째로 NavHost에 전달)
+    navController: NavHostController, // 화면 전환 컨트롤러
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
@@ -62,39 +62,48 @@ fun NavGraph(
             )
         }
 
-        composable(Screen.Total_RoadMap.route) {
-            Total_RoadMap(
-                onBack = { navController.popBackStack() },
-                onDayClick = { day -> /* navController.navigate("lesson/$day") */ }
+        /* ---------- Home ---------- */
+        composable(Screen.Home.route) {
+            HomeScreen(
+                onGoLearning = { navController.navigate(Screen.LearningMainPage.route) },
+                onOpenChat   = { navController.navigate(Screen.Chat.route) },
+                onOpenGame   = { navController.navigate(Screen.Game.route) },
+                onOpenMyPage = { navController.navigate(Screen.MyPage.route) }
             )
         }
 
+        /* ---------- Learning Main ---------- */
+        composable(Screen.LearningMainPage.route) {
+            LearningMainPage(
+                onStartRoadmap = { navController.navigate(Screen.Total_RoadMap.route) },
+                progressDay = 5 // TODO: 백엔드 값으로 교체
+            )
+        }
+
+        /* ---------- Roadmap ---------- */
+        composable(Screen.Total_RoadMap.route) {
+            Total_RoadMap(
+                onBack = { navController.popBackStack() },
+                onDayClick = { /* day -> navController.navigate("lesson/$day") */ }
+            )
+        }
+
+        /* ---------- Search ---------- */
         composable(Screen.Search.route) {
-            // 임시(플레이스홀더) 검색 화면: 중앙 정렬된 텍스트만 배치
             Box(
-                modifier = Modifier.fillMaxSize(),          // 화면 전체 채우기
-                contentAlignment = Alignment.Center          // 자식(텍스트) 중앙 정렬
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "검색 화면",                       // 표시할 문자열
-                    fontSize = 24.sp,                        // 글자 크기
-                    fontWeight = FontWeight.Bold             // 글자 굵게
+                    text = "검색 화면",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
 
-//        composable(Screen.LearningMainPage.route) {
-//            LearningMainPage(
-//                onStartRoadmap = {
-//                    // ⬇️ [추가] "로드맵 시작하기" 버튼 클릭 시 로드맵 화면으로 이동
-//                    navController.navigate(Screen.Total_RoadMap.route)
-//                },
-//                progressDay = 5
-//            )
-//        }
-
+        /* ---------- Chat ---------- */
         composable(Screen.Chat.route) {
-            // 임시 챗봇 화면
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -107,12 +116,13 @@ fun NavGraph(
             }
         }
 
+        /* ---------- Game ---------- */
         composable(Screen.Game.route) {
-            GameScreen()  // 게임 라우트 진입 시 GameScreen 표시
+            GameScreen()
         }
 
+        /* ---------- MyPage ---------- */
         composable(Screen.MyPage.route) {
-            // 임시 마이페이지 화면
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -124,9 +134,5 @@ fun NavGraph(
                 )
             }
         }
-
-//        composable(Screen.Total_RoadMap.route) {
-//            Total_RoadMap()
-//        }
     }
 }

@@ -156,7 +156,7 @@ private fun FeatureGrid(
                 subtitleSize = subtitleSize      // [추가]
             )
             FeatureCard(
-                emoji = "👩‍⚕️",
+                emoji = "\uD83D\uDC64",
                 title = "마이페이지",
                 subtitle = "프로필 · 통계",
                 onClick = onOpenMyPage,

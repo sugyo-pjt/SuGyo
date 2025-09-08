@@ -15,25 +15,44 @@ import com.ssafy.a602.home.HomeScreen                // 홈 화면(별도 파일
 import com.ssafy.a602.game.GameScreen                // 게임 화면(별도 파일에서 구현)
 import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
+import com.ssafy.a602.login.LoginScreen
 
 @Composable
 fun NavGraph(
-    navController: NavHostController, // 화면 전환을 수행하는 컨트롤러(상위에서 rememberNavController()로 생성)
-    modifier: Modifier = Modifier     // 상위에서 전달받은 Modifier(여기선 통째로 NavHost에 전달)
+    navController: NavHostController,
+    modifier: Modifier = Modifier
 ) {
     NavHost(
-        navController = navController,        // 어떤 컨트롤러로 그래프를 운용할지 지정
-        startDestination = Screen.Home.route, // 앱 진입 시 처음 보여줄 라우트
-        modifier = modifier                   // NavHost 자체에 Modifier 적용
+        navController = navController,
+        startDestination = Screen.Login.route,   // ✅ 로그인부터 시작
+        modifier = modifier
     ) {
-        // 각 라우트(route)와 실제 화면(컴포저블)을 연결
+        /* ---------- Login ---------- */
+        composable(Screen.Login.route) {
+            // 뒤로가기 버튼은 보통 비활성/무시 처리. 필요 시 onBack = { navController.popBackStack() }
+            com.ssafy.a602.login.LoginScreen(
+                onBack = {}, // 로그인 첫화면이면 뒤로가기 동작 없음 권장
+                onSubmit = { email, password ->
+                    // TODO: 실제 인증 로직
+                    navController.navigate(Screen.Home.route) {
+                        // 로그인 화면을 스택에서 제거하여 뒤로가기로 못 돌아오게
+                        popUpTo(Screen.Login.route) { inclusive = true }   // ✅ 핵심
+                        launchSingleTop = true
+                    }
+                },
+                onForgot = { /* navController.navigate("forgot") 등 필요 시 구현 */ },
+                onSignup = { /* navController.navigate("signup") 등 필요 시 구현 */ }
+            )
+        }
+
+        /* ---------- Home ---------- */
         composable(Screen.Home.route) {
             HomeScreen(
-                onGoLearning = { navController.navigate(Screen.LearningMainPage.route) }, // ← 버튼 클릭 시 이동
+                onGoLearning = { navController.navigate(Screen.LearningMainPage.route) },
                 onOpenChat = { navController.navigate(Screen.Chat.route) },
                 onOpenGame = { navController.navigate(Screen.Game.route) },
                 onOpenMyPage = { navController.navigate(Screen.MyPage.route) }
-            )  // 홈 라우트 진입 시 HomeScreen 컴포저블 표시
+            )
         }
 
         composable(Screen.LearningMainPage.route) {

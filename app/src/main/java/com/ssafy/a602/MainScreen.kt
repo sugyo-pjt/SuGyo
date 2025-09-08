@@ -10,13 +10,14 @@ import androidx.navigation.compose.rememberNavController
 import com.ssafy.a602.common.navigation.NavGraph
 import com.ssafy.a602.navbar.BottomTab
 import com.ssafy.a602.navbar.CustomBottomNavigationBar
+import com.ssafy.a602.common.navigation.Screen
 
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
-    
+
     // 현재 라우트에 따라 선택된 탭 결정 (Screen.kt의 route와 일치)
     val selectedTab = when (currentRoute) {
         "search" -> BottomTab.SEARCH
@@ -26,10 +27,11 @@ fun MainScreen() {
         "mypage" -> BottomTab.MYPAGE
         else -> BottomTab.SEARCH  // 기본값
     }
-    
+
+
     // 홈화면이 아닐 때만 네비게이션 바 표시
-    val showBottomBar = currentRoute != "home"
-    
+    val showBottomBar = currentRoute !in setOf(Screen.Login.route, Screen.Home.route)
+
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
     val onTabSelected = { tab: BottomTab ->
         val route = when (tab) {
@@ -39,7 +41,7 @@ fun MainScreen() {
             BottomTab.GAME -> "game"
             BottomTab.MYPAGE -> "mypage"
         }
-        
+
         // 현재 라우트와 같으면 네비게이션하지 않음
         if (currentRoute != route) {
             navController.navigate(route) {
@@ -52,7 +54,7 @@ fun MainScreen() {
             }
         }
     }
-    
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {

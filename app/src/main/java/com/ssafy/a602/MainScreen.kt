@@ -29,9 +29,13 @@ fun MainScreen() {
     }
 
 
-    // 홈화면이 아닐 때만 네비게이션 바 표시
-    val showBottomBar = currentRoute !in setOf(Screen.Login.route, Screen.Home.route)
-
+    // 로그인과 홈 화면에서는 네비게이션 바 숨김
+    val showBottomBar = when (currentRoute) {
+        "home" -> false
+        "login" -> false
+        null -> false
+        else -> true  // 다른 모든 화면에서는 네비게이션 바 표시
+    }
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
     val onTabSelected = { tab: BottomTab ->
         val route = when (tab) {

@@ -1,6 +1,5 @@
-package com.ssafy.a602.common.navigation  // 패키지 경로
+package com.ssafy.a602.common.navigation
 
-// ── 필요한 것만 한 번씩만 import ─────────────────────────────────────────────
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
@@ -12,14 +11,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-
 import com.ssafy.a602.home.HomeScreen
 import com.ssafy.a602.game.GameScreen
 import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
-import com.ssafy.a602.login.LoginScreen   // ✅ import했으니 아래에서 그냥 LoginScreen(...) 으로 호출
-
-// ──────────────────────────────────────────────────────────────────────────────
+import com.ssafy.a602.login.LoginScreen
 @Composable
 fun NavGraph(
     navController: NavHostController, // 화면 전환 컨트롤러
@@ -27,24 +23,42 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,   // ✅ 시작 화면: 로그인
+        startDestination = Screen.Login.route,   // ✅ 로그인부터 시작
         modifier = modifier
     ) {
         /* ---------- Login ---------- */
         composable(Screen.Login.route) {
-            // 시작화면이라 뒤로가기는 무의미 → onBack = {} 그대로 두면 됨
-            LoginScreen(
-                onBack = {},
+            // 뒤로가기 버튼은 보통 비활성/무시 처리. 필요 시 onBack = { navController.popBackStack() }
+            com.ssafy.a602.login.LoginScreen(
+                onBack = {}, // 로그인 첫화면이면 뒤로가기 동작 없음 권장
                 onSubmit = { email, password ->
-                    // TODO: 실제 인증 로직(성공 시 아래 네비게이션 실행)
+                    // TODO: 실제 인증 로직
                     navController.navigate(Screen.Home.route) {
-                        // ✅ 로그인 화면을 백스택에서 제거 → 뒤로가기로 로그인 복귀 X
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        // 로그인 화면을 스택에서 제거하여 뒤로가기로 못 돌아오게
+                        popUpTo(Screen.Login.route) { inclusive = true }   // ✅ 핵심
                         launchSingleTop = true
                     }
                 },
-                onForgot = { /* navController.navigate("forgot") etc. */ },
-                onSignup = { /* navController.navigate("signup") etc. */ }
+                onForgot = { /* navController.navigate("forgot") 등 필요 시 구현 */ },
+                onSignup = { /* navController.navigate("signup") 등 필요 시 구현 */ }
+            )
+        }
+
+        /* ---------- Home ---------- */
+        composable(Screen.Home.route) {
+            HomeScreen(
+                onGoLearning = { navController.navigate(Screen.LearningMainPage.route) },
+                onOpenChat = { navController.navigate(Screen.Chat.route) },
+                onOpenGame = { navController.navigate(Screen.Game.route) },
+                onOpenMyPage = { navController.navigate(Screen.MyPage.route) }
+            )
+        }
+
+        composable(Screen.LearningMainPage.route) {
+            LearningMainPage(
+                // "로드맵 시작하기" 버튼 → 로드맵 화면으로 이동
+                onStartRoadmap = { navController.navigate(Screen.Total_RoadMap.route) },
+                progressDay = 5 // (가짜 값) 백엔드 값으로 교체 예정
             )
         }
 

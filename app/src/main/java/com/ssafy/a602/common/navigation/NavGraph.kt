@@ -1,7 +1,10 @@
 package com.ssafy.a602.common.navigation  // 패키지 경로(모듈/폴더 구조 상의 네임스페이스)
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,11 +16,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.ssafy.a602.home.HomeScreen
 import com.ssafy.a602.game.SongsScreen
+import com.ssafy.a602.game.GamePreparationScreen
+import com.ssafy.a602.game.GamePlayScreen
+import com.ssafy.a602.game.Song
+import com.ssafy.a602.game.data.GameDataManager
 
 @Composable
 fun NavGraph(
     navController: NavHostController, // 화면 전환을 수행하는 컨트롤러(상위에서 rememberNavController()로 생성)
-    modifier: Modifier = Modifier     // 상위에서 전달받은 Modifier(여기선 통째로 NavHost에 전달)
+    modifier: Modifier = Modifier,     // 상위에서 전달받은 Modifier(여기선 통째로 NavHost에 전달)
+    permissionLauncher: ((Array<String>) -> Unit)? = null,
+    snackbarHostState: SnackbarHostState? = null,
+    openSettings: (() -> Unit)? = null
 ) {
     NavHost(
         navController = navController,        // 어떤 컨트롤러로 그래프를 운용할지 지정
@@ -76,7 +86,63 @@ fun NavGraph(
             }
         }
         composable(Screen.Game.route) { 
-            SongsScreen()
+            SongsScreen(
+                onSongClick = { song ->
+                    navController.navigate("game_preparation/${song.id}")
+                },
+                permissionLauncher = permissionLauncher,
+                openSettings = openSettings
+            )
+        }
+        
+        composable("game_preparation/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            // GameDataManager에서 현재 선택된 곡 가져오기
+            val song = GameDataManager.currentSong.value?.takeIf { 
+                GameDataManager.isCurrentSong(songId) 
+            } ?: Song(
+                id = songId,
+                title = "알 수 없는 곡",
+                artist = "알 수 없는 아티스트",
+                durationText = "0:00",
+                bpm = 120,
+                rating = 0.0,
+                bestScore = null
+            )
+            
+            GamePreparationScreen(
+                song = song,
+                onGameStart = {
+                    navController.navigate("game_play/${songId}")
+                },
+                onBack = {
+                    // SongsScreen으로 돌아가기
+                    navController.navigate("game") {
+                        popUpTo("game") { inclusive = true }
+                    }
+                },
+                permissionLauncher = permissionLauncher,
+                openSettings = openSettings
+            )
+        }
+        
+        composable("game_play/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            
+            GamePlayScreen(
+                isPaused = false,
+                onTogglePause = { },
+                onEnd = {
+                    // 게임 종료 처리
+                    GameDataManager.endGame()
+                    // SongsScreen으로 돌아가기
+                    navController.navigate("game") {
+                        popUpTo("game") { inclusive = true }
+                    }
+                },
+                onOpenSettings = { },
+                judgmentResult = null // 실제 게임에서는 ViewModel에서 관리
+            )
         }
 
         composable(Screen.MyPage.route) {

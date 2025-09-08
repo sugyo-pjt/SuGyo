@@ -3,6 +3,8 @@ package com.ssafy.a602
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -12,7 +14,11 @@ import com.ssafy.a602.navbar.BottomTab
 import com.ssafy.a602.navbar.CustomBottomNavigationBar
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    permissionLauncher: ((Array<String>) -> Unit)? = null,
+    snackbarHostState: SnackbarHostState? = null,
+    openSettings: (() -> Unit)? = null
+) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
@@ -27,8 +33,12 @@ fun MainScreen() {
         else -> BottomTab.SEARCH  // 기본값
     }
     
-    // 홈화면이 아닐 때만 네비게이션 바 표시
-    val showBottomBar = currentRoute != "home"
+    // 홈화면과 게임 관련 화면에서는 네비게이션 바 숨김
+    val showBottomBar = when (currentRoute) {
+        "home" -> false
+        null -> false
+        else -> !currentRoute.startsWith("game_preparation") && !currentRoute.startsWith("game_play")
+    }
     
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
     val onTabSelected = { tab: BottomTab ->
@@ -62,11 +72,17 @@ fun MainScreen() {
                     onTabSelected = onTabSelected
                 )
             }
+        },
+        snackbarHost = {
+            snackbarHostState?.let { SnackbarHost(it) }
         }
     ) { innerPadding ->
         NavGraph(
             navController = navController,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            permissionLauncher = permissionLauncher,
+            snackbarHostState = snackbarHostState,
+            openSettings = openSettings
         )
     }
 }

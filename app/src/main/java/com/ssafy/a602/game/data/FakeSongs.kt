@@ -1,8 +1,11 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.data
 
-import com.ssafy.a602.R
 import com.ssafy.a602.game.Song
 
+/**
+ * 더미 데이터 제공자
+ * TODO: 실제 API 연동 시 이 클래스를 API 서비스로 교체
+ */
 object FakeSongs {
     val items = listOf(
         Song("way_back_home","WAY BACK HOME","SHAUN","3:14",120,4.2,89650,null),

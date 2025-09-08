@@ -25,15 +25,46 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ssafy.a602.game.SongsViewModel
-import com.ssafy.a602.game.FakeSongs
+import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.data.FakeSongs
 import com.ssafy.a602.game.Song
+import com.ssafy.a602.game.PermissionManager
 
 @Composable
 fun SongsScreen(
-    onSongClick: (Song) -> Unit = {}
+    onSongClick: (Song) -> Unit = {},
+    permissionLauncher: ((Array<String>) -> Unit)? = null,
+    openSettings: (() -> Unit)? = null
 ) {
     val vm: SongsViewModel = viewModel()
     val state by vm.state.collectAsState()
+    val permissionState by PermissionManager.permissionState.collectAsState()
+    
+    // 권한 요청 후 대기 중인 노래를 저장
+    var pendingSong by remember { mutableStateOf<Song?>(null) }
+    
+    // 노래 클릭 시 권한 확인 후 처리하는 함수
+    val handleSongClick: (Song) -> Unit = { song ->
+        // GameDataManager에 곡 선택 저장
+        vm.selectSong(song)
+        
+        if (!permissionState.cameraGranted) {
+            // 권한이 없으면 권한 요청하고 대기 중인 노래로 설정
+            pendingSong = song
+            permissionLauncher?.invoke(arrayOf(android.Manifest.permission.CAMERA))
+        } else {
+            // 권한이 있으면 바로 게임 준비 화면으로 이동
+            onSongClick(song)
+        }
+    }
+    
+    // 권한이 허용되면 대기 중인 노래로 게임 준비 화면으로 이동
+    LaunchedEffect(permissionState.cameraGranted) {
+        if (permissionState.cameraGranted && pendingSong != null) {
+            onSongClick(pendingSong!!)
+            pendingSong = null
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -79,7 +110,7 @@ fun SongsScreen(
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 items(state.filtered, key = { it.id }) { song ->
-                    SongCard(song, onClick = onSongClick)
+                    SongCard(song, onClick = handleSongClick)
                 }
             }
         }

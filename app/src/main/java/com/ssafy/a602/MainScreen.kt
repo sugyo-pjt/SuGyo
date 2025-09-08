@@ -34,11 +34,15 @@ fun MainScreen(
         else -> BottomTab.SEARCH  // 기본값
     }
 
-    // 홈화면과 게임 관련 화면에서는 네비게이션 바 숨김
+    // 바텀바 표시 규칙
+    // - 로그인/홈 화면에서는 네비게이션 바 숨김
+    // - 리듬게임 준비/플레이 화면에서도 숨김 (게임 중 UI 몰입을 위해)
     val showBottomBar = when (currentRoute) {
+        "login" -> false
         "home" -> false
         null -> false
-        else -> !currentRoute.startsWith("game_preparation") && !currentRoute.startsWith("game_play")
+        else -> !(currentRoute?.startsWith("game_preparation") == true ||
+                currentRoute?.startsWith("game_play") == true)
     }
 
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
@@ -74,10 +78,12 @@ fun MainScreen(
                 )
             }
         },
+        // 스낵바가 필요한 화면에서 사용 가능 (null이면 미표시)
         snackbarHost = {
             snackbarHostState?.let { SnackbarHost(it) }
         }
     ) { innerPadding ->
+        // NavGraph: 실제 라우팅 처리 (권한 요청/설정 이동 콜백을 그대로 전달)
         NavGraph(
             navController = navController,
             modifier = Modifier.padding(innerPadding),

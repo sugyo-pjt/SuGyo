@@ -344,11 +344,19 @@ private fun LoginForm(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("아직 계정이 없으신가요? ", color = Color(0xFF667085))
-            TextButton(onClick = onSignup) {
+            Text(
+                "아직 계정이 없으신가요? ",
+                color = Color(0xFF667085),
+                modifier = Modifier.alignByBaseline()
+            )
+            TextButton(
+                onClick = onSignup,
+                modifier = Modifier.alignByBaseline()
+            ) {
                 Text("회원가입", color = Color(0xFF3F51F3))
             }
         }
+
     }
 }
 

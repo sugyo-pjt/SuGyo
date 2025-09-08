@@ -58,7 +58,7 @@ fun NavGraph(
         composable(Screen.Login.route) {
             // 시작화면이라 뒤로가기는 무의미 → onBack = {} 그대로 두면 됨
             LoginScreen(
-                onBack = {},
+                onBack = {}, // 로그인 첫화면이면 뒤로가기 동작 없음 권장
                 onSubmit = { email, password ->
                     // TODO: 실제 인증 로직(성공 시 아래 네비게이션 실행)
                     navController.navigate(Screen.Home.route) {

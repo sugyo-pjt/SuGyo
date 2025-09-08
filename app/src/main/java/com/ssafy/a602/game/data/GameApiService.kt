@@ -66,37 +66,37 @@ class DummyGameApiService : GameApiService {
             "way_back_home" -> listOf(
                 SongSection(
                     startTime = 0f,
-                    duration = 4f,
+                    duration = 10f,
                     lyrics = "어떤 길을 걸어도",
                     highlightRange = null
                 ),
                 SongSection(
-                    startTime = 4f,
-                    duration = 4f,
+                    startTime = 10f,
+                    duration = 10f,
                     lyrics = "열린 문을 향해 나아가",
                     highlightRange = 0..2
                 ),
                 SongSection(
-                    startTime = 8f,
-                    duration = 4f,
+                    startTime = 20f,
+                    duration = 10f,
                     lyrics = "우리가 함께 만들어가는",
                     highlightRange = null
                 ),
                 SongSection(
-                    startTime = 12f,
-                    duration = 4f,
+                    startTime = 30f,
+                    duration = 10f,
                     lyrics = "새로운 세상",
                     highlightRange = null
                 ),
                 SongSection(
-                    startTime = 16f,
-                    duration = 4f,
+                    startTime = 40f,
+                    duration = 10f,
                     lyrics = "함께 걸어가는 길",
                     highlightRange = 0..1
                 ),
                 SongSection(
-                    startTime = 20f,
-                    duration = 4f,
+                    startTime = 50f,
+                    duration = 12f,
                     lyrics = "언제나 너와 함께",
                     highlightRange = null
                 )

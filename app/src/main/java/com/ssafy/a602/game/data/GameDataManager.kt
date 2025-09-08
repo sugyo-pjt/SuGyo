@@ -3,6 +3,7 @@ package com.ssafy.a602.game.data
 import com.ssafy.a602.game.Song
 import com.ssafy.a602.game.SongSection
 import com.ssafy.a602.game.SongProgress
+import com.ssafy.a602.game.GameResultUi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -133,5 +134,73 @@ object GameDataManager {
      */
     fun isCurrentSong(songId: String): Boolean {
         return _currentSong.value?.id == songId
+    }
+    
+    /**
+     * 게임 결과 생성 (더미 데이터)
+     * TODO: 실제 게임 로직에서 호출되도록 구현
+     */
+    suspend fun createGameResult(
+        songId: String,
+        score: Int,
+        correctCount: Int,
+        missCount: Int,
+        maxCombo: Int,
+        missWords: List<String>
+    ): GameResultUi {
+        val song = getSongById(songId) ?: throw IllegalArgumentException("Song not found: $songId")
+        
+        val totalWords = correctCount + missCount
+        val accuracyPercent = if (totalWords > 0) (correctCount * 100 / totalWords) else 0
+        val comboMultiplier = calculateComboMultiplier(maxCombo)
+        val grade = calculateGrade(accuracyPercent)
+        val isNewRecord = checkNewRecord(songId, score)
+        
+        return GameResultUi(
+            songTitle = song.title,
+            score = score,
+            accuracyPercent = accuracyPercent,
+            grade = grade,
+            maxCombo = maxCombo,
+            correctCount = correctCount,
+            missCount = missCount,
+            comboMultiplier = comboMultiplier,
+            isNewRecord = isNewRecord,
+            missWords = missWords
+        )
+    }
+    
+    /**
+     * 콤보 배율 계산
+     */
+    private fun calculateComboMultiplier(maxCombo: Int): Double {
+        return when {
+            maxCombo >= 50 -> 1.5
+            maxCombo >= 30 -> 1.3
+            maxCombo >= 20 -> 1.2
+            maxCombo >= 10 -> 1.1
+            else -> 1.0
+        }
+    }
+    
+    /**
+     * 등급 계산
+     */
+    private fun calculateGrade(accuracyPercent: Int): String {
+        return when {
+            accuracyPercent >= 95 -> "S"
+            accuracyPercent >= 85 -> "A"
+            accuracyPercent >= 70 -> "B"
+            accuracyPercent >= 50 -> "C"
+            else -> "F"
+        }
+    }
+    
+    /**
+     * 신기록 여부 확인
+     */
+    private suspend fun checkNewRecord(songId: String, score: Int): Boolean {
+        val bestScore = apiService.getUserBestScore(songId)
+        return bestScore == null || score > bestScore
     }
 }

@@ -8,7 +8,7 @@ import com.ssafy.a602.game.Song
  */
 object FakeSongs {
     val items = listOf(
-        Song("way_back_home","WAY BACK HOME","SHAUN","3:14",120,4.2,89650,null),
+        Song("way_back_home","WAY BACK HOME","SHAUN","1:02",120,4.2,89650,null),
         Song("asap","ASAP","STAYC","2:58",128,4.8,76420,null),
         Song("hello","안녕하세요","기초 인사말","2:30",100,4.5,95200,null),
         Song("dynamite","Dynamite","BTS","3:19",114,4.9,null,null),

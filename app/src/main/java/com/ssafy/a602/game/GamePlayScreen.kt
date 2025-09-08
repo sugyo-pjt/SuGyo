@@ -115,7 +115,8 @@ data class SongProgress(
 fun GamePlayScreen(
     isPaused: Boolean = false,
     onTogglePause: () -> Unit = {},
-    onEnd: () -> Unit = {},
+    onGameComplete: (GameResultUi) -> Unit = {}, // 게임 완료 시 (곡 끝까지 재생)
+    onGameQuit: () -> Unit = {}, // 게임 중 종료 버튼 클릭 시
     onOpenSettings: () -> Unit = {},
     onFrame: ((ImageProxy) -> Unit)? = null, // 분석이 필요하면 넘겨서 켤 수 있음
     // 판정 결과 표시
@@ -134,12 +135,45 @@ fun GamePlayScreen(
     // 게임 진행 시간을 실시간으로 업데이트
     var gameTime by remember { mutableStateOf(0f) }
     
+    // 곡의 총 길이 계산 (durationText를 초로 변환)
+    val totalDuration = remember(currentSong) {
+        currentSong?.durationText?.let { durationText ->
+            try {
+                val parts = durationText.split(":")
+                val minutes = parts[0].toInt()
+                val seconds = parts[1].toInt()
+                (minutes * 60 + seconds).toFloat()
+            } catch (e: Exception) {
+                62f // 기본값 (1분 2초)
+            }
+        } ?: 62f
+    }
+    
     // 게임이 시작되면 시간 업데이트 시작
     LaunchedEffect(Unit) {
         while (true) {
             if (!isPaused) {
                 gameTime += 0.1f
                 GameDataManager.updateGameProgress(gameTime)
+                
+                // 게임 완료 체크 (곡의 실제 길이 사용)
+                if (gameTime >= totalDuration) {
+                    // 더미 게임 결과 생성
+                    val gameResult = GameResultUi(
+                        songTitle = currentSong?.title ?: "WAY BACK HOME",
+                        score = 876_420,
+                        accuracyPercent = 89,
+                        grade = "A",
+                        maxCombo = 27,
+                        correctCount = 65,
+                        missCount = 17,
+                        comboMultiplier = 1.2,
+                        isNewRecord = true,
+                        missWords = listOf("함께", "만들어", "기억", "별", "여름밤", "망령")
+                    )
+                    onGameComplete(gameResult)
+                    break
+                }
             }
             kotlinx.coroutines.delay(100) // 100ms마다 업데이트
         }
@@ -331,7 +365,7 @@ fun GamePlayScreen(
                 ) {
                     // 둥근 정사각형 종료 버튼
                     Button(
-                        onClick = onEnd,
+                        onClick = onGameQuit,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5A5A)),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.size(80.dp)
@@ -684,7 +718,8 @@ private fun GamePlayScreenPreview() {
     GamePlayScreen(
         isPaused = paused,
         onTogglePause = { paused = !paused },
-        onEnd = {},
+        onGameComplete = {},
+        onGameQuit = {},
         onOpenSettings = {},
         judgmentResult = judgment
     )
@@ -717,7 +752,8 @@ private fun GamePlayScreenPerfectPreview() {
     GamePlayScreen(
         isPaused = false,
         onTogglePause = { },
-        onEnd = {},
+        onGameComplete = {},
+        onGameQuit = {},
         onOpenSettings = {},
         judgmentResult = JudgmentResult.Perfect
     )
@@ -750,7 +786,8 @@ private fun GamePlayScreenMissPreview() {
     GamePlayScreen(
         isPaused = false,
         onTogglePause = { },
-        onEnd = {},
+        onGameComplete = {},
+        onGameQuit = {},
         onOpenSettings = {},
         judgmentResult = JudgmentResult.Miss
     )

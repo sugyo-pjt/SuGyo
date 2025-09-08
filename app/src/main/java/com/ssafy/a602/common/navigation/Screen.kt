@@ -5,6 +5,7 @@ sealed class Screen(val route: String) {
     object Search : Screen("search")
     object Game : Screen("game")
     object Chat : Screen("chat")
-    object Learning : Screen("learning")
+    object LearningMainPage : Screen("learning")
     object MyPage : Screen("mypage")
+    object Total_RoadMap   : Screen("learning/roadmap")
 }

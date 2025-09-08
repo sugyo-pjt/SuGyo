@@ -8,6 +8,7 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
@@ -129,6 +131,20 @@ fun GamePlayScreen(
     val currentSong by GameDataManager.currentSong.collectAsState()
     val gameProgress by GameDataManager.gameProgress.collectAsState()
     
+    // 게임 진행 시간을 실시간으로 업데이트
+    var gameTime by remember { mutableStateOf(0f) }
+    
+    // 게임이 시작되면 시간 업데이트 시작
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (!isPaused) {
+                gameTime += 0.1f
+                GameDataManager.updateGameProgress(gameTime)
+            }
+            kotlinx.coroutines.delay(100) // 100ms마다 업데이트
+        }
+    }
+    
     // 곡이 선택되지 않았으면 기본값 사용
     val songTitle = currentSong?.title ?: "곡을 선택해주세요"
     val songProgress = gameProgress ?: SongProgress(
@@ -138,7 +154,11 @@ fun GamePlayScreen(
     )
 
     Surface(modifier = Modifier.fillMaxSize(), color = bg) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable { showPauseButton = false } // 메뉴 외부 클릭 시 닫기
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -154,7 +174,6 @@ fun GamePlayScreen(
                     onTogglePause = onTogglePause,
                     onOpenSettings = {
                         showPauseButton = !showPauseButton
-                        onOpenSettings()
                     },
                     showPauseButton = showPauseButton
                 )
@@ -230,6 +249,11 @@ fun GamePlayScreen(
                                 Spacer(Modifier.height(10.dp))
                             }
                             
+                            // 다음 소절 가사 (미리보기)
+                            val nextSection = songProgress.sections
+                                .filter { it.startTime > currentSection.startTime }
+                                .minByOrNull { it.startTime }
+                            
                             // 현재 소절 가사 (하이라이트 포함)
                             val currentLyrics = currentSection.lyrics
                             val body = buildAnnotatedString {
@@ -265,6 +289,17 @@ fun GamePlayScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
                             )
+                            
+                            // 다음 소절 미리보기
+                            nextSection?.let { next ->
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    next.lyrics,
+                                    color = Color(0xFF6B7280),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         } ?: run {
                             // 소절 정보가 없을 때 기본 메시지
                             Text(
@@ -330,7 +365,8 @@ fun GamePlayScreen(
                 Card(
                     modifier = Modifier
                         .offset(x = 200.dp, y = 60.dp)
-                        .width(140.dp),
+                        .width(140.dp)
+                        .clickable { }, // 메뉴 클릭 시 닫히지 않도록
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2329)),
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -339,22 +375,27 @@ fun GamePlayScreen(
                         modifier = Modifier.padding(8.dp)
                     ) {
                         Button(
-                            onClick = onTogglePause,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726)),
+                            onClick = {
+                                onTogglePause()
+                                showPauseButton = false // 메뉴 닫기
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isPaused) Color(0xFF4CAF50) else Color(0xFFFFA726)
+                            ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(40.dp)
                         ) {
                             Icon(
-                                Icons.Filled.Pause,
-                                contentDescription = "일시정지",
+                                if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                                contentDescription = if (isPaused) "재생" else "일시정지",
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                "일시정지",
+                                if (isPaused) "재생" else "일시정지",
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold

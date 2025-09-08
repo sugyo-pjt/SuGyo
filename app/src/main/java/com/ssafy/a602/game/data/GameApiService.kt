@@ -66,40 +66,70 @@ class DummyGameApiService : GameApiService {
             "way_back_home" -> listOf(
                 SongSection(
                     startTime = 0f,
-                    duration = 8f,
+                    duration = 4f,
                     lyrics = "어떤 길을 걸어도",
                     highlightRange = null
                 ),
                 SongSection(
-                    startTime = 8f,
-                    duration = 6f,
+                    startTime = 4f,
+                    duration = 4f,
                     lyrics = "열린 문을 향해 나아가",
                     highlightRange = 0..2
                 ),
                 SongSection(
-                    startTime = 14f,
-                    duration = 8f,
+                    startTime = 8f,
+                    duration = 4f,
                     lyrics = "우리가 함께 만들어가는",
                     highlightRange = null
                 ),
                 SongSection(
-                    startTime = 22f,
-                    duration = 6f,
+                    startTime = 12f,
+                    duration = 4f,
                     lyrics = "새로운 세상",
+                    highlightRange = null
+                ),
+                SongSection(
+                    startTime = 16f,
+                    duration = 4f,
+                    lyrics = "함께 걸어가는 길",
+                    highlightRange = 0..1
+                ),
+                SongSection(
+                    startTime = 20f,
+                    duration = 4f,
+                    lyrics = "언제나 너와 함께",
                     highlightRange = null
                 )
             )
             "asap" -> listOf(
                 SongSection(
                     startTime = 0f,
-                    duration = 4f,
+                    duration = 3f,
                     lyrics = "ASAP",
                     highlightRange = null
                 ),
                 SongSection(
-                    startTime = 4f,
-                    duration = 4f,
+                    startTime = 3f,
+                    duration = 3f,
                     lyrics = "STAYC girls",
+                    highlightRange = null
+                ),
+                SongSection(
+                    startTime = 6f,
+                    duration = 3f,
+                    lyrics = "It's going down",
+                    highlightRange = 0..1
+                ),
+                SongSection(
+                    startTime = 9f,
+                    duration = 3f,
+                    lyrics = "We're going up",
+                    highlightRange = null
+                ),
+                SongSection(
+                    startTime = 12f,
+                    duration = 3f,
+                    lyrics = "ASAP ASAP",
                     highlightRange = null
                 )
             )

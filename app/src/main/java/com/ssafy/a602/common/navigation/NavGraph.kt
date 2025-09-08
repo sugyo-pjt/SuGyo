@@ -17,10 +17,23 @@ import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.login.LoginScreen
 
+import androidx.compose.foundation.layout.Box          // 레이아웃 컨테이너(겹쳐 배치/정렬에 유용)
+import androidx.compose.foundation.layout.fillMaxSize // 부모 사이즈를 가득 채우는 Modifier
+import androidx.compose.material3.Text                // 글자 표시용 컴포저블
+import androidx.compose.runtime.Composable            // 컴포저블 함수임을 표시하는 어노테이션
+import androidx.compose.ui.Alignment                 // Box 등에서 자식 정렬할 때 사용
+import androidx.compose.ui.Modifier                  // 컴포저블에 체이닝으로 속성 부여(크기/패딩 등)
+import androidx.compose.ui.text.font.FontWeight      // 글자 두께(굵기)
+import androidx.compose.ui.unit.sp                   // 글자 크기 단위
+import androidx.navigation.NavHostController         // 네비게이션을 실제로 조종하는 컨트롤러
+import androidx.navigation.compose.NavHost           // 라우트 그래프를 담는 컨테이너
+import androidx.navigation.compose.composable        // 특정 라우트에 컴포저블 화면을 연결
+import com.ssafy.a602.home.HomeScreen                // 홈 화면(별도 파일에서 구현)
+import com.ssafy.a602.game.GameScreen                // 게임 화면(별도 파일에서 구현)
 @Composable
 fun NavGraph(
-    navController: NavHostController,
-    modifier: Modifier = Modifier
+    navController: NavHostController, // 화면 전환을 수행하는 컨트롤러(상위에서 rememberNavController()로 생성)
+    modifier: Modifier = Modifier     // 상위에서 전달받은 Modifier(여기선 통째로 NavHost에 전달)
 ) {
     NavHost(
         navController = navController,

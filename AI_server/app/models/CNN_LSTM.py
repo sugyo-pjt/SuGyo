@@ -25,54 +25,63 @@ class SignLanguageCNNLSTM:
         self.sequence_length = sequence_length
         # 특성 차원(좌표값들. 손이면 42개였나? 3배수 하고 골격에도 뽑아서 225차원을 맞춰 줌)
         self.feature_dim = feature_dim
+        # 시작 시에는 모델이 없음(학습 된 모델이 없음. 추후에 학습이 완료 된 모델이 되겠지)
         self.model = None
+        # 인코더... 예.. 그거.
         self.label_encoder = LabelEncoder()
 
     def build_model(self):
         '''
         CNN+LSTM 하이브리드 모델 구성
         L40S 48GB GPU 최적화
+        AI 모델이 어떻게 만들어지는지에 관한 것.
         '''
-        # 입력층
+        # 입력층: (T, F) 시계열 좌표를 입력으로 받음
         inputs = keras.Input(shape=(self.sequence_length, self.feature_dim))
 
-        # Reshape for CNN (시간축을 배치로 처리)
+        # Reshape for CNN (시간축을 배치로 처리) - 시간축 기준 재배치
         x = layers.Reshape((self.sequence_length, self.feature_dim, 1))(inputs)
 
         # TimeDistributed CNN 층들
-        # 각 프레임 단위로 CNN 적용
+        # 각 프레임별로 1D-CNN 적용 (TimeDistributed가 프레임 축 T를 반복 적용)
+        # TimeDistributed가 프레임 축 T를 자동으로 펼쳐 각 프레임에 동일 CNN을 적용.
         x = layers.TimeDistributed(
-            layers.Conv1D(64, 3, activation='relu', padding='same')
+            layers.Conv1D(64, 3, activation='relu', padding='same') # 커널=3으로 인접 특성(예: x,y,z/관절 인접)을 로컬 학습
         )(x)
-        x = layers.TimeDistributed(layers.BatchNormalization())(x)
-        x = layers.TimeDistributed(layers.MaxPooling1D(2))(x)
-        x = layers.TimeDistributed(layers.Dropout(0.3))(x)
-
+        x = layers.TimeDistributed(layers.BatchNormalization())(x) # 프레임 내 특성 정규화로 학습 안정화/수렴 가속
+        x = layers.TimeDistributed(layers.MaxPooling1D(2))(x)           # (F -> F/2) 다운샘플링으로 노이즈 제거/수용영역 확대
+        x = layers.TimeDistributed(layers.Dropout(0.3))(x)              # 프레임별 과적합 억제
+        
+        # 위의 과정을 128 채널로 반복. 이는 특징을 추출하기 목적.
         x = layers.TimeDistributed(
             layers.Conv1D(128, 3, activation='relu', padding='same')
         )(x)
         x = layers.TimeDistributed(layers.BatchNormalization())(x)
-        x = layers.TimeDistributed(layers.MaxPooling1D(2))(x)
+        x = layers.TimeDistributed(layers.MaxPooling1D(2))(x)           # 다시 한 번 다운 샘플링(위에서 F/2까지 해뒀는데 F/4까지 다운)
         x = layers.TimeDistributed(layers.Dropout(0.3))(x)
 
+        # 이번에는 마지막으로 256채널.
         x = layers.TimeDistributed(
             layers.Conv1D(256, 3, activation='relu', padding='same')
         )(x)
         x = layers.TimeDistributed(layers.BatchNormalization())(x)
-        x = layers.TimeDistributed(layers.GlobalMaxPooling1D())(x)
+        # 프레임마다 특징축(다운샘플된 F축)을 통째로 최대값 집계해서 고정 길이 256 벡터로 압축 → LSTM 입력을 (T, 256)로 정규화.
+        # 프레임별 공간(특징축) Global Max Pool → (T, 256)
+        x = layers.TimeDistributed(layers.GlobalMaxPooling1D())(x)      
         x = layers.TimeDistributed(layers.Dropout(0.4))(x)
 
-        # LSTM 층들 (시간적 패턴 학습) 3층으로 쌓은 것(512 + 256 + 128)
-        x = layers.LSTM(512, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(x)
-        x = layers.LSTM(256, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(x)
-        x = layers.LSTM(128, dropout=0.3, recurrent_dropout=0.3)(x)
+        # 시계열 모델링: LSTM 스택 (T, 256) → (T, 512) → (T, 256) → (128)
+        # 학습 때만 적용, CuDNN 가속을 끄는 요인이라 학습 속도 감소가 생길 수 있음
+        x = layers.LSTM(512, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(x)  # 장기의존성 캡처, 전체 시퀀스 반환
+        x = layers.LSTM(256, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(x)  # 심층화
+        x = layers.LSTM(128, dropout=0.3, recurrent_dropout=0.3)(x)                         # 마지막 시점 벡터만 반환 → (128)
 
-        # Dense 층들
-        x = layers.Dense(512, activation='relu')(x)
-        x = layers.BatchNormalization()(x)
-        x = layers.Dropout(0.5)(x)
+        # 분류기 헤드: 비선형 변환으로 결정경계 유연화
+        x = layers.Dense(512, activation='relu')(x)         # (128 -> 512) 확장으로 표현력 강화
+        x = layers.BatchNormalization()(x)                  # 분포 안정화
+        x = layers.Dropout(0.5)(x)                          # 강한 정규화
 
-        x = layers.Dense(256, activation='relu')(x)
+        x = layers.Dense(256, activation='relu')(x)         # (512 -> 256) 투영으로 구분성 유지+압축
         x = layers.Dropout(0.5)(x)
 
         # 출력층
@@ -81,7 +90,7 @@ class SignLanguageCNNLSTM:
         # 모델 생성
         self.model = keras.Model(inputs, outputs)
 
-        # L40S GPU 최적화 컴파일
+        # L40S GPU 최적화 컴파일 - 이 부분 수정하면서 경량화 가능.
         self.model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=0.001, clipnorm=1.0),
             loss='categorical_crossentropy',
@@ -270,7 +279,7 @@ def main():
     # 모델 평가 - 이건 찍어봐야 알 듯. 확신은 없음.
     metrics = model.evaluate_model(processed_data_path)
 
-    print(f"학습 완료! 예상 정확도: {metrics['accuracy']:.2%}")
+    print(f"예상 정확도: {metrics['accuracy']:.2%}")
 
 if __name__ == "__main__":
     main()

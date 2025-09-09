@@ -1,4 +1,4 @@
-package com.surocksang.common.config;
+package com.surocksang.config;
 
 
 import io.swagger.v3.oas.models.Components;

@@ -1,14 +1,14 @@
 spring:
   application:
     name: surocksang
-  
+
   # Database Configuration
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/surocksang?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:ssafy}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
+
   # JPA Configuration
   jpa:
     database: mysql
@@ -19,7 +19,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
-  
+
   # AWS S3 Configuration
   cloud:
     aws:
@@ -29,7 +29,8 @@ spring:
       region:
         static: ${AWS_REGION:ap-northeast-2}
       s3:
-        bucket: ${AWS_S3_BUCKET:your-bucket-name}
+        bucket: ${AWS_S3_BUCKET}
+        cdn-url: ${AWS_S3_CDN_URL}
 
 cors:
   allowed-origins: ${CORS:http://localhost:3000}

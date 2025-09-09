@@ -1,4 +1,4 @@
-package com.surocksang.common.config;
+package com.surocksang.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

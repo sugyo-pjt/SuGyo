@@ -8,5 +8,6 @@ data class RankingUiState(
     val error: String? = null,
     val songTitle: String = "",
     val top3Rankings: List<RankingItem> = emptyList(),
-    val allRankings: List<RankingItem> = emptyList()
+    val allRankings: List<RankingItem> = emptyList(),
+    val myRanking: RankingItem? = null // 내 순위 (없으면 null)
 )

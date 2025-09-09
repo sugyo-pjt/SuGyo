@@ -43,7 +43,9 @@ fun MainScreen(
         null -> false
         else -> !(currentRoute?.startsWith("game_preparation") == true ||
                 currentRoute?.startsWith("game_play") == true ||
-                currentRoute?.startsWith("game_result") == true)
+                currentRoute?.startsWith("game_result") == true ||
+                currentRoute?.startsWith("game_ranking") == true)
+
     }
 
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)

@@ -25,6 +25,7 @@ import com.ssafy.a602.game.SongsScreen
 import com.ssafy.a602.game.GamePreparationScreen
 import com.ssafy.a602.game.GamePlayScreen
 import com.ssafy.a602.game.GameResultScreen
+import com.ssafy.a602.game.GameRankingScreen
 import com.ssafy.a602.game.GameResultUi
 import com.ssafy.a602.game.Song
 import com.ssafy.a602.game.data.GameDataManager
@@ -183,6 +184,7 @@ fun NavGraph(
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
 
             GamePlayScreen(
+                songId = songId,
                 isPaused = false,
                 onTogglePause = { /* TODO: 일시정지 토글 로직 연결(ViewModel 등) */ },
                 onGameComplete = { gameResult ->
@@ -210,23 +212,22 @@ fun NavGraph(
         composable("game_result/{songId}") { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
             
-            // TODO: 실제 게임 결과 데이터를 GameDataManager에서 가져와야 함
-            // 현재는 더미 데이터 사용
-            val dummyResult = GameResultUi(
-                songTitle = "WAY BACK HOME",
-                score = 876_420,
-                accuracyPercent = 89,
-                grade = "A",
-                maxCombo = 27,
-                correctCount = 65,
-                missCount = 17,
-                comboMultiplier = 1.2,
-                isNewRecord = true,
-                missWords = listOf("함께", "만들어", "기억", "별", "여름밤", "망령")
+            // GameDataManager에서 실제 게임 결과 데이터 가져오기
+            val gameResult = GameDataManager.lastGameResult.value ?: GameResultUi(
+                songTitle = "알 수 없는 곡",
+                score = 0,
+                accuracyPercent = 0,
+                grade = "F",
+                maxCombo = 0,
+                correctCount = 0,
+                missCount = 0,
+                comboMultiplier = 1.0,
+                isNewRecord = false,
+                missWords = emptyList()
             )
 
             GameResultScreen(
-                result = dummyResult,
+                result = gameResult,
                 onBack = {
                     // 뒤로가기 - 곡 리스트로
                     navController.navigate(Screen.Game.route) {
@@ -238,13 +239,27 @@ fun NavGraph(
                     navController.navigate("game_preparation/${songId}")
                 },
                 onSubmitRanking = {
-                    // TODO: 랭킹 제출 로직
+                    // 명예의 전당 버튼 클릭 - 순위 화면으로 이동
+                    navController.navigate("game_ranking/${songId}")
                 },
                 onBackToList = {
                     // 목록으로 - 곡 리스트로
                     navController.navigate(Screen.Game.route) {
                         popUpTo(Screen.Game.route) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        /* ---------- Game Ranking : 순위 화면 ---------- */
+        composable("game_ranking/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            
+            GameRankingScreen(
+                songId = songId,
+                onBackClick = {
+                    // 뒤로가기 - 게임 결과 화면으로 이동
+                    navController.popBackStack()
                 }
             )
         }

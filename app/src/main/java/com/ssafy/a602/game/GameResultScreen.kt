@@ -27,21 +27,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
 
-// 색상 팔레트
-private val BackgroundGradient = Brush.verticalGradient(
-    colors = listOf(
-        Color(0xFF3D2C8D), // 보라
-        Color(0xFF1F2A6B), // 남색
-        Color(0xFF0E2149)  // 진한 남색
-    )
-)
-
-private val CardBackground = Color(0xFF1B2454)
+// 색상 팔레트 (GameTheme 사용)
+private val BackgroundGradient = GameTheme.Colors.BackgroundGradient
+private val CardBackground = GameTheme.Colors.CardBackground
 private val GradeGreen = Color(0xFF2ECC71)
-private val AccuracyBlue = Color(0xFF7BB8FF)
-private val ComboYellow = Color(0xFFFFD166)
-private val PerfectBar = Color(0xFF6BB7FF)
-private val MissBar = Color(0xFFFF6B6B)
+private val AccuracyBlue = GameTheme.Colors.AccuracyBlue
+private val ComboYellow = GameTheme.Colors.ComboYellow
+private val PerfectBar = GameTheme.Colors.PerfectBar
+private val MissBar = GameTheme.Colors.MissBar
 private val MissItemBackground = Color(0xFF2E2A6B)
 private val NewRecordBadge = Color(0xFFFFA72B)
 private val NewRecordText = Color(0xFF0E2149)
@@ -60,25 +53,30 @@ fun GameResultScreen(
 ) {
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "게임 결과", 
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = result.songTitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = CardBackground // 등급 카드와 같은 배경색
-                )
-            )
+            // 고정 높이의 커스텀 상단바
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp) // 고정 높이 설정
+                    .background(CardBackground)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "게임 결과", 
+                        style = GameTheme.Typography.ScreenTitle
+                    )
+                    Text(
+                        text = result.songTitle,
+                        style = GameTheme.Typography.SecondaryText
+                    )
+                }
+            }
         },
         containerColor = Color.Transparent
     ) { innerPadding ->

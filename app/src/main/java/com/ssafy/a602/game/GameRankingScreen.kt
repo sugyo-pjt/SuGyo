@@ -2,6 +2,8 @@ package com.ssafy.a602.game
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,20 +20,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-// 색상 팔레트
-private val BackgroundGradient = Brush.verticalGradient(
-    colors = listOf(
-        Color(0xFF3D2C8D), // 보라
-        Color(0xFF1F2A6B), // 남색
-        Color(0xFF0E2149)  // 진한 남색
-    )
-)
+// 색상 팔레트 (GameTheme 사용)
+private val BackgroundGradient = GameTheme.Colors.BackgroundGradient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,15 +49,20 @@ fun GameRankingScreen(
     }
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "명예의 전당",
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
+            // 고정 높이의 커스텀 상단바
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp) // 고정 높이 설정
+                    .background(Color(0xFF1B2454))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 뒤로가기 버튼
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -64,11 +70,19 @@ fun GameRankingScreen(
                             tint = Color.White
                         )
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF1B2454)
-                )
-            )
+                    
+                    // 제목 (중앙 정렬)
+                    Text(
+                        text = "명예의 전당",
+                        style = GameTheme.Typography.ScreenTitle,
+                        modifier = Modifier.weight(1f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    
+                    // 오른쪽 공간 (뒤로가기 버튼과 균형 맞추기)
+                    Spacer(modifier = Modifier.width(48.dp))
+                }
+            }
         }
     ) { innerPadding ->
         Box(
@@ -123,10 +137,70 @@ fun GameRankingScreen(
                                 PodiumItem(ranking.rank, ranking.nickname, ranking.formattedScore)
                             }
                         )
+                        
+                        // 내 순위 표시
+                        uiState.myRanking?.let { myRanking ->
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "내 순위",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            RankRow(
+                                item = RankItem(
+                                    rank = myRanking.rank,
+                                    name = myRanking.nickname,
+                                    score = myRanking.score,
+                                    playedDate = myRanking.playedDate,
+                                    avatarUrl = myRanking.avatarUrl,
+                                    isMe = true
+                                )
+                            )
+                        }
+                        
+                        // 전체 순위 표시 (10위까지만)
+                        if (uiState.allRankings.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(30.dp))
+                            Text(
+                                text = "전체 순위",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // LazyColumn으로 스크롤 가능한 순위 리스트
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(400.dp), // 고정 높이로 스크롤 영역 제한
+                                verticalArrangement = Arrangement.spacedBy(0.dp)
+                            ) {
+                                items(
+                                    items = uiState.allRankings.take(10).map { ranking ->
+                                        RankItem(
+                                            rank = ranking.rank,
+                                            name = ranking.nickname,
+                                            score = ranking.score,
+                                            playedDate = ranking.playedDate,
+                                            avatarUrl = ranking.avatarUrl,
+                                            isMe = ranking.isMe
+                                        )
+                                    }
+                                ) { item ->
+                                    RankRow(
+                                        item = item,
+                                        showDivider = item.rank < 10 // 마지막 항목에는 구분선 없음
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
-
-
             }
         }
     }
@@ -278,33 +352,129 @@ private fun PodiumCard(
     }
 }
 
+data class RankItem(
+    val rank: Int,
+    val name: String,
+    val score: Int,
+    val playedDate: LocalDate,   // 2024-03-15 처럼
+    val avatarUrl: String? = null,
+    val isMe: Boolean = false
+)
 
+// -------- 단일 행 컴포넌트 --------
 @Composable
-private fun RankBadge(rank: Int) {
-    Surface(
-        shape = CircleShape,
-        color = Color.White.copy(alpha = 0.25f)
-    ) {
-        Text(
-            text = rank.toString(),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
+fun RankRow(
+    item: RankItem,
+    modifier: Modifier = Modifier,
+    showDivider: Boolean = true
+) {
+    val scoreText = NumberFormat.getNumberInstance(Locale.KOREA).format(item.score)
+    val dateText = item.playedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
+    val medalEmoji = when (item.rank) {
+        1 -> "🥇"
+        2 -> "🥈"
+        3 -> "🥉"
+        else -> null
+    }
+
+    // 내 항목 강조 배경 (목업처럼 살짝 밝은 카드)
+    val containerModifier = if (item.isMe) {
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0x3346A0FF), Color(0x331C75FF)) // 은은한 하이라이트
+                )
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    } else {
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    }
+
+    Column {
+        Row(
+            modifier = containerModifier,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 순위/메달
+            Column(
+                modifier = Modifier.width(40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (medalEmoji != null) {
+                    Text(medalEmoji, fontSize = 16.sp)
+                    Spacer(Modifier.height(2.dp))
+                }
+                Text(
+                    text = item.rank.toString(),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            // 아바타
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2D3A6A)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.avatarUrl != null) {
+                    AsyncImage(
+                        model = item.avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    // 기본 플레이스홀더
+                    Text("👤", fontSize = 18.sp)
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // 닉네임 + 날짜
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = item.name,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = dateText,
+                    color = Color(0xFFB9C2E5),
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+
+            // 점수 (우측 정렬, 굵게)
+            Text(
+                text = scoreText,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        if (showDivider && !item.isMe) {
+            Divider(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp),
+                color = Color.White.copy(alpha = 0.08f),
+                thickness = 1.dp
+            )
+        }
     }
 }
 
-@Composable
-fun Avatar(url: String, size: Dp) {
-    AsyncImage(
-        model = url,
-        contentDescription = null,
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape),
-        contentScale = ContentScale.Crop
-    )
-}
 
 
 

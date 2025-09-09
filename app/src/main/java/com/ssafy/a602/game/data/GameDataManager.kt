@@ -30,6 +30,10 @@ object GameDataManager {
     private val _isGameActive = MutableStateFlow(false)
     val isGameActive: StateFlow<Boolean> = _isGameActive.asStateFlow()
     
+    // 최근 게임 결과
+    private val _lastGameResult = MutableStateFlow<GameResultUi?>(null)
+    val lastGameResult: StateFlow<GameResultUi?> = _lastGameResult.asStateFlow()
+    
     /**
      * 곡 선택
      */
@@ -53,6 +57,13 @@ object GameDataManager {
     fun endGame() {
         _isGameActive.value = false
         _gameProgress.value = null
+    }
+    
+    /**
+     * 게임 결과 저장
+     */
+    fun saveGameResult(result: GameResultUi) {
+        _lastGameResult.value = result
     }
     
     /**
@@ -217,5 +228,12 @@ object GameDataManager {
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem> {
         return apiService.getTop3Rankings(songId)
+    }
+    
+    /**
+     * 내 순위 가져오기
+     */
+    suspend fun getMyRanking(songId: String): RankingItem? {
+        return apiService.getMyRanking(songId)
     }
 }

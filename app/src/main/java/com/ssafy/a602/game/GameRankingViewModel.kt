@@ -31,14 +31,18 @@ class GameRankingViewModel : ViewModel() {
                 // Top 3 순위 가져오기
                 val top3Rankings = GameDataManager.getTop3Rankings(songId)
                 
-                // 전체 순위 가져오기 (필요시)
+                // 전체 순위 가져오기
                 val allRankings = GameDataManager.getRankings(songId)
+                
+                // 내 순위 가져오기
+                val myRanking = GameDataManager.getMyRanking(songId)
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     songTitle = songTitle,
                     top3Rankings = top3Rankings,
-                    allRankings = allRankings
+                    allRankings = allRankings,
+                    myRanking = myRanking
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

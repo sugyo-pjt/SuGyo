@@ -40,11 +40,11 @@ fun GamePreparationScreen(
     val permissionState by viewModel.permissionState.collectAsState()
     val countdownValue by viewModel.countdownValue.collectAsState()
     
-    val bg = Color(0xFF0D1118)
-    val card = Color(0xFF151B24)
-    val progress = Color(0xFF8B5CF6)
-    val greenBorder = Color(0xFF2BD46D)
-    val error = Color(0xFFEF4444)
+    val bg = GameTheme.Colors.DarkBackground
+    val card = GameTheme.Colors.DarkCard
+    val progress = GameTheme.Colors.Progress
+    val greenBorder = GameTheme.Colors.GreenBorder
+    val error = GameTheme.Colors.ErrorRed
     
     LaunchedEffect(song) {
         viewModel.startPreparation(song)
@@ -75,19 +75,17 @@ fun GamePreparationScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
-                    .statusBarsPadding()
             ) {
                 // Top bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 6.dp),
+                        .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         song.title,
-                        color = Color(0xFFE7ECF3),
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        style = GameTheme.Typography.ScreenTitle,
                         modifier = Modifier.weight(1f)
                     )
                     Text(
@@ -99,8 +97,7 @@ fun GamePreparationScreen(
                             is GamePreparationState.Ready -> "0:00"
                             is GamePreparationState.Error -> "오류"
                         },
-                        color = Color(0xFFE7ECF3),
-                        style = MaterialTheme.typography.titleMedium
+                        style = GameTheme.Typography.CardTitle
                     )
                 }
 

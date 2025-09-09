@@ -113,6 +113,7 @@ data class SongProgress(
 
 @Composable
 fun GamePlayScreen(
+    songId: String,
     isPaused: Boolean = false,
     onTogglePause: () -> Unit = {},
     onGameComplete: (GameResultUi) -> Unit = {}, // 게임 완료 시 (곡 끝까지 재생)
@@ -123,10 +124,10 @@ fun GamePlayScreen(
     judgmentResult: JudgmentResult? = null // PERFECT 또는 MISS
 ) {
     var showPauseButton by remember { mutableStateOf(false) }
-    val bg = Color(0xFF0D1118)
-    val card = Color(0xFF151B24)
-    val progress = Color(0xFF8B5CF6)   // 보라 진행바
-    val greenBorder = Color(0xFF2BD46D)
+    val bg = GameTheme.Colors.DarkBackground
+    val card = GameTheme.Colors.DarkCard
+    val progress = GameTheme.Colors.Progress
+    val greenBorder = GameTheme.Colors.GreenBorder
     
     // GameDataManager에서 현재 곡과 진행 상태 가져오기
     val currentSong by GameDataManager.currentSong.collectAsState()
@@ -171,6 +172,8 @@ fun GamePlayScreen(
                         isNewRecord = true,
                         missWords = listOf("함께", "만들어", "기억", "별", "여름밤", "망령")
                     )
+                    // 게임 결과를 GameDataManager에 저장
+                    GameDataManager.saveGameResult(gameResult)
                     onGameComplete(gameResult)
                     break
                 }
@@ -197,7 +200,6 @@ fun GamePlayScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
-                    .statusBarsPadding()
             ) {
                 /* Top bar */
                 TopBarSection(
@@ -398,7 +400,7 @@ fun GamePlayScreen(
             if (showPauseButton) {
                 Card(
                     modifier = Modifier
-                        .offset(x = 200.dp, y = 60.dp)
+                        .offset(x = 200.dp, y = 40.dp)
                         .width(140.dp)
                         .clickable { }, // 메뉴 클릭 시 닫히지 않도록
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2329)),
@@ -457,19 +459,17 @@ private fun TopBarSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             title,
-            color = Color(0xFFE7ECF3),
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            style = GameTheme.Typography.ScreenTitle,
             modifier = Modifier.weight(1f)
         )
         Text(
             formatClock(currentTime.toInt()),
-            color = Color(0xFFE7ECF3),
-            style = MaterialTheme.typography.titleMedium
+            style = GameTheme.Typography.CardTitle
         )
         Spacer(Modifier.width(8.dp))
 
@@ -479,12 +479,12 @@ private fun TopBarSection(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(Color(0x22212535))
+                .background(GameTheme.Colors.CardBackground.copy(alpha = 0.2f))
         ) {
             Icon(
                 Icons.Outlined.Settings,
                 contentDescription = "설정",
-                tint = Color(0xFFB8C2D6)
+                tint = GameTheme.Colors.TertiaryText
             )
         }
     }
@@ -716,6 +716,7 @@ private fun GamePlayScreenPreview() {
     }
     
     GamePlayScreen(
+        songId = "way_back_home",
         isPaused = paused,
         onTogglePause = { paused = !paused },
         onGameComplete = {},
@@ -750,6 +751,7 @@ private fun GamePlayScreenPerfectPreview() {
     }
     
     GamePlayScreen(
+        songId = "way_back_home",
         isPaused = false,
         onTogglePause = { },
         onGameComplete = {},
@@ -784,6 +786,7 @@ private fun GamePlayScreenMissPreview() {
     }
     
     GamePlayScreen(
+        songId = "way_back_home",
         isPaused = false,
         onTogglePause = { },
         onGameComplete = {},

@@ -4,6 +4,7 @@ import com.ssafy.a602.game.Song
 import com.ssafy.a602.game.SongSection
 import com.ssafy.a602.game.SongProgress
 import com.ssafy.a602.game.GameResultUi
+import com.ssafy.a602.game.RankingItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -202,5 +203,19 @@ object GameDataManager {
     private suspend fun checkNewRecord(songId: String, score: Int): Boolean {
         val bestScore = apiService.getUserBestScore(songId)
         return bestScore == null || score > bestScore
+    }
+    
+    /**
+     * 특정 곡의 순위 목록 가져오기
+     */
+    suspend fun getRankings(songId: String): List<RankingItem> {
+        return apiService.getRankings(songId)
+    }
+    
+    /**
+     * 특정 곡의 Top 3 순위 가져오기
+     */
+    suspend fun getTop3Rankings(songId: String): List<RankingItem> {
+        return apiService.getTop3Rankings(songId)
     }
 }

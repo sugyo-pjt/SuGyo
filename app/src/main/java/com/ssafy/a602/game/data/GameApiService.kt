@@ -2,6 +2,7 @@ package com.ssafy.a602.game.data
 
 import com.ssafy.a602.game.Song
 import com.ssafy.a602.game.SongSection
+import com.ssafy.a602.game.RankingItem
 
 /**
  * 게임 API 서비스 인터페이스
@@ -33,6 +34,16 @@ interface GameApiService {
      * 사용자의 최고 점수 가져오기
      */
     suspend fun getUserBestScore(songId: String): Int?
+    
+    /**
+     * 특정 곡의 순위 목록 가져오기
+     */
+    suspend fun getRankings(songId: String): List<RankingItem>
+    
+    /**
+     * 특정 곡의 Top 3 순위 가져오기
+     */
+    suspend fun getTop3Rankings(songId: String): List<RankingItem>
 }
 
 /**
@@ -167,5 +178,56 @@ class DummyGameApiService : GameApiService {
         // 실제로는 서버에서 사용자 최고 점수 가져오기
         // TODO: API 호출 구현
         return null
+    }
+    
+    override suspend fun getRankings(songId: String): List<RankingItem> {
+        // 실제로는 서버에서 순위 목록 가져오기
+        // TODO: API 호출 구현
+        return getDummyRankings(songId)
+    }
+    
+    override suspend fun getTop3Rankings(songId: String): List<RankingItem> {
+        // 실제로는 서버에서 Top 3 순위 가져오기
+        // TODO: API 호출 구현
+        return getDummyRankings(songId).take(3)
+    }
+    
+    /**
+     * 더미 순위 데이터 생성
+     */
+    private fun getDummyRankings(songId: String): List<RankingItem> {
+        return when (songId) {
+            "way_back_home" -> listOf(
+                RankingItem(1, "수어마스터", 987650),
+                RankingItem(2, "리듬킹", 965420),
+                RankingItem(3, "사인랭커", 944300),
+                RankingItem(4, "수어고수", 923150),
+                RankingItem(5, "손짓왕", 901200),
+                RankingItem(6, "수어신", 889750),
+                RankingItem(7, "제스처마스터", 876300),
+                RankingItem(8, "수어전사", 864200),
+                RankingItem(9, "손동작킹", 852100),
+                RankingItem(10, "수어마법사", 840000)
+            )
+            "asap" -> listOf(
+                RankingItem(1, "STAYC팬", 876500),
+                RankingItem(2, "ASAP러버", 854200),
+                RankingItem(3, "K팝킹", 832100),
+                RankingItem(4, "음악마스터", 810000),
+                RankingItem(5, "리듬킹", 788500)
+            )
+            "hello" -> listOf(
+                RankingItem(1, "인사왕", 952000),
+                RankingItem(2, "안녕마스터", 934500),
+                RankingItem(3, "기초킹", 917200),
+                RankingItem(4, "수어초보", 900000),
+                RankingItem(5, "학습자", 882800)
+            )
+            else -> listOf(
+                RankingItem(1, "플레이어1", 800000),
+                RankingItem(2, "플레이어2", 750000),
+                RankingItem(3, "플레이어3", 700000)
+            )
+        }
     }
 }

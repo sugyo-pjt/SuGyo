@@ -12,8 +12,6 @@ public interface UserDailyVocabularyRepository extends JpaRepository<UserDailyVo
     
     List<UserDailyVocabulary> findByUserId(Long userId);
     
-    List<UserDailyVocabulary> findByUserIdAndCompleted(Long userId, Boolean completed);
-    
     Optional<UserDailyVocabulary> findByUserIdAndDailyId(Long userId, Long dailyId);
     
     boolean existsByUserIdAndDailyId(Long userId, Long dailyId);

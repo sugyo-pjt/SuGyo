@@ -1,6 +1,6 @@
 package com.surocksang.domain.game.controller;
 
-import com.surocksang.domain.game.dto.response.GameChartResponseDto;
+import com.surocksang.domain.game.dto.response.MusicChartResponseDto;
 import com.surocksang.domain.game.dto.response.MusicListResponseDto;
 import com.surocksang.domain.game.dto.response.MusicUrlResponseDto;
 import com.surocksang.domain.game.service.RhythmGameService;
@@ -8,12 +8,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Tag(name = "리듬 게임", description = "리듬 게임 관련 API")
 @RestController
 @RequestMapping("/api/v1/game/rhythm")
 @RequiredArgsConstructor
@@ -82,7 +84,7 @@ public class RhythmGameController {
                                                 "title": "징글벨",
                                                 "singer": "김진환",
                                                 "songTime": "00:01:00",
-                                                "albumImageUrl": "https://surocksang.s3.us-east-1.amazonaws.com/null"
+                                                "albumImageUrl": "https://surocksang.s3.us-east-1.amazonaws.com/null",
                                                 "myScore": 123123
                                               }
                                             ]
@@ -92,7 +94,7 @@ public class RhythmGameController {
                     )
             )
     })
-    @GetMapping("/music")
+    @GetMapping("/music/list")
     public ResponseEntity<?> getAllMusic() {
         List<MusicListResponseDto> musicList = rhythmGameService.getAllMusic();
         return ResponseEntity.ok((musicList));
@@ -157,7 +159,7 @@ public class RhythmGameController {
     })
     @GetMapping("/music/{musicId}/chart")
     public ResponseEntity<?> getMusicChart(@PathVariable Long musicId) {
-        List<GameChartResponseDto> chartData = rhythmGameService.getMusicChart(musicId);
+        List<MusicChartResponseDto> chartData = rhythmGameService.getMusicChart(musicId);
         return ResponseEntity.ok(chartData);
     }
 }

@@ -1,0 +1,109 @@
+package com.surocksang.domain.study.controller;
+
+import com.surocksang.auth.dto.CustomUserDetails;
+import com.surocksang.common.exception.ApplicationException;
+import com.surocksang.common.exception.CommonErrorCode;
+import com.surocksang.common.exception.GlobalErrorCode;
+import com.surocksang.domain.study.dto.response.StudyProgressResponseDto;
+import com.surocksang.domain.study.service.StudyService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Tag(name = "수어 학습", description = "수어 학습 API")
+@RestController
+@RequestMapping("/api/v1/study")
+@RequiredArgsConstructor
+public class StudyController {
+
+    private final StudyService studyService;
+
+    @Operation(
+            summary = "학습 진행 상황 조회",
+            description = "JWT 토큰을 통해 사용자의 학습 진행 상황을 조회합니다. 완료한 학습일 중 가장 높은 일수를 반환합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "학습 진행 상황 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시",
+                                            value =
+                                            """
+                                            {
+                                              "progressDay": 5
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 401,
+                                              "code": "AUTH-401-01",
+                                              "message": "인증에 실패했습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자를 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @GetMapping("/progress")
+    public ResponseEntity<StudyProgressResponseDto> getStudyProgress(@AuthenticationPrincipal CustomUserDetails user) {
+
+        Long userId = user.getId();
+
+        if(userId == null){
+            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
+        }
+        
+        StudyProgressResponseDto response = studyService.getStudyProgress(userId);
+        return ResponseEntity.ok(response);
+    }
+}

@@ -8,7 +8,7 @@ import java.util.List;
 
 @Getter
 @Builder
-public class GameChartResponseDto {
+public class MusicChartResponseDto {
     private Integer segment;
     private LocalTime barStartedAt;
     private String lyrics;

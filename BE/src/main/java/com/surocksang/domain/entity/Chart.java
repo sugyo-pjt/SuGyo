@@ -18,10 +18,6 @@ public class Chart {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "music_id", nullable = false)
-    private Music music;
 
     @Column(nullable = false)
     private Integer sequence;
@@ -31,7 +27,8 @@ public class Chart {
     
     @Column(nullable = false)
     private LocalTime startedAt;
-    
-    @OneToMany(mappedBy = "chart", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chart_id")
     private List<ChartAnswer> chartAnswers;
 }

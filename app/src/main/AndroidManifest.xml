@@ -5,6 +5,9 @@
     <!-- 카메라가 있으면 쓰되, 없어도 설치 허용 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    
+    <!-- ExoPlayer에서 인터넷 오디오 스트리밍을 위한 권한 -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

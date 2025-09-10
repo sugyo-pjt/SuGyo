@@ -1,14 +1,10 @@
 package com.ssafy.a602.game
 
+import android.os.SystemClock
+import android.util.Log
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.camera.view.CameraController
-import androidx.camera.view.LifecycleCameraController
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,19 +14,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -43,6 +35,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -53,23 +48,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
+import androidx.media3.exoplayer.ExoPlayer
 import com.ssafy.a602.game.data.GameDataManager
-import java.util.concurrent.Executors
+import com.ssafy.a602.game.time.TimelineTick
+import com.ssafy.a602.game.time.TimelineViewModel
 
 /* ========== Data Classes ========== */
 
@@ -123,6 +118,66 @@ fun GamePlayScreen(
     // 판정 결과 표시
     judgmentResult: JudgmentResult? = null // PERFECT 또는 MISS
 ) {
+    val context = LocalContext.current
+    
+    // ExoPlayer 인스턴스 생성
+    // ExoPlayer는 Google에서 개발한 Android용 미디어 플레이어 라이브러리
+    // 오디오/비디오 재생, 스트리밍, 다양한 포맷 지원 등의 기능 제공
+    val player = remember {
+        Log.d("GamePlayScreen", "ExoPlayer 인스턴스 생성 시작")
+        val exoPlayer = ExoPlayer.Builder(context).build()
+        
+        // ExoPlayer 상태 변화 리스너 추가 (디버깅용)
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                Log.d("GamePlayScreen", "ExoPlayer 재생 상태 변화: $playbackState")
+            }
+            
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                Log.d("GamePlayScreen", "ExoPlayer 재생 중 상태 변화: $isPlaying")
+            }
+            
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("GamePlayScreen", "ExoPlayer 오류: ${error.message}", error)
+            }
+        })
+        
+        Log.d("GamePlayScreen", "ExoPlayer 인스턴스 생성 완료")
+        exoPlayer
+    }
+    
+    // TimelineViewModel 생성
+    // TimelineViewModel은 ExoPlayer의 재생 상태를 관찰하고
+    // 게임에 필요한 정확한 타이밍 정보를 제공하는 ViewModel
+    val timelineViewModel = remember(player) {
+        Log.d("GamePlayScreen", "TimelineViewModel 생성 시작")
+        val viewModel = TimelineViewModel(player)
+        Log.d("GamePlayScreen", "TimelineViewModel 생성 완료")
+        viewModel
+    }
+    
+    // TimelineTick 수집
+    // TimelineTick은 ExoPlayer의 현재 재생 위치와 상태를 담고 있는 데이터 클래스
+    // Choreographer를 통해 약 16ms마다 업데이트되어 정확한 타이밍 제공
+    val tick: TimelineTick? by timelineViewModel.ticks.collectAsState()
+    
+    // Pause→Resume AC 측정용
+    var resumeWall by remember { mutableStateOf<Long?>(null) }
+    var lastLogged by remember { mutableStateOf<Long?>(null) }
+    
+    fun logFirstTickErrorIfNeeded(t: TimelineTick) {
+        val r = resumeWall ?: return
+        val elapsedSinceResume = t.wallClockMs - r
+        val errorMs = kotlin.math.abs(t.positionMs - elapsedSinceResume)
+        if (lastLogged != r) {
+            android.util.Log.d(
+                "AC_CHECK",
+                "First tick error = ${errorMs}ms  (<=15ms 목표)"
+            )
+            lastLogged = r
+        }
+    }
+    
     var showPauseButton by remember { mutableStateOf(false) }
     val bg = GameTheme.Colors.DarkBackground
     val card = GameTheme.Colors.DarkCard
@@ -133,8 +188,134 @@ fun GamePlayScreen(
     val currentSong by GameDataManager.currentSong.collectAsState()
     val gameProgress by GameDataManager.gameProgress.collectAsState()
     
-    // 게임 진행 시간을 실시간으로 업데이트
-    var gameTime by remember { mutableStateOf(0f) }
+    // 디버깅: currentSong 상태 로그
+    LaunchedEffect(currentSong) {
+        Log.d("GamePlayScreen", "currentSong 상태 변화: ${currentSong?.title ?: "null"}")
+    }
+    
+    // songId를 기반으로 곡 자동 선택
+    LaunchedEffect(songId) {
+        Log.d("GamePlayScreen", "songId 기반 곡 선택: $songId")
+        val song = GameDataManager.getSongById(songId)
+        if (song != null) {
+            Log.d("GamePlayScreen", "곡 자동 선택: ${song.title}")
+            GameDataManager.selectSong(song)
+        } else {
+            Log.e("GamePlayScreen", "songId에 해당하는 곡을 찾을 수 없습니다: $songId")
+        }
+    }
+    
+    // ExoPlayer 초기화 및 미디어 설정
+    // LaunchedEffect를 사용하여 player, songId, currentSong이 변경될 때마다 실행
+    LaunchedEffect(player, songId, currentSong) {
+        Log.d("GamePlayScreen", "ExoPlayer 초기화 LaunchedEffect 시작")
+        Log.d("GamePlayScreen", "현재 상태: songId=$songId, currentSong=${currentSong?.title ?: "null"}")
+        
+        // currentSong이 null인 경우 처리
+        if (currentSong == null) {
+            Log.w("GamePlayScreen", "currentSong이 null입니다. 곡을 먼저 선택해야 합니다.")
+            return@LaunchedEffect
+        }
+        
+        // 미디어 아이템이 설정되지 않은 경우에만 초기화
+        if (player.mediaItemCount == 0) {
+            currentSong?.let { song ->
+                // 선택된 곡의 실제 음악 파일 URL 사용 (API에서 가져온 URL)
+                val audioUrl = song.audioUrl ?: throw IllegalStateException("음악 파일 URL이 없습니다. API에서 올바른 URL을 제공해야 합니다.")
+                Log.d("GamePlayScreen", "ExoPlayer 미디어 설정: $audioUrl")
+                
+                // MediaItem 생성: ExoPlayer가 재생할 미디어를 나타내는 객체
+                val mediaItem = MediaItem.fromUri(audioUrl)
+                
+                // ExoPlayer에 미디어 아이템 설정
+                player.setMediaItem(mediaItem)
+                
+                // 미디어 준비: 네트워크에서 로딩, 메타데이터 파싱 등
+                player.prepare()
+                Log.d("GamePlayScreen", "ExoPlayer 미디어 준비 완료")
+                
+                // 게임이 일시정지 상태가 아니면 자동으로 재생 시작
+                if (!isPaused) {
+                    Log.d("GamePlayScreen", "ExoPlayer 자동 재생 시작")
+                    player.play()
+                } else {
+                    Log.d("GamePlayScreen", "ExoPlayer 일시정지 상태로 시작")
+                }
+            }
+        } else {
+            Log.d("GamePlayScreen", "ExoPlayer에 이미 미디어가 설정되어 있습니다. mediaItemCount=${player.mediaItemCount}")
+        }
+        
+        // TimelineViewModel 시작: Choreographer를 통한 정확한 타이밍 시작
+        Log.d("GamePlayScreen", "TimelineViewModel.start() 호출")
+        timelineViewModel.start()
+    }
+    
+    // isPaused 상태에 따라 ExoPlayer 재생/일시정지 제어
+    // 게임의 일시정지 상태가 변경될 때마다 ExoPlayer의 재생 상태를 동기화
+    LaunchedEffect(isPaused) {
+        Log.d("GamePlayScreen", "isPaused 상태 변경: $isPaused")
+        
+        // 미디어가 로드된 상태에서만 재생/일시정지 제어
+        if (player.mediaItemCount > 0) {
+            if (isPaused) {
+                Log.d("GamePlayScreen", "ExoPlayer 일시정지")
+                player.pause() // ExoPlayer 재생 일시정지
+            } else {
+                Log.d("GamePlayScreen", "ExoPlayer 재생")
+                player.play() // ExoPlayer 재생 시작
+            }
+        } else {
+            Log.w("GamePlayScreen", "미디어가 로드되지 않아 재생/일시정지 제어 불가")
+        }
+    }
+    
+    // 게임 시작 시 자동 재생 (처음 한 번만)
+    // 컴포넌트가 처음 생성될 때 한 번만 실행되는 LaunchedEffect
+    LaunchedEffect(Unit) {
+        Log.d("GamePlayScreen", "게임 시작 시 자동 재생 체크")
+        
+        // 미디어가 로드되고 일시정지 상태가 아닌 경우 자동 재생
+        if (player.mediaItemCount > 0 && !isPaused) {
+            Log.d("GamePlayScreen", "게임 시작 시 자동 재생 실행")
+            player.play()
+        } else {
+            Log.d("GamePlayScreen", "자동 재생 조건 미충족: mediaCount=${player.mediaItemCount}, isPaused=$isPaused")
+        }
+    }
+    
+    // 컴포넌트 해제 시 정리
+    // DisposableEffect는 컴포넌트가 화면에서 사라질 때 정리 작업을 수행
+    DisposableEffect(Unit) {
+        onDispose { 
+            Log.d("GamePlayScreen", "컴포넌트 해제 시작")
+            
+            // TimelineViewModel 정지: Choreographer 콜백 제거
+            timelineViewModel.stop()
+            Log.d("GamePlayScreen", "TimelineViewModel 정지 완료")
+            
+            // ExoPlayer 리소스 해제: 메모리 누수 방지
+            player.release()
+            Log.d("GamePlayScreen", "ExoPlayer 리소스 해제 완료")
+        }
+    }
+    
+    // 첫 틱 오차 로깅
+    LaunchedEffect(tick?.isPlaying) {
+        val t = tick ?: return@LaunchedEffect
+        if (t.isPlaying) logFirstTickErrorIfNeeded(t)
+    }
+    
+    // ExoPlayer의 현재 위치를 기반으로 게임 시간 업데이트
+    // TimelineTick의 positionMs(밀리초)를 초 단위로 변환하여 게임 시간으로 사용
+    val gameTime = (tick?.positionMs ?: 0L) / 1000f
+    
+    // 디버깅용 로그: TimelineTick 상태 변화 모니터링
+    LaunchedEffect(tick) {
+        tick?.let {
+            Log.d("GamePlayScreen", "TimelineTick 업데이트: position=${it.positionMs}ms, isPlaying=${it.isPlaying}")
+        }
+    }
     
     // 곡의 총 길이 계산 (durationText를 초로 변환)
     val totalDuration = remember(currentSong) {
@@ -150,43 +331,32 @@ fun GamePlayScreen(
         } ?: 62f
     }
     
-    // 게임이 시작되면 시간 업데이트 시작
-    LaunchedEffect(Unit) {
-        while (true) {
-            if (!isPaused) {
-                gameTime += 0.1f
-                GameDataManager.updateGameProgress(gameTime)
-                
-                // 게임 완료 체크 (곡의 실제 길이 사용)
-                if (gameTime >= totalDuration) {
-                    // 더미 게임 결과 생성
-                    val gameResult = GameResultUi(
-                        songTitle = currentSong?.title ?: "WAY BACK HOME",
-                        score = 876_420,
-                        accuracyPercent = 89,
-                        grade = "A",
-                        maxCombo = 27,
-                        correctCount = 65,
-                        missCount = 17,
-                        comboMultiplier = 1.2,
-                        isNewRecord = true,
-                        missWords = listOf("함께", "만들어", "기억", "별", "여름밤", "망령")
-                    )
-                    // 게임 결과를 GameDataManager에 저장
-                    GameDataManager.saveGameResult(gameResult)
-                    onGameComplete(gameResult)
-                    break
-                }
-            }
-            kotlinx.coroutines.delay(100) // 100ms마다 업데이트
+    // ExoPlayer 기반 게임 진행 업데이트
+    LaunchedEffect(gameTime, totalDuration) {
+        GameDataManager.updateGameProgress(gameTime)
+        
+        // 게임 완료 체크 (곡의 실제 길이 사용)
+        if (gameTime >= totalDuration && totalDuration > 0) {
+            // 백엔드에서 계산된 결과를 받아오기
+            val gameResult = GameDataManager.createGameResult(
+                songId = songId,
+                score = 876_420, // TODO: 실제 게임에서 계산된 점수
+                correctCount = 65, // TODO: 실제 게임에서 계산된 정답 개수
+                missCount = 17, // TODO: 실제 게임에서 계산된 실패 개수
+                maxCombo = 27, // TODO: 실제 게임에서 계산된 최대 콤보
+                missWords = listOf("함께", "만들어", "기억", "별", "여름밤", "망령") // TODO: 실제 게임에서 수집된 실패한 단어들
+            )
+            // 게임 결과를 GameDataManager에 저장
+            GameDataManager.saveGameResult(gameResult)
+            onGameComplete(gameResult)
         }
     }
     
     // 곡이 선택되지 않았으면 기본값 사용
     val songTitle = currentSong?.title ?: "곡을 선택해주세요"
     val songProgress = gameProgress ?: SongProgress(
-        currentTime = 0f,
-        totalDuration = 180f,
+        currentTime = gameTime,
+        totalDuration = totalDuration,
         sections = emptyList()
     )
 
@@ -206,7 +376,9 @@ fun GamePlayScreen(
                     title = songTitle,
                     currentTime = songProgress.currentTime,
                     totalDuration = songProgress.totalDuration,
-                    isPaused = isPaused,
+                    // ExoPlayer의 실제 재생 상태를 UI에 반영
+                    // tick?.isPlaying이 true면 재생 중, false면 일시정지 상태
+                    isPaused = !(tick?.isPlaying ?: false),
                     onTogglePause = onTogglePause,
                     onOpenSettings = {
                         showPauseButton = !showPauseButton
@@ -217,8 +389,9 @@ fun GamePlayScreen(
                 Spacer(Modifier.height(8.dp))
                 
                 // 전체 진행바
+                // ExoPlayer의 현재 재생 위치를 기반으로 한 곡의 진행률 표시
                 LinearProgressIndicator(
-                    progress = { songProgress.progress },
+                    progress = { songProgress.progress }, // 0.0 ~ 1.0 범위의 진행률
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
@@ -412,11 +585,22 @@ fun GamePlayScreen(
                     ) {
                         Button(
                             onClick = {
+                                if (player.isPlaying) {
+                                    player.pause()
+                                } else {
+                                    player.playWhenReady = true
+                                    if (player.playbackState == Player.STATE_IDLE) {
+                                        player.prepare()
+                                    }
+                                    player.play()
+                                    // Resume 버튼 누른 시각 기록
+                                    resumeWall = SystemClock.elapsedRealtime()
+                                }
                                 onTogglePause()
                                 showPauseButton = false // 메뉴 닫기
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isPaused) Color(0xFF4CAF50) else Color(0xFFFFA726)
+                                containerColor = if (player.isPlaying) Color(0xFFFFA726) else Color(0xFF4CAF50)
                             ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
@@ -424,14 +608,14 @@ fun GamePlayScreen(
                                 .height(40.dp)
                         ) {
                             Icon(
-                                if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                                contentDescription = if (isPaused) "재생" else "일시정지",
+                                if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = if (player.isPlaying) "일시정지" else "재생",
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                if (isPaused) "재생" else "일시정지",
+                                if (player.isPlaying) "일시정지" else "재생",
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -444,403 +628,3 @@ fun GamePlayScreen(
     }
 }
 
-/* ========== Small Composables ========== */
-
-@Composable
-private fun TopBarSection(
-    title: String,
-    currentTime: Float,
-    totalDuration: Float,
-    isPaused: Boolean,
-    onTogglePause: () -> Unit,
-    onOpenSettings: () -> Unit,
-    showPauseButton: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            title,
-            style = GameTheme.Typography.ScreenTitle,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            formatClock(currentTime.toInt()),
-            style = GameTheme.Typography.CardTitle
-        )
-        Spacer(Modifier.width(8.dp))
-
-        // 설정 아이콘
-        IconButton(
-            onClick = onOpenSettings,
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(GameTheme.Colors.CardBackground.copy(alpha = 0.2f))
-        ) {
-            Icon(
-                Icons.Outlined.Settings,
-                contentDescription = "설정",
-                tint = GameTheme.Colors.TertiaryText
-            )
-        }
-    }
-}
-
-private fun formatClock(sec: Int): String {
-    val m = sec / 60
-    val s = sec % 60
-    return "%d:%02d".format(m, s)
-}
-
-// camera preview
-@Composable
-fun CameraPreview(
-    modifier: Modifier = Modifier,
-    lensFacing: Int = CameraSelector.LENS_FACING_FRONT,
-    enableAnalysis: Boolean = false,
-    mirrorPreview: Boolean = true, // 미러 ON 기본
-    onFrame: ((ImageProxy) -> Unit)? = null
-) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Preview 모드에서는 카메라를 사용하지 않고 플레이스홀더 표시
-    val isPreviewMode = context.javaClass.name.contains("Preview") ||
-                       context.javaClass.name.contains("ComposeViewAdapter")
-
-    if (isPreviewMode) {
-        // Preview 모드에서는 카메라 아이콘만 표시
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Outlined.CameraAlt,
-                    contentDescription = "카메라",
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "수어 인식 카메라",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-        return
-    }
-
-    val controller = remember {
-        try {
-            LifecycleCameraController(context).apply {
-                cameraSelector = CameraSelector.Builder()
-                    .requireLensFacing(lensFacing)
-                    .build()
-            }
-        } catch (e: Exception) {
-            // 카메라 초기화 실패 시 null 반환
-            null
-        }
-    }
-
-    // controller가 null이면 플레이스홀더 표시
-    if (controller == null) {
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Outlined.CameraAlt,
-                    contentDescription = "카메라",
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "카메라를 사용할 수 없습니다",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-        return
-    }
-
-    // 1) Executor를 한번만 만들고, 화면 사라질 때 종료
-    val analyzerExecutor = remember { Executors.newSingleThreadExecutor() }
-    DisposableEffect(Unit) {
-        onDispose { analyzerExecutor.shutdown() }
-    }
-
-    // 2) 분석기 on/off를 수명에 맞춰 관리
-    DisposableEffect(enableAnalysis, onFrame) {
-        if (enableAnalysis && onFrame != null) {
-            controller.setImageAnalysisBackpressureStrategy(
-                ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-            )
-            controller.setImageAnalysisAnalyzer(analyzerExecutor) { image ->
-                try {
-                    onFrame(image)
-                } finally {
-                    image.close()
-                }
-            }
-            controller.setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
-        } else {
-            controller.clearImageAnalysisAnalyzer()
-            controller.setEnabledUseCases(0) // 분석 끔 (필요 시 PREVIEW만 켜도 됨)
-        }
-        onDispose {
-            // 해제 시점에 안전하게 클리어
-            controller.clearImageAnalysisAnalyzer()
-        }
-    }
-
-    // 3) 실제 프리뷰 붙이기
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                scaleType = PreviewView.ScaleType.FILL_CENTER
-                // 전면 카메라일 때 거울 효과
-                if (lensFacing == CameraSelector.LENS_FACING_FRONT && mirrorPreview) {
-                    scaleX = -1f
-                }
-                controller.bindToLifecycle(lifecycleOwner)
-                this.controller = controller
-            }
-        },
-        update = { previewView ->
-            // lensFacing 또는 mirrorPreview 바뀌면 반영
-            previewView.scaleX =
-                if (lensFacing == CameraSelector.LENS_FACING_FRONT && mirrorPreview) -1f else 1f
-        }
-    )
-}
-
-/* ========== Judgment Overlay ========== */
-
-@Composable
-private fun JudgmentOverlay(
-    result: JudgmentResult
-) {
-    // Preview에서도 잘 보이도록 단순한 애니메이션으로 변경
-    val infiniteTransition = rememberInfiniteTransition(label = "judgment")
-    
-    // 페이드 인/아웃 애니메이션 (더 빠르게)
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.7f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    
-    // 스케일 애니메이션 (더 부드럽게)
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = EaseInOut),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-    
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = when (result) {
-                is JudgmentResult.Perfect -> "PERFECT"
-                is JudgmentResult.Miss -> "MISS"
-            },
-            color = when (result) {
-                is JudgmentResult.Perfect -> Color(0xFF3B82F6) // 파란색
-                is JudgmentResult.Miss -> Color(0xFFFF5A5A) // 빨간색
-            },
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.displayLarge,
-            modifier = Modifier
-                .alpha(alpha)
-                .scale(scale)
-        )
-    }
-}
-
-/* ========== Preview ========== */
-
-@Preview(
-    showBackground = true,
-    widthDp = 360,
-    heightDp = 800,
-    backgroundColor = 0xFF0D1118
-)
-@Composable
-private fun GamePlayScreenPreview() {
-    var paused by remember { mutableStateOf(false) }
-    var judgment by remember { mutableStateOf<JudgmentResult?>(null) }
-    
-    // Preview용 더미 데이터 설정
-    LaunchedEffect(Unit) {
-        val sampleSong = Song(
-            id = "way_back_home",
-            title = "WAY BACK HOME",
-            artist = "SHAUN",
-            durationText = "3:14",
-            bpm = 120,
-            rating = 4.2,
-            bestScore = 89650,
-            thumbnailRes = null
-        )
-        GameDataManager.selectSong(sampleSong)
-        GameDataManager.startGame()
-    }
-    
-    GamePlayScreen(
-        songId = "way_back_home",
-        isPaused = paused,
-        onTogglePause = { paused = !paused },
-        onGameComplete = {},
-        onGameQuit = {},
-        onOpenSettings = {},
-        judgmentResult = judgment
-    )
-}
-
-@Preview(
-    showBackground = true,
-    widthDp = 360,
-    heightDp = 800,
-    backgroundColor = 0xFF0D1118
-)
-@Composable
-private fun GamePlayScreenPerfectPreview() {
-    // Preview용 더미 데이터 설정
-    LaunchedEffect(Unit) {
-        val sampleSong = Song(
-            id = "way_back_home",
-            title = "WAY BACK HOME",
-            artist = "SHAUN",
-            durationText = "3:14",
-            bpm = 120,
-            rating = 4.2,
-            bestScore = 89650,
-            thumbnailRes = null
-        )
-        GameDataManager.selectSong(sampleSong)
-        GameDataManager.startGame()
-    }
-    
-    GamePlayScreen(
-        songId = "way_back_home",
-        isPaused = false,
-        onTogglePause = { },
-        onGameComplete = {},
-        onGameQuit = {},
-        onOpenSettings = {},
-        judgmentResult = JudgmentResult.Perfect
-    )
-}
-
-@Preview(
-    showBackground = true,
-    widthDp = 360,
-    heightDp = 800,
-    backgroundColor = 0xFF0D1118
-)
-@Composable
-private fun GamePlayScreenMissPreview() {
-    // Preview용 더미 데이터 설정
-    LaunchedEffect(Unit) {
-        val sampleSong = Song(
-            id = "way_back_home",
-            title = "WAY BACK HOME",
-            artist = "SHAUN",
-            durationText = "3:14",
-            bpm = 120,
-            rating = 4.2,
-            bestScore = 89650,
-            thumbnailRes = null
-        )
-        GameDataManager.selectSong(sampleSong)
-        GameDataManager.startGame()
-    }
-    
-    GamePlayScreen(
-        songId = "way_back_home",
-        isPaused = false,
-        onTogglePause = { },
-        onGameComplete = {},
-        onGameQuit = {},
-        onOpenSettings = {},
-        judgmentResult = JudgmentResult.Miss
-    )
-}
-
-// 간단한 판정 결과만 보여주는 Preview
-@Preview(
-    showBackground = true,
-    widthDp = 200,
-    heightDp = 200,
-    backgroundColor = 0xFF0D1118
-)
-@Composable
-private fun JudgmentOverlayPreview() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF151B24))
-            .border(3.dp, Color(0xFF2BD46D), RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "PERFECT",
-            color = Color(0xFF3B82F6),
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Preview(
-    showBackground = true,
-    widthDp = 200,
-    heightDp = 200,
-    backgroundColor = 0xFF0D1118
-)
-@Composable
-private fun JudgmentOverlayMissPreview() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF151B24))
-            .border(3.dp, Color(0xFF2BD46D), RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "MISS",
-            color = Color(0xFFFF5A5A),
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}

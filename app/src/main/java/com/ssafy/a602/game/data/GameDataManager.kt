@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 object GameDataManager {
     
     // API 서비스 (더미 구현체 사용, 실제 API 연동 시 교체)
+    // TODO: API 연동 시 아래 한 줄만 바꾸면 됨
+    // private val apiService: GameApiService = RealApiService()
     private val apiService: GameApiService = DummyGameApiService()
     
     // 현재 선택된 곡
@@ -149,8 +151,8 @@ object GameDataManager {
     }
     
     /**
-     * 게임 결과 생성 (더미 데이터)
-     * TODO: 실제 게임 로직에서 호출되도록 구현
+     * 게임 결과 생성 (백엔드에서 계산된 결과 사용)
+     * TODO: API 연동 시 백엔드에서 계산된 결과를 받아와서 사용
      */
     suspend fun createGameResult(
         songId: String,
@@ -162,24 +164,8 @@ object GameDataManager {
     ): GameResultUi {
         val song = getSongById(songId) ?: throw IllegalArgumentException("Song not found: $songId")
         
-        val totalWords = correctCount + missCount
-        val accuracyPercent = if (totalWords > 0) (correctCount * 100 / totalWords) else 0
-        val comboMultiplier = calculateComboMultiplier(maxCombo)
-        val grade = calculateGrade(accuracyPercent)
-        val isNewRecord = checkNewRecord(songId, score)
-        
-        return GameResultUi(
-            songTitle = song.title,
-            score = score,
-            accuracyPercent = accuracyPercent,
-            grade = grade,
-            maxCombo = maxCombo,
-            correctCount = correctCount,
-            missCount = missCount,
-            comboMultiplier = comboMultiplier,
-            isNewRecord = isNewRecord,
-            missWords = missWords
-        )
+        // 백엔드에서 계산된 결과를 받아와서 사용
+        return apiService.calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
     }
     
     /**

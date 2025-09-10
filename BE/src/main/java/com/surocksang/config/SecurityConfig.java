@@ -25,7 +25,7 @@ public class SecurityConfig {
             "/api/v1/user/signup",
             "/",
             // Swagger UI
-            "/api-docs/**",
+            "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-resources/**"
     };

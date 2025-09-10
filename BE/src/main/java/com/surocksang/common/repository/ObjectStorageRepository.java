@@ -20,7 +20,7 @@ public class ObjectStorageRepository {
         return result.getFilename();
     }
 
-    public String getCdnUrl(String key) {
+    public String getDownloadUrl(String key) {
         String baseUrl = objectStorageProperties.getCdnUrl();
         if (baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);

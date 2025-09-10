@@ -49,7 +49,7 @@ public class MusicService {
             Music music = musicRepository.findById(musicId)
                     .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
-            String musicUrl = objectStorageRepository.getCdnUrl(music.getSongUrl());
+            String musicUrl = objectStorageRepository.getDownloadUrl(music.getSongUrl());
 
             return MusicUrlResponseDto.builder()
                     .musicUrl(musicUrl)

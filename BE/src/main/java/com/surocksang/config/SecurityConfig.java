@@ -1,5 +1,7 @@
 package com.surocksang.config;
 
+import com.surocksang.auth.jwt.JWTFilter;
+import com.surocksang.auth.jwt.JWTUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,11 +12,23 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @RequiredArgsConstructor
 @EnableWebSecurity
 @Configuration
 public class SecurityConfig {
+    private final JWTUtil jwtUtil;
+    private static final String[] AUTH_WHITELIST = {
+            "/api/v1/auth/login",
+            "/api/v1/auth/reissue-token",
+            "/api/v1/user/signup",
+            "/",
+            // Swagger UI
+            "/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-resources/**"
+    };
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -26,9 +40,12 @@ public class SecurityConfig {
         http.sessionManagement((session) ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
+        // 로그인, 회원가입, 메인 외에는 로그인해야 접근 가능, swagger는 예외
         http.authorizeHttpRequests((auth) -> auth
-                .requestMatchers("/**").permitAll()
+                .requestMatchers(AUTH_WHITELIST).permitAll()
                 .anyRequest().authenticated());
+
+        http.addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -36,6 +36,10 @@ spring:
         bucket: ${AWS_S3_BUCKET}
         cdn-url: ${AWS_S3_CDN_URL}
 
+  jwt:
+    access-token-validity-in-ms: 3600000 #1시간
+    refresh-token-validity-in-ms: 604800000 #7일
+
 cors:
   allowed-origins: ${CORS:http://localhost:3000}
 

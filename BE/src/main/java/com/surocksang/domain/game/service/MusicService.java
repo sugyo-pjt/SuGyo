@@ -29,7 +29,7 @@ public class MusicService {
             List<Music> musicList = musicRepository.findAll();
             return musicList.stream()
                     .map(music -> {
-                        String imageUrl = objectStorageRepository.getCdnUrl(music.getAlbumImageUrl());
+                        String imageUrl = objectStorageRepository.getDownloadUrl(music.getAlbumImageUrl());
                         return MusicListResponseDto.builder()
                                 .id(music.getId())
                                 .title(music.getTitle())

@@ -3,6 +3,8 @@ package com.surocksang.common.exception;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -18,7 +20,11 @@ public enum GlobalErrorCode implements ErrorCode {
     MISSING_REQUIRED_PARAMETER(HttpStatus.BAD_REQUEST, "GLOBAL-400-02", "필수 요청 파라미터가 누락되었습니다."),
     INVALID_PARAMETER_FORMAT(HttpStatus.BAD_REQUEST, "GLOBAL-400-03", "요청 파라미터의 형식이 올바르지 않습니다."),
     INVALID_HTTP_METHOD(HttpStatus.BAD_REQUEST, "GLOBAL-400-04", "지원하지 않는 HTTP 메서드입니다."),
+    // 401
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "GLOBAL-401-01", "인증이 필요합니다."),
 
+    // 403
+    FORBIDDEN(HttpStatus.FORBIDDEN, "GLOBAL-403-01", "접근 권한이 없습니다."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "GLOBAL-404-01", "요청한 리소스를 찾을 수 없습니다."),
 
     // 500
@@ -43,6 +49,12 @@ public enum GlobalErrorCode implements ErrorCode {
         }
         if (ex instanceof NoResourceFoundException) {
             return RESOURCE_NOT_FOUND;
+        }
+        if (ex instanceof AuthenticationException) {
+            return UNAUTHORIZED; // 401
+        }
+        if (ex instanceof AccessDeniedException) {
+            return FORBIDDEN;    // 403
         }
         return INTERNAL_SERVER_ERROR;
     }

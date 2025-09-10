@@ -1,5 +1,6 @@
 package com.surocksang.domain.entity;
 
+import com.surocksang.domain.user.domain.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,14 +19,11 @@ public class UserDailyVocabulary {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private Users user;
+    private User user;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "daily_id", nullable = false)
     private Daily daily;
-    
-    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
-    private Boolean completed = false;
     
     @Column
     private Integer quizScore;

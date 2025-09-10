@@ -76,4 +76,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.8.0")
     implementation("androidx.media3:media3-ui-compose:1.8.0")
 
+    // MediaPipe
+    implementation(libs.mediapipe.tasks.vision)
+    implementation(libs.mediapipe.tasks.text)
+    implementation(libs.mediapipe.tasks.audio)
+
 }

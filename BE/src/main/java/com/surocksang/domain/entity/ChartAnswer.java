@@ -17,10 +17,6 @@ public class ChartAnswer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chart_id", nullable = false)
-    private Chart chart;
 
     @Column(nullable = false)
     private LocalTime startedAt;

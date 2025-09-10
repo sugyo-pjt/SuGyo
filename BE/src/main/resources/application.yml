@@ -1,6 +1,10 @@
 spring:
   application:
     name: surocksang
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
   # Database Configuration
   datasource:
@@ -27,7 +31,7 @@ spring:
         access-key: ${AWS_ACCESS_KEY_ID:your-access-key}
         secret-key: ${AWS_SECRET_ACCESS_KEY:your-secret-key}
       region:
-        static: ${AWS_REGION:ap-northeast-2}
+        static: ${AWS_REGION:us-east-1}
       s3:
         bucket: ${AWS_S3_BUCKET}
         cdn-url: ${AWS_S3_CDN_URL}
@@ -37,7 +41,7 @@ cors:
 
 # SWAGGER CONFIG
 swagger:
-  server-url: ${SWAGGER_URL:http://localhost:8080/swagger}
+  server-url: ${SWAGGER_URL:http://localhost:8080/}
 
 logging:
   level:

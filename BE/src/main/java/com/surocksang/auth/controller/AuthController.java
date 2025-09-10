@@ -1,6 +1,7 @@
 package com.surocksang.auth.controller;
 
 import com.surocksang.auth.dto.LoginRequest;
+import com.surocksang.auth.dto.ReissueTokenRequest;
 import com.surocksang.auth.dto.TokenResponse;
 import com.surocksang.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,13 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(@RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         TokenResponse tokenResponse = authService.login(request, servletRequest);
+        return ResponseEntity.ok(tokenResponse);
+    }
+
+    @Operation(summary = "access token 재발행", description = "refresh token으로 access 토큰과 refresh 토큰을 다시 발행합니다.")
+    @PostMapping("/reissue-token")
+    public ResponseEntity<TokenResponse> reissueToken(@RequestBody ReissueTokenRequest request) {
+        TokenResponse tokenResponse = authService.reissueToken(request);
         return ResponseEntity.ok(tokenResponse);
     }
 }

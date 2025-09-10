@@ -33,7 +33,7 @@ public class DistributedLockAop {
     private final RedissonClient redissonClient;
     private final AopForTransaction aopForTransaction;
 
-    @Around("@annotation(kr.bi.greenmate.common.annotation.DistributedLock)")
+    @Around("@annotation(com.surocksang.common.annotation.DistributedLock)")
     public Object lock(final ProceedingJoinPoint joinPoint) throws Throwable {
         log.info("Start DistributedLock");
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
@@ -54,7 +54,7 @@ public class DistributedLockAop {
             if (!available) {
                 throw new ApplicationException(LOCK_ACQUISITION_FAILED);
             }
-            log.debug("Success lock: {}", Arrays.toString(keys));
+            log.info("Success lock: {}", Arrays.toString(keys));
             return aopForTransaction.proceed(joinPoint);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -62,12 +62,12 @@ public class DistributedLockAop {
         } finally {
             try {
                 multiLock.unlock();
-                log.debug("Unlock: {}", Arrays.toString(keys));
+                log.info("Unlock: {}", Arrays.toString(keys));
             } catch (IllegalMonitorStateException e) {
                 if (!available) {
-                    log.debug("Failed to get Lock: {} {}", method.getName(), keys);
+                    log.info("Failed to get Lock: {} {}", method.getName(), keys);
                 } else {
-                    log.debug("Already unlock: {} {}", method.getName(), keys);
+                    log.info("Already unlock: {} {}", method.getName(), keys);
                 }
             }
         }

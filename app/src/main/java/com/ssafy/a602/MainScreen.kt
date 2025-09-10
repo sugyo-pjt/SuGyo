@@ -12,7 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import com.ssafy.a602.common.navigation.NavGraph
 import com.ssafy.a602.navbar.BottomTab
 import com.ssafy.a602.navbar.CustomBottomNavigationBar
-import com.ssafy.a602.common.navigation.Screen
+
 
 @Composable
 fun MainScreen(

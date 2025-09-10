@@ -41,7 +41,7 @@ class SignLanguageCNNLSTM:
         inputs = keras.Input(shape=(self.sequence_length, self.feature_dim))
 
         '''
-        # Attention 메커니즘 추가
+        # Attention 메커니즘 추가 -> 이유 : CNN과 LSTM 만으로는 가중치 학습은 불가해서 특정 부분에서 중요한 데이터를 놓칠 수 있음. 이를 Attention이 보완해 주는 것.
         x = layers.MultiHeadAttention(num_heads=8, key_dim=64)(inputs, inputs)
         x = layers.Add()([inputs, x])  # Residual connection
         x = layers.LayerNormalization()(x)
@@ -56,7 +56,7 @@ class SignLanguageCNNLSTM:
         x = layers.TimeDistributed(
             layers.Conv1D(64, 3, activation='relu', padding='same') # 커널=3으로 인접 특성(예: x,y,z/관절 인접)을 로컬 학습
         )(x)
-        x = layers.TimeDistributed(layers.BatchNormalization())(x) # 프레임 내 특성 정규화로 학습 안정화/수렴 가속
+        x = layers.TimeDistributed(layers.BatchNormalization())(x)      # 프레임 내 특성 정규화로 학습 안정화/수렴 가속
         x = layers.TimeDistributed(layers.MaxPooling1D(2))(x)           # (F -> F/2) 다운샘플링으로 노이즈 제거/수용영역 확대
         x = layers.TimeDistributed(layers.Dropout(0.3))(x)              # 프레임별 과적합 억제
         

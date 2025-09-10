@@ -1,5 +1,7 @@
 package com.surocksang.domain.user.domain;
 
+import com.surocksang.common.domain.BaseTimeEntity;
+import com.surocksang.domain.term.domain.Term;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;

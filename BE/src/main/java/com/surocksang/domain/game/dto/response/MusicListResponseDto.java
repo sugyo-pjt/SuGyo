@@ -13,4 +13,5 @@ public class MusicListResponseDto {
     private String singer;
     private LocalTime songTime;
     private String albumImageUrl;
+    private Long myScore;
 }

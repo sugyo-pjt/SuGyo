@@ -1,6 +1,5 @@
 package com.surocksang.domain.game.controller;
 
-import com.surocksang.common.dto.CommonResponse;
 import com.surocksang.domain.game.dto.response.MusicListResponseDto;
 import com.surocksang.domain.game.dto.response.MusicUrlResponseDto;
 import com.surocksang.domain.game.service.MusicService;
@@ -9,7 +8,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,12 +35,7 @@ public class MusicController {
                                     value =
                                     """
                                     {
-                                      "result": "success",
-                                      "data": [
-                                        {
-                                          "musicUrl": "https://music-url"
-                                        }
-                                      ]
+                                       "musicUrl": "https://surocksang.s3.us-east-1.amazonaws.com/jinglebell"
                                     }
                                     """
                                     ),
@@ -50,16 +43,13 @@ public class MusicController {
                                     name = "실패 예시",
                                     value =
                                     """
-                                    {
-                                       "result": "error",
-                                       "data": {
-                                         "status": 404,
-                                         "code": "GLOBAL-404-01",
-                                         "message": "요청한 리소스를 찾을 수 없습니다."
-                                       }
-                                     }
-                                    """
-                                    )
+                                   {
+                                     "status": 404,
+                                     "code": "GLOBAL-404-01",
+                                     "message": "요청한 리소스를 찾을 수 없습니다."
+                                   }
+                                   """
+                                   )
                             }
                     )
             )
@@ -67,7 +57,7 @@ public class MusicController {
     @GetMapping("/music/{musicId}")
     public ResponseEntity<?> getMusicUrl(@PathVariable Long musicId) {
         MusicUrlResponseDto musicUrl = musicService.getMusic(musicId);
-        return ResponseEntity.ok(CommonResponse.success(musicUrl));
+        return ResponseEntity.ok((musicUrl));
     }
 
     @Operation(
@@ -85,18 +75,16 @@ public class MusicController {
                                             name = "성공 예시",
                                             value =
                                             """
-                                            {
-                                              "result": "success",
-                                              "data": [
-                                                {
-                                                  "id": 1,
-                                                  "title": "곡 제목",
-                                                  "singer": "가수명",
-                                                  "songTime": "03:45",
-                                                  "albumImageUrl": "https://album-image-url"
-                                                }
-                                              ]
-                                            }
+                                            [
+                                              {
+                                                "id": 1,
+                                                "title": "징글벨",
+                                                "singer": "김진환",
+                                                "songTime": "00:01:00",
+                                                "albumImageUrl": "https://surocksang.s3.us-east-1.amazonaws.com/null"
+                                                "myScore": 123123
+                                              }
+                                            ]
                                             """
                                     )
                             }
@@ -104,10 +92,8 @@ public class MusicController {
             )
     })
     @GetMapping("/music")
-    public ResponseEntity<CommonResponse<List<MusicListResponseDto>>> getAllMusic() {
+    public ResponseEntity<?> getAllMusic() {
         List<MusicListResponseDto> musicList = musicService.getAllMusic();
-        return ResponseEntity.ok(CommonResponse.success(musicList));
+        return ResponseEntity.ok((musicList));
     }
-
-
 }

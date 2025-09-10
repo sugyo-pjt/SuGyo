@@ -1,5 +1,6 @@
 package com.surocksang.domain.user.service;
 
+import com.surocksang.common.annotation.DistributedLock;
 import com.surocksang.common.domain.FilePath;
 import com.surocksang.common.event.FileRollbackEvent;
 import com.surocksang.common.exception.ApplicationException;
@@ -18,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -46,7 +46,7 @@ public class UserService {
     private final FileStorageService fileStorageService;
     private final ApplicationEventPublisher eventPublisher;
 
-    @Transactional
+    @DistributedLock(keys = {"#request.email", "#request.nickname"})
     public void signUp(SignUpRequest request, MultipartFile profileImage) {
 
         // unique 필드 1차 검증

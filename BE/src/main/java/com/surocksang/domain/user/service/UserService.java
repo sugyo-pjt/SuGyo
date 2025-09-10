@@ -81,7 +81,7 @@ public class UserService {
         }
     }
 
-    public void validateNicknameIsUnique(String nickname) {
+    private void validateNicknameIsUnique(String nickname) {
 
         if (userRepository.existsByNickname(nickname)) {
             throw new ApplicationException(DUPLICATE_NICKNAME);

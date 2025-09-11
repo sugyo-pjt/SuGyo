@@ -34,6 +34,7 @@ import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.GameDataManager
 
+@ExperimentalMirrorMode
 @OptIn(ExperimentalMirrorMode::class)
 @Composable
 fun NavGraph(

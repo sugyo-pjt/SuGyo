@@ -25,13 +25,13 @@ import com.ssafy.a602.login.LoginScreen
 import com.ssafy.a602.learning.DailyDetailStudyScreen
 
 // ── Game Screens & Data ───────────────────────────────────────────
-import com.ssafy.a602.game.SongsScreen
-import com.ssafy.a602.game.GamePreparationScreen
-import com.ssafy.a602.game.GamePlayScreen
-import com.ssafy.a602.game.GameResultScreen
-import com.ssafy.a602.game.GameRankingScreen
-import com.ssafy.a602.game.GameResultUi
-import com.ssafy.a602.game.Song
+import com.ssafy.a602.game.songs.SongsScreen
+import com.ssafy.a602.game.preparation.GamePreparationScreen
+import com.ssafy.a602.game.play.GamePlayScreen
+import com.ssafy.a602.game.result.GameResultScreen
+import com.ssafy.a602.game.ranking.GameRankingScreen
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.GameDataManager
 
 @OptIn(ExperimentalMirrorMode::class)
@@ -154,7 +154,7 @@ fun NavGraph(
 
             val song = GameDataManager.currentSong.value?.takeIf {
                 GameDataManager.isCurrentSong(songId)
-            } ?: Song(
+            } ?: SongItem(
                 id = songId,
                 title = "알 수 없는 곡",
                 artist = "알 수 없는 아티스트",

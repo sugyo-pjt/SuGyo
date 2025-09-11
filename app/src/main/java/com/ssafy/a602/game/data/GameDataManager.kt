@@ -1,10 +1,10 @@
 package com.ssafy.a602.game.data
 
-import com.ssafy.a602.game.Song
-import com.ssafy.a602.game.SongSection
-import com.ssafy.a602.game.SongProgress
-import com.ssafy.a602.game.GameResultUi
-import com.ssafy.a602.game.RankingItem
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.data.SongSection
+import com.ssafy.a602.game.data.SongProgress
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.ranking.RankingItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,8 +19,8 @@ object GameDataManager {
     private val apiService: GameApiService = RealApiService()
     
     // 현재 선택된 곡
-    private val _currentSong = MutableStateFlow<Song?>(null)
-    val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
+    private val _currentSong = MutableStateFlow<SongItem?>(null)
+    val currentSong: StateFlow<SongItem?> = _currentSong.asStateFlow()
     
     // 현재 게임 진행 상태
     private val _gameProgress = MutableStateFlow<SongProgress?>(null)
@@ -37,7 +37,7 @@ object GameDataManager {
     /**
      * 곡 선택
      */
-    fun selectSong(song: Song) {
+    fun selectSong(song: SongItem) {
         _currentSong.value = song
         _isGameActive.value = false
         _gameProgress.value = null
@@ -85,8 +85,10 @@ object GameDataManager {
         val sections = createSections(song)
         
         return SongProgress(
+            songId = song.id,
             currentTime = 0f,
-            totalDuration = parseDurationToSeconds(song.durationText),
+            totalTime = parseDurationToSeconds(song.durationText),
+            currentSectionIndex = 0,
             sections = sections
         )
     }
@@ -94,7 +96,7 @@ object GameDataManager {
     /**
      * 소절 데이터 생성 (API 서비스 사용)
      */
-    private suspend fun createSections(song: Song): List<SongSection> {
+    private suspend fun createSections(song: SongItem): List<SongSection> {
         return apiService.getSongSections(song.id)
     }
     
@@ -122,14 +124,14 @@ object GameDataManager {
     /**
      * 곡 목록 가져오기
      */
-    suspend fun getSongs(): List<Song> {
+    suspend fun getSongs(): List<SongItem> {
         return apiService.getSongs()
     }
     
     /**
      * 곡 검색
      */
-    suspend fun searchSongs(query: String): List<Song> {
+    suspend fun searchSongs(query: String): List<SongItem> {
         return apiService.searchSongs(query)
     }
     
@@ -147,7 +149,7 @@ object GameDataManager {
     /**
      * 곡 ID로 곡 찾기
      */
-    suspend fun getSongById(songId: String): Song? {
+    suspend fun getSongById(songId: String): SongItem? {
         val songs = getSongs()
         return songs.find { it.id == songId }
     }

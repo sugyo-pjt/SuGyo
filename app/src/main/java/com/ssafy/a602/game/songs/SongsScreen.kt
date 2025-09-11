@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.songs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,15 +24,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ssafy.a602.game.SongsViewModel
+import com.ssafy.a602.game.songs.SongsViewModel
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.FakeSongs
-import com.ssafy.a602.game.Song
+import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.PermissionManager
 
 @Composable
 fun SongsScreen(
-    onSongClick: (Song) -> Unit = {},
+    onSongClick: (SongItem) -> Unit = {},
     permissionLauncher: ((Array<String>) -> Unit)? = null,
     openSettings: (() -> Unit)? = null
 ) {
@@ -41,10 +41,10 @@ fun SongsScreen(
     val permissionState by PermissionManager.permissionState.collectAsState()
     
     // 권한 요청 후 대기 중인 노래를 저장
-    var pendingSong by remember { mutableStateOf<Song?>(null) }
+    var pendingSong by remember { mutableStateOf<SongItem?>(null) }
     
     // 노래 클릭 시 권한 확인 후 처리하는 함수
-    val handleSongClick: (Song) -> Unit = { song ->
+    val handleSongClick: (SongItem) -> Unit = { song ->
         // GameDataManager에 곡 선택 저장
         vm.selectSong(song)
         
@@ -119,9 +119,9 @@ fun SongsScreen(
 
 @Composable
 fun SongCard(
-    song: Song,
+    song: SongItem,
     modifier: Modifier = Modifier,
-    onClick: (Song) -> Unit = {}
+    onClick: (SongItem) -> Unit = {}
 ) {
     Card(
         modifier = modifier

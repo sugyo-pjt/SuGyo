@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.preparation
 
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalMirrorMode
@@ -49,12 +49,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ssafy.a602.MainActivity
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.CameraPreview
+import com.ssafy.a602.game.preparation.GamePreparationState
+import com.ssafy.a602.game.preparation.ResourceLoadingState
+import com.ssafy.a602.game.GameTheme
 
 @ExperimentalMirrorMode
 @Composable
 fun GamePreparationScreen(
-    song: Song,
+    song: SongItem,
     onGameStart: () -> Unit,
     onBack: () -> Unit,
     permissionLauncher: ((Array<String>) -> Unit)? = null,
@@ -87,13 +91,6 @@ fun GamePreparationScreen(
         viewModel.openSettings = openSettings
     }
     
-    // MainActivity에 ViewModel 설정
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        if (context is MainActivity) {
-            context.setGamePreparationViewModel(viewModel)
-        }
-    }
     
     Surface(modifier = Modifier.fillMaxSize(), color = bg) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -549,7 +546,7 @@ private fun ErrorContent(
 @Composable
 private fun GamePreparationScreenPreview() {
     GamePreparationScreen(
-        song = Song(
+        song = SongItem(
             id = "1",
             title = "WAY BACK HOME",
             artist = "SHAUN",

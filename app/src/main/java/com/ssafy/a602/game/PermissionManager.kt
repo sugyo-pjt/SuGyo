@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.ssafy.a602.game.preparation.PermissionState
 
 object PermissionManager {
     private val _permissionState = MutableStateFlow(PermissionState())

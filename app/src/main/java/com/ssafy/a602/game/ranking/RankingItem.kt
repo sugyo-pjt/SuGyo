@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.ranking
 
 import java.time.LocalDate
 

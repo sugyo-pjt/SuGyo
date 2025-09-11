@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.result
 
 /**
  * 게임 결과 화면에서 사용하는 UI 모델

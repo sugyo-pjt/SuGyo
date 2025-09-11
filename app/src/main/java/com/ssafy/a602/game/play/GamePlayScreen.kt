@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.play
 
 import android.os.SystemClock
 import android.util.Log
@@ -55,11 +55,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.GameTheme
+import com.ssafy.a602.game.play.JudgmentResult
+import com.ssafy.a602.game.CameraPreview
+import com.ssafy.a602.game.play.TopBarSection
+import com.ssafy.a602.game.play.JudgmentOverlay
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.data.SongSection
+import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.play.GamePlayCamera
 import com.ssafy.a602.game.play.input.LandmarkBuffer3s
 import com.ssafy.a602.game.play.input.LandmarkResultHandler
@@ -69,41 +77,8 @@ import com.ssafy.a602.game.time.TimelineViewModel
 
 /* ========== Data Classes ========== */
 
-sealed class JudgmentResult {
-    object Perfect : JudgmentResult()
-    object Miss : JudgmentResult()
-}
 
-data class SongSection(
-    val startTime: Float,    // 소절 시작 시간 (초)
-    val duration: Float,     // 소절 길이 (초)
-    val lyrics: String,      // 해당 소절의 가사
-    val highlightRange: IntRange? = null // 하이라이트할 단어 범위
-)
-
-data class SongProgress(
-    val currentTime: Float,      // 현재 시간 (초)
-    val totalDuration: Float,    // 전체 곡 길이 (초)
-    val sections: List<SongSection> // 소절별 정보
-) {
-    // 현재 진행률 계산 (0.0 ~ 1.0)
-    val progress: Float
-        get() = if (totalDuration > 0) currentTime / totalDuration else 0f
-    
-    // 현재 소절 찾기
-    val currentSection: SongSection?
-        get() = sections.find { section ->
-            currentTime >= section.startTime && 
-            currentTime < section.startTime + section.duration
-        }
-    
-    // 현재 소절 내에서의 진행률 (0.0 ~ 1.0)
-    val currentSectionProgress: Float
-        get() = currentSection?.let { section ->
-            val sectionElapsed = currentTime - section.startTime
-            if (section.duration > 0) sectionElapsed / section.duration else 0f
-        } ?: 0f
-}
+// SongProgress는 data 폴더에서 import
 
 /* ========== Screen ========== */
 
@@ -374,7 +349,7 @@ fun GamePlayScreen(
     }
     
     // 곡의 총 길이 계산 (durationText를 초로 변환)
-    val totalDuration = remember(currentSong) {
+    val totalTime = remember(currentSong) {
         currentSong?.durationText?.let { durationText ->
             try {
                 val parts = durationText.split(":")
@@ -388,11 +363,11 @@ fun GamePlayScreen(
     }
     
     // ExoPlayer 기반 게임 진행 업데이트
-    LaunchedEffect(gameTime, totalDuration) {
+    LaunchedEffect(gameTime, totalTime) {
         GameDataManager.updateGameProgress(gameTime)
         
         // 게임 완료 체크 (곡의 실제 길이 사용)
-        if (gameTime >= totalDuration && totalDuration > 0) {
+        if (gameTime >= totalTime && totalTime > 0) {
             // 백엔드에서 계산된 결과를 받아오기
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,
@@ -411,8 +386,10 @@ fun GamePlayScreen(
     // 곡이 선택되지 않았으면 기본값 사용
     val songTitle = currentSong?.title ?: "곡을 선택해주세요"
     val songProgress = gameProgress ?: SongProgress(
+        songId = songId,
         currentTime = gameTime,
-        totalDuration = totalDuration,
+        totalTime = totalTime,
+        currentSectionIndex = 0,
         sections = emptyList()
     )
 
@@ -431,7 +408,7 @@ fun GamePlayScreen(
                 TopBarSection(
                     title = songTitle,
                     currentTime = songProgress.currentTime,
-                    totalDuration = songProgress.totalDuration,
+                    totalDuration = songProgress.totalTime,
                     // ExoPlayer의 실제 재생 상태를 UI에 반영
                     // tick?.isPlaying이 true면 재생 중, false면 일시정지 상태
                     isPaused = !(tick?.isPlaying ?: false),
@@ -447,7 +424,7 @@ fun GamePlayScreen(
                 // 전체 진행바
                 // ExoPlayer의 현재 재생 위치를 기반으로 한 곡의 진행률 표시
                 LinearProgressIndicator(
-                    progress = { songProgress.progress }, // 0.0 ~ 1.0 범위의 진행률
+                    progress = { songProgress.currentTime / songProgress.totalTime }, // 0.0 ~ 1.0 범위의 진행률
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
@@ -500,7 +477,8 @@ fun GamePlayScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // 현재 소절의 가사 표시
-                        songProgress.currentSection?.let { currentSection ->
+                        val currentSection = songProgress.sections.getOrNull(songProgress.currentSectionIndex)
+                        currentSection?.let { currentSection ->
                             // 이전 소절 가사 (있는 경우)
                             val previousSection = songProgress.sections
                                 .filter { it.startTime < currentSection.startTime }
@@ -508,7 +486,7 @@ fun GamePlayScreen(
                             
                             previousSection?.let { prev ->
                                 Text(
-                                    prev.lyrics,
+                                    prev.text,
                                     color = Color(0xFF9AA3B2),
                                     style = MaterialTheme.typography.labelLarge,
                                     textAlign = TextAlign.Center
@@ -521,36 +499,9 @@ fun GamePlayScreen(
                                 .filter { it.startTime > currentSection.startTime }
                                 .minByOrNull { it.startTime }
                             
-                            // 현재 소절 가사 (하이라이트 포함)
-                            val currentLyrics = currentSection.lyrics
-                            val body = buildAnnotatedString {
-                                currentSection.highlightRange?.let { highlightRange ->
-                                    if (highlightRange.first in 0..currentLyrics.lastIndex &&
-                                        highlightRange.last in 0..currentLyrics.lastIndex &&
-                                        highlightRange.first <= highlightRange.last
-                                    ) {
-                                        append(currentLyrics.substring(0, highlightRange.first))
-                                        withStyle(
-                                            SpanStyle(
-                                                color = Color(0xFFFF5A5A),
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        ) {
-                                            append(currentLyrics.substring(highlightRange))
-                                        }
-                                        if (highlightRange.last < currentLyrics.lastIndex) {
-                                            append(currentLyrics.substring(highlightRange.last + 1))
-                                        }
-                                    } else {
-                                        append(currentLyrics)
-                                    }
-                                } ?: run {
-                                    append(currentLyrics)
-                                }
-                            }
-
+                            // 현재 소절 가사
                             Text(
-                                body,
+                                currentSection.text,
                                 color = Color(0xFFE7ECF3),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -561,7 +512,7 @@ fun GamePlayScreen(
                             nextSection?.let { next ->
                                 Spacer(Modifier.height(10.dp))
                                 Text(
-                                    next.lyrics,
+                                    next.text,
                                     color = Color(0xFF6B7280),
                                     style = MaterialTheme.typography.labelMedium,
                                     textAlign = TextAlign.Center

@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.preparation
 
 import android.content.Context
 import android.content.pm.PackageManager
@@ -7,6 +7,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.preparation.GamePreparationState
+import com.ssafy.a602.game.preparation.ResourceLoadingState
+import com.ssafy.a602.game.PermissionManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +36,7 @@ class GamePreparationViewModel : ViewModel() {
     // 권한 거부 시 설정 앱 열기 함수
     var openSettings: (() -> Unit)? = null
     
-    fun startPreparation(song: Song) {
+    fun startPreparation(song: SongItem) {
         viewModelScope.launch {
             // GameDataManager에 곡 선택 저장
             GameDataManager.selectSong(song)
@@ -45,7 +49,7 @@ class GamePreparationViewModel : ViewModel() {
         }
     }
     
-    private suspend fun loadResources(song: Song) {
+    private suspend fun loadResources(song: SongItem) {
         // 실제로는 여기서 오디오, 가사, 차트 파일을 로드
         // 시뮬레이션을 위해 지연 시간 추가
         

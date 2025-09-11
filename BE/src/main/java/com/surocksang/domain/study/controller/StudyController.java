@@ -5,6 +5,7 @@ import com.surocksang.common.exception.ApplicationException;
 import com.surocksang.common.exception.CommonErrorCode;
 import com.surocksang.common.exception.GlobalErrorCode;
 import com.surocksang.domain.study.dto.response.StudyProgressResponseDto;
+import com.surocksang.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.surocksang.domain.study.service.StudyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -96,14 +97,101 @@ public class StudyController {
     })
     @GetMapping("/progress")
     public ResponseEntity<StudyProgressResponseDto> getStudyProgress(@AuthenticationPrincipal CustomUserDetails user) {
-
-        Long userId = user.getId();
-
-        if(userId == null){
-            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
-        }
-        
-        StudyProgressResponseDto response = studyService.getStudyProgress(userId);
+        StudyProgressResponseDto response = studyService.getStudyProgress(user);
         return ResponseEntity.ok(response);
     }
+
+    @Operation(
+            summary = "학습 진행 상황 상세 조회",
+            description = "JWT 토큰을 통해 사용자의 학습 진행 상황을 상세 조회합니다. 전체 학습일과 각 일별 점수를 반환합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "학습 진행 상황 상세 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시",
+                                            value =
+                                            """
+                                            {
+                                              "totalDays": 3,
+                                              "progressDay": 2,
+                                              "days": [
+                                                {
+                                                  "dayId": 1,
+                                                  "day": 1,
+                                                  "correctCount": 6,
+                                                  "totalCount": 6
+                                                },
+                                                {
+                                                  "dayId": 2,
+                                                  "day": 2,
+                                                  "correctCount": 7,
+                                                  "totalCount": 7
+                                                },
+                                                {
+                                                  "dayId": 3,
+                                                  "day": 3,
+                                                  "correctCount": null,
+                                                  "totalCount": 3
+                                                }
+                                              ]
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 401,
+                                              "code": "AUTH-401-01",
+                                              "message": "인증에 실패했습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자를 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @GetMapping("/progress/detail")
+    public ResponseEntity<StudyProgressDetailsResponseDto> getStudyProgressDetails(@AuthenticationPrincipal CustomUserDetails user) {
+        StudyProgressDetailsResponseDto response = studyService.getStudyProgressDetails(user);
+        return ResponseEntity.ok(response);
+    }
+
+
+
 }

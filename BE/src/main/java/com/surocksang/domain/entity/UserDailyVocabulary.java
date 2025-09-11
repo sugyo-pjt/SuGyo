@@ -24,7 +24,7 @@ public class UserDailyVocabulary {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "daily_id", nullable = false)
     private Daily daily;
-    
+
     @Column
-    private Integer quizScore;
+    private Integer correctCount;
 }

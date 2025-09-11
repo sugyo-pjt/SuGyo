@@ -20,10 +20,11 @@ public class Vocabulary {
     
     @Column(nullable = false)
     private String word;
-    
+
     @Column
-    private String meaning;
+    private String description;
+
+    @Column
+    private String videoUrl;
     
-    @OneToMany(mappedBy = "vocabulary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<DailyVocabulary> dailyVocabularies;
 }

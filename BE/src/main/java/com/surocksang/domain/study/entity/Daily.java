@@ -26,7 +26,4 @@ public class Daily {
 
     @Column
     private Integer totalCount;
-
-    @OneToMany(mappedBy = "daily", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<UserDailyVocabulary> userDailyVocabularies;
 }

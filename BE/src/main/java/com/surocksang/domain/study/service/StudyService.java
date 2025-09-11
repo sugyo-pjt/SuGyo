@@ -3,20 +3,21 @@ package com.surocksang.domain.study.service;
 import com.surocksang.auth.dto.CustomUserDetails;
 import com.surocksang.common.exception.ApplicationException;
 import com.surocksang.common.exception.GlobalErrorCode;
-import com.surocksang.domain.entity.UserDailyVocabulary;
-import com.surocksang.domain.game.repository.UserDailyVocabularyRepository;
+import com.surocksang.domain.study.entity.UserDailyVocabulary;
+import com.surocksang.domain.study.repository.UserDailyVocabularyRepository;
 import com.surocksang.domain.study.dto.response.StudyProgressResponseDto;
 import com.surocksang.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.surocksang.domain.study.dto.response.DayProgressDto;
-import com.surocksang.domain.entity.Daily;
-import com.surocksang.domain.game.repository.DailyRepository;
+import com.surocksang.domain.study.dto.response.StudyDayResponseDto;
+import com.surocksang.domain.study.dto.response.StudyWordItemDto;
+import com.surocksang.domain.study.entity.Daily;
+import com.surocksang.domain.study.repository.DailyRepository;
+import com.surocksang.domain.study.repository.DailyVocabularyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class StudyService {
 
     private final UserDailyVocabularyRepository userDailyVocabularyRepository;
     private final DailyRepository dailyRepository;
+    private final DailyVocabularyRepository dailyVocabularyRepository;
 
     public StudyProgressResponseDto getStudyProgress(CustomUserDetails user) {
 
@@ -68,6 +70,18 @@ public class StudyService {
                 .totalDays(totalDays)
                 .progressDay(maxProgressDay)
                 .days(dayProgresses)
+                .build();
+    }
+
+    public StudyDayResponseDto getStudyDay(Long dayId) {
+        Daily daily = dailyRepository.findById(dayId)
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+
+        List<StudyWordItemDto> items = dailyVocabularyRepository.findWordItemsByDailyId(dayId);
+
+        return StudyDayResponseDto.builder()
+                .day(daily.getDay())
+                .items(items)
                 .build();
     }
 }

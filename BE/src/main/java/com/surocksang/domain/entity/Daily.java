@@ -20,13 +20,13 @@ public class Daily {
     
     @Column(nullable = false)
     private Integer day;
-    
+
     @Column
     private String sentence;
-    
-    @OneToMany(mappedBy = "daily", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<DailyVocabulary> dailyVocabularies;
-    
+
+    @Column
+    private Integer totalCount;
+
     @OneToMany(mappedBy = "daily", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<UserDailyVocabulary> userDailyVocabularies;
 }

@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.preparation
 
 // 게임 준비 단계 상태 정의
 sealed class GamePreparationState {

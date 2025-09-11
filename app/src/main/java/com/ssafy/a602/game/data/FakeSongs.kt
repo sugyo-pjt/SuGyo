@@ -1,6 +1,6 @@
 package com.ssafy.a602.game.data
 
-import com.ssafy.a602.game.Song
+import com.ssafy.a602.game.songs.SongItem
 
 /**
  * 더미 데이터 제공자
@@ -11,7 +11,7 @@ import com.ssafy.a602.game.Song
  */
 object FakeSongs {
     val items = listOf(
-        Song(
+        SongItem(
             id = "way_back_home",
             title = "WAY BACK HOME",
             artist = "SHAUN",
@@ -19,7 +19,7 @@ object FakeSongs {
             bestScore = 89650,
             albumImageUrl = "https://example.com/album/way_back_home.jpg"
         ),
-        Song(
+        SongItem(
             id = "asap",
             title = "ASAP",
             artist = "STAYC",
@@ -27,7 +27,7 @@ object FakeSongs {
             bestScore = 76420,
             albumImageUrl = "https://example.com/album/asap.jpg"
         ),
-        Song(
+        SongItem(
             id = "hello",
             title = "안녕하세요",
             artist = "기초 인사말",
@@ -35,7 +35,7 @@ object FakeSongs {
             bestScore = 95200,
             albumImageUrl = "https://example.com/album/hello.jpg"
         ),
-        Song(
+        SongItem(
             id = "dynamite",
             title = "Dynamite",
             artist = "BTS",
@@ -43,7 +43,7 @@ object FakeSongs {
             bestScore = null,
             albumImageUrl = "https://example.com/album/dynamite.jpg"
         ),
-        Song(
+        SongItem(
             id = "butter",
             title = "Butter",
             artist = "BTS",
@@ -51,7 +51,7 @@ object FakeSongs {
             bestScore = 88750,
             albumImageUrl = "https://example.com/album/butter.jpg"
         ),
-        Song(
+        SongItem(
             id = "permission_to_dance",
             title = "Permission to Dance",
             artist = "BTS",
@@ -59,7 +59,7 @@ object FakeSongs {
             bestScore = 92300,
             albumImageUrl = "https://example.com/album/permission_to_dance.jpg"
         ),
-        Song(
+        SongItem(
             id = "life_goes_on",
             title = "Life Goes On",
             artist = "BTS",
@@ -67,7 +67,7 @@ object FakeSongs {
             bestScore = 78900,
             albumImageUrl = "https://example.com/album/life_goes_on.jpg"
         ),
-        Song(
+        SongItem(
             id = "boy_with_luv",
             title = "Boy With Luv",
             artist = "BTS",
@@ -75,7 +75,7 @@ object FakeSongs {
             bestScore = 95600,
             albumImageUrl = "https://example.com/album/boy_with_luv.jpg"
         ),
-        Song(
+        SongItem(
             id = "spring_day",
             title = "Spring Day",
             artist = "BTS",
@@ -83,7 +83,7 @@ object FakeSongs {
             bestScore = 98750,
             albumImageUrl = "https://example.com/album/spring_day.jpg"
         ),
-        Song(
+        SongItem(
             id = "fake_love",
             title = "Fake Love",
             artist = "BTS",

@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.ranking
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -30,6 +30,7 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.ssafy.a602.game.GameTheme
 
 // 색상 팔레트 (GameTheme 사용)
 private val BackgroundGradient = GameTheme.Colors.BackgroundGradient

@@ -17,12 +17,10 @@ import androidx.core.content.ContextCompat
 import com.ssafy.a602.ui.theme.S13P21A602Theme
 import com.ssafy.a602.MainScreen
 import com.ssafy.a602.game.PermissionManager
-import com.ssafy.a602.game.GamePreparationViewModel
 
 class MainActivity : ComponentActivity() {
     
     private lateinit var snackbarHostState: SnackbarHostState
-    private var gamePreparationViewModel: GamePreparationViewModel? = null
     
     // 권한 요청 런처
     private val permissionLauncher = registerForActivityResult(
@@ -78,8 +76,7 @@ class MainActivity : ComponentActivity() {
     private fun handlePermissionDenied() {
         val shouldShowRationale = shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
         
-        // ViewModel에 권한 거부 알림
-        gamePreparationViewModel?.onPermissionDenied(shouldShowRationale)
+        // 권한 거부 처리
         
         if (shouldShowRationale) {
             // 사용자가 "다시 묻지 않음"을 선택하지 않은 경우
@@ -109,7 +106,4 @@ class MainActivity : ComponentActivity() {
         settingsLauncher.launch(intent)
     }
     
-    fun setGamePreparationViewModel(viewModel: GamePreparationViewModel) {
-        this.gamePreparationViewModel = viewModel
-    }
 }

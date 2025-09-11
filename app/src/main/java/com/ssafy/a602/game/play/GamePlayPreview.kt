@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.play
 
 import androidx.camera.core.ExperimentalMirrorMode
 import androidx.compose.foundation.background
@@ -19,8 +19,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ssafy.a602.game.play.JudgmentResult
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.play.GamePlayScreen
 import androidx.compose.ui.unit.sp
 import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.play.JudgmentType
 
 /* ========== Preview ========== */
 
@@ -38,7 +42,7 @@ fun GamePlayScreenPreview() {
     
     // Preview용 더미 데이터 설정
     LaunchedEffect(Unit) {
-        val sampleSong = Song(
+        val sampleSong = SongItem(
             id = "way_back_home",
             title = "WAY BACK HOME",
             artist = "SHAUN",
@@ -72,7 +76,7 @@ fun GamePlayScreenPreview() {
 fun GamePlayScreenPerfectPreview() {
     // Preview용 더미 데이터 설정
     LaunchedEffect(Unit) {
-        val sampleSong = Song(
+        val sampleSong = SongItem(
             id = "way_back_home",
             title = "WAY BACK HOME",
             artist = "SHAUN",
@@ -91,7 +95,13 @@ fun GamePlayScreenPerfectPreview() {
         onGameComplete = {},
         onGameQuit = {},
         onOpenSettings = {},
-        judgmentResult = JudgmentResult.Perfect
+        judgmentResult = JudgmentResult(
+            type = JudgmentType.PERFECT,
+            accuracy = 0.95f,
+            score = 1000,
+            combo = 5,
+            timestamp = System.currentTimeMillis()
+        )
     )
 }
 
@@ -106,7 +116,7 @@ fun GamePlayScreenPerfectPreview() {
 fun GamePlayScreenMissPreview() {
     // Preview용 더미 데이터 설정
     LaunchedEffect(Unit) {
-        val sampleSong = Song(
+        val sampleSong = SongItem(
             id = "way_back_home",
             title = "WAY BACK HOME",
             artist = "SHAUN",
@@ -125,7 +135,13 @@ fun GamePlayScreenMissPreview() {
         onGameComplete = {},
         onGameQuit = {},
         onOpenSettings = {},
-        judgmentResult = JudgmentResult.Miss
+        judgmentResult = JudgmentResult(
+            type = JudgmentType.MISS,
+            accuracy = 0.0f,
+            score = 0,
+            combo = 0,
+            timestamp = System.currentTimeMillis()
+        )
     )
 }
 

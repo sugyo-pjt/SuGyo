@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.play
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.Box
@@ -15,6 +15,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.ssafy.a602.game.play.JudgmentResult
+import com.ssafy.a602.game.play.JudgmentType
 
 @Composable
 fun JudgmentOverlay(
@@ -50,14 +52,14 @@ fun JudgmentOverlay(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = when (result) {
-                is JudgmentResult.Perfect -> "PERFECT"
-                is JudgmentResult.Miss -> "MISS"
+            text = when (result.type) {
+                JudgmentType.PERFECT -> "PERFECT"
+                JudgmentType.MISS -> "MISS"
                 else -> "UNKNOWN"
             },
-            color = when (result) {
-                is JudgmentResult.Perfect -> Color(0xFF3B82F6) // 파란색
-                is JudgmentResult.Miss -> Color(0xFFFF5A5A) // 빨간색
+            color = when (result.type) {
+                JudgmentType.PERFECT -> Color(0xFF3B82F6) // 파란색
+                JudgmentType.MISS -> Color(0xFFFF5A5A) // 빨간색
                 else -> Color(0xFF808080) // 회색
             },
             fontSize = 48.sp,

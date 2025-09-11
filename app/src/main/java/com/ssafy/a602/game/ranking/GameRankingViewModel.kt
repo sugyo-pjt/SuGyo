@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.ranking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

@@ -1,7 +1,6 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.songs
 
-
-data class Song(
+data class SongItem(
     val id: String,
     val title: String,
     val artist: String,

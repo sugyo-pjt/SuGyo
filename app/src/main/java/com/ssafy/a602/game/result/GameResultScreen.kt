@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.result
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
+import com.ssafy.a602.game.GameTheme
 
 // 색상 팔레트 (GameTheme 사용)
 private val BackgroundGradient = GameTheme.Colors.BackgroundGradient

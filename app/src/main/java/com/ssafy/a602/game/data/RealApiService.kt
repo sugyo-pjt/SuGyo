@@ -1,9 +1,9 @@
 package com.ssafy.a602.game.data
 
-import com.ssafy.a602.game.GameResultUi
-import com.ssafy.a602.game.Song
-import com.ssafy.a602.game.SongSection
-import com.ssafy.a602.game.RankingItem
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.data.SongSection
+import com.ssafy.a602.game.ranking.RankingItem
 import com.ssafy.a602.game.api.ApiErrorHandler
 import com.ssafy.a602.game.api.RetrofitClient
 import com.ssafy.a602.game.api.dto.ChartSegment
@@ -33,11 +33,11 @@ class RealApiService : GameApiService {
         return "Bearer your_access_token_here"
     }
     
-    override suspend fun getSongs(): List<Song> {
+    override suspend fun getSongs(): List<SongItem> {
         return try {
             val musicList = rhythmApi.getMusicList(getAuthToken())
             musicList.map { musicItem ->
-                Song(
+                SongItem(
                     id = musicItem.id.toString(),
                     title = musicItem.title,
                     artist = musicItem.singer,
@@ -58,7 +58,7 @@ class RealApiService : GameApiService {
         }
     }
     
-    override suspend fun searchSongs(query: String): List<Song> {
+    override suspend fun searchSongs(query: String): List<SongItem> {
         // API 스펙에 검색 기능이 없으므로 클라이언트 사이드에서 필터링
         val allSongs = getSongs()
         return allSongs.filter { song ->
@@ -72,13 +72,11 @@ class RealApiService : GameApiService {
             val chartSegments = rhythmApi.getChart(getAuthToken(), songId.toLong())
             chartSegments.map { segment ->
                 SongSection(
+                    id = segment.segment.toString(),
+                    songId = songId,
                     startTime = parseTimeToSeconds(segment.barStartedAt),
-                    duration = calculateSegmentDuration(segment),
-                    lyrics = segment.lyrics,
-                    highlightRange = if (segment.correct.isNotEmpty()) {
-                        val firstCorrect = segment.correct.first()
-                        firstCorrect.correctStartedIndex..firstCorrect.correctEndedIndex
-                    } else null
+                    endTime = parseTimeToSeconds(segment.barStartedAt) + calculateSegmentDuration(segment),
+                    text = segment.lyrics
                 )
             }
         } catch (e: HttpException) {
@@ -93,8 +91,9 @@ class RealApiService : GameApiService {
         }
     }
     
-    override suspend fun saveGameResult(songId: String, score: Int, accuracy: Float) {
+    override suspend fun saveGameResult(result: GameResultUi): Boolean {
         // 백엔드에서 구현되지 않은 기능 - 비워둠
+        return true
     }
     
     override suspend fun getUserBestScore(songId: String): Int? {
@@ -118,6 +117,16 @@ class RealApiService : GameApiService {
         return null
     }
     
+    override suspend fun submitRanking(songId: String, score: Int, nickname: String): RankingItem {
+        // 백엔드에서 구현되지 않은 기능 - 기본값 반환
+        return RankingItem(
+            rank = 1,
+            nickname = nickname,
+            score = score,
+            playedDate = java.time.LocalDate.now()
+        )
+    }
+    
     override suspend fun calculateGameResult(
         songId: String,
         score: Int,
@@ -132,15 +141,28 @@ class RealApiService : GameApiService {
         
         return GameResultUi(
             songTitle = song?.title ?: "Unknown Song",
-            score = 0, // 백엔드에서 계산 필요
-            accuracyPercent = 0, // 백엔드에서 계산 필요
-            grade = "F", // 백엔드에서 계산 필요
-            maxCombo = 0, // 백엔드에서 계산 필요
-            correctCount = 0, // 백엔드에서 계산 필요
-            missCount = 0, // 백엔드에서 계산 필요
-            comboMultiplier = 1.0,
+            score = score,
+            accuracyPercent = if (correctCount + missCount > 0) (correctCount * 100 / (correctCount + missCount)) else 0,
+            grade = when {
+                correctCount + missCount == 0 -> "F"
+                (correctCount * 100 / (correctCount + missCount)) >= 95 -> "S"
+                (correctCount * 100 / (correctCount + missCount)) >= 85 -> "A"
+                (correctCount * 100 / (correctCount + missCount)) >= 70 -> "B"
+                (correctCount * 100 / (correctCount + missCount)) >= 50 -> "C"
+                else -> "F"
+            },
+            maxCombo = maxCombo,
+            correctCount = correctCount,
+            missCount = missCount,
+            comboMultiplier = when {
+                maxCombo >= 50 -> 1.5
+                maxCombo >= 30 -> 1.3
+                maxCombo >= 20 -> 1.2
+                maxCombo >= 10 -> 1.1
+                else -> 1.0
+            },
             isNewRecord = false, // 백엔드에서 계산 필요
-            missWords = emptyList() // 백엔드에서 계산 필요
+            missWords = missWords
         )
     }
     
@@ -148,19 +170,19 @@ class RealApiService : GameApiService {
      * 음악 URL을 가져오는 별도 메서드
      * ExoPlayer에서 사용할 수 있도록 제공
      */
-    suspend fun getMusicUrl(songId: String): String? {
+    override suspend fun getMusicUrl(songId: String): String {
         return try {
             val musicUrl = rhythmApi.getMusicUrl(getAuthToken(), songId.toLong())
-            musicUrl.musicUrl
+            musicUrl.musicUrl ?: ""
         } catch (e: HttpException) {
             handleHttpException(e)
-            null
+            ""
         } catch (e: IOException) {
             handleNetworkException(e)
-            null
+            ""
         } catch (e: Exception) {
             handleGenericException(e)
-            null
+            ""
         }
     }
     
@@ -225,10 +247,10 @@ class RealApiService : GameApiService {
 interface GameApi {
     
     @GET("songs")
-    suspend fun getSongs(): List<Song>
+    suspend fun getSongs(): List<SongItem>
     
     @GET("songs/search")
-    suspend fun searchSongs(@Query("q") query: String): List<Song>
+    suspend fun searchSongs(@Query("q") query: String): List<SongItem>
     
     @GET("songs/{songId}/sections")
     suspend fun getSongSections(@Path("songId") songId: String): List<SongSection>

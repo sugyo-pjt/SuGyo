@@ -1,4 +1,4 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.ranking
 
 /**
  * 순위 화면의 UI 상태

@@ -1,9 +1,9 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.songs
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.game.data.GameDataManager
-import com.ssafy.a602.game.Song
+import com.ssafy.a602.game.songs.SongItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -11,10 +11,10 @@ import kotlinx.coroutines.launch
 
 data class SongsUiState(
     val query: String = "",
-    val items: List<Song> = emptyList(),
+    val items: List<SongItem> = emptyList(),
     val isLoading: Boolean = false
 ) {
-    val filtered: List<Song>
+    val filtered: List<SongItem>
         get() = items // 검색은 서버에서 처리
 }
 
@@ -66,7 +66,7 @@ class SongsViewModel : ViewModel() {
     /**
      * 곡 선택 시 GameDataManager에 저장
      */
-    fun selectSong(song: Song) {
+    fun selectSong(song: SongItem) {
         GameDataManager.selectSong(song)
     }
 }

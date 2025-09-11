@@ -1,9 +1,9 @@
 package com.ssafy.a602.game.data
 
-import com.ssafy.a602.game.GameResultUi
-import com.ssafy.a602.game.Song
-import com.ssafy.a602.game.SongSection
-import com.ssafy.a602.game.RankingItem
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.data.SongSection
+import com.ssafy.a602.game.ranking.RankingItem
 import java.time.LocalDate
 
 /**
@@ -16,12 +16,12 @@ interface GameApiService {
     /**
      * 곡 목록 가져오기
      */
-    suspend fun getSongs(): List<Song>
+    suspend fun getSongs(): List<SongItem>
     
     /**
      * 곡 검색
      */
-    suspend fun searchSongs(query: String): List<Song>
+    suspend fun searchSongs(query: String): List<SongItem>
     
     /**
      * 특정 곡의 소절 정보 가져오기
@@ -29,24 +29,34 @@ interface GameApiService {
     suspend fun getSongSections(songId: String): List<SongSection>
     
     /**
+     * 음악 URL 가져오기 (ExoPlayer용)
+     */
+    suspend fun getMusicUrl(songId: String): String
+    
+    /**
      * 게임 결과 저장
      */
-    suspend fun saveGameResult(songId: String, score: Int, accuracy: Float)
+    suspend fun saveGameResult(result: GameResultUi): Boolean
     
     /**
-     * 사용자의 최고 점수 가져오기
-     */
-    suspend fun getUserBestScore(songId: String): Int?
-    
-    /**
-     * 특정 곡의 순위 목록 가져오기
+     * 특정 곡의 순위 가져오기
      */
     suspend fun getRankings(songId: String): List<RankingItem>
     
     /**
-     * 특정 곡의 Top 3 순위 가져오기
+     * 특정 곡의 상위 3명 순위 가져오기
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem>
+    
+    /**
+     * 사용자 순위 등록
+     */
+    suspend fun submitRanking(songId: String, score: Int, nickname: String): RankingItem
+    
+    /**
+     * 사용자 최고 점수 가져오기
+     */
+    suspend fun getUserBestScore(songId: String): Int?
     
     /**
      * 내 순위 가져오기
@@ -54,7 +64,7 @@ interface GameApiService {
     suspend fun getMyRanking(songId: String): RankingItem?
     
     /**
-     * 게임 결과 계산 (백엔드에서 계산된 결과 반환)
+     * 게임 결과 계산
      */
     suspend fun calculateGameResult(
         songId: String,
@@ -72,21 +82,20 @@ interface GameApiService {
  */
 class DummyGameApiService : GameApiService {
     
-    override suspend fun getSongs(): List<Song> {
+    override suspend fun getSongs(): List<SongItem> {
         // 실제로는 네트워크 호출
         return FakeSongs.items
     }
     
-    override suspend fun searchSongs(query: String): List<Song> {
+    override suspend fun searchSongs(query: String): List<SongItem> {
         // 실제로는 서버에서 검색
         val songs = getSongs()
         return if (query.isBlank()) {
             songs
         } else {
-            val q = query.trim().lowercase()
-            songs.filter { 
-                it.title.lowercase().contains(q) || 
-                it.artist.lowercase().contains(q) 
+            songs.filter { song ->
+                song.title.contains(query, ignoreCase = true) ||
+                song.artist.contains(query, ignoreCase = true)
             }
         }
     }
@@ -96,131 +105,145 @@ class DummyGameApiService : GameApiService {
         return when (songId) {
             "way_back_home" -> listOf(
                 SongSection(
+                    id = "1",
+                    songId = songId,
                     startTime = 0f,
-                    duration = 10f,
-                    lyrics = "어떤 길을 걸어도",
-                    highlightRange = null
+                    endTime = 10f,
+                    text = "어떤 길을 걸어도"
                 ),
                 SongSection(
+                    id = "2",
+                    songId = songId,
                     startTime = 10f,
-                    duration = 10f,
-                    lyrics = "열린 문을 향해 나아가",
-                    highlightRange = 0..2
+                    endTime = 20f,
+                    text = "열린 문을 향해 나아가"
                 ),
                 SongSection(
+                    id = "3",
+                    songId = songId,
                     startTime = 20f,
-                    duration = 10f,
-                    lyrics = "우리가 함께 만들어가는",
-                    highlightRange = null
+                    endTime = 30f,
+                    text = "우리가 함께 만들어가는"
                 ),
                 SongSection(
+                    id = "4",
+                    songId = songId,
                     startTime = 30f,
-                    duration = 10f,
-                    lyrics = "새로운 세상",
-                    highlightRange = null
+                    endTime = 40f,
+                    text = "새로운 세상"
                 ),
                 SongSection(
+                    id = "5",
+                    songId = songId,
                     startTime = 40f,
-                    duration = 10f,
-                    lyrics = "함께 걸어가는 길",
-                    highlightRange = 0..1
+                    endTime = 50f,
+                    text = "함께 걸어가는 길"
                 ),
                 SongSection(
+                    id = "6",
+                    songId = songId,
                     startTime = 50f,
-                    duration = 12f,
-                    lyrics = "언제나 너와 함께",
-                    highlightRange = null
+                    endTime = 62f,
+                    text = "언제나 너와 함께"
                 )
             )
             "asap" -> listOf(
                 SongSection(
+                    id = "7",
+                    songId = songId,
                     startTime = 0f,
-                    duration = 3f,
-                    lyrics = "ASAP",
-                    highlightRange = null
+                    endTime = 3f,
+                    text = "ASAP"
                 ),
                 SongSection(
+                    id = "8",
+                    songId = songId,
                     startTime = 3f,
-                    duration = 3f,
-                    lyrics = "STAYC girls",
-                    highlightRange = null
+                    endTime = 6f,
+                    text = "STAYC girls"
                 ),
                 SongSection(
+                    id = "9",
+                    songId = songId,
                     startTime = 6f,
-                    duration = 3f,
-                    lyrics = "It's going down",
-                    highlightRange = 0..1
+                    endTime = 9f,
+                    text = "It's going down"
                 ),
                 SongSection(
+                    id = "10",
+                    songId = songId,
                     startTime = 9f,
-                    duration = 3f,
-                    lyrics = "We're going up",
-                    highlightRange = null
-                ),
-                SongSection(
-                    startTime = 12f,
-                    duration = 3f,
-                    lyrics = "ASAP ASAP",
-                    highlightRange = null
+                    endTime = 12f,
+                    text = "We're going up"
                 )
             )
-            "hello" -> listOf(
-                SongSection(
-                    startTime = 0f,
-                    duration = 3f,
-                    lyrics = "안녕하세요",
-                    highlightRange = null
-                ),
-                SongSection(
-                    startTime = 3f,
-                    duration = 3f,
-                    lyrics = "처음 뵙겠습니다",
-                    highlightRange = null
-                )
-            )
-            else -> listOf(
-                SongSection(
-                    startTime = 0f,
-                    duration = 10f,
-                    lyrics = "기본 가사",
-                    highlightRange = null
-                )
-            )
+            else -> emptyList()
         }
     }
     
-    override suspend fun saveGameResult(songId: String, score: Int, accuracy: Float) {
+    override suspend fun getMusicUrl(songId: String): String {
+        // 실제로는 서버에서 음악 URL 가져오기
+        return when (songId) {
+            "way_back_home" -> "https://example.com/music/way_back_home.mp3"
+            "asap" -> "https://example.com/music/asap.mp3"
+            else -> "https://example.com/music/default.mp3"
+        }
+    }
+    
+    override suspend fun saveGameResult(result: GameResultUi): Boolean {
         // 실제로는 서버에 결과 저장
-        // TODO: API 연동 시 실제 서버 API 호출로 교체
-        // 예: POST /api/game/result { songId, score, accuracy }
+        return true
+    }
+    
+    override suspend fun getRankings(songId: String): List<RankingItem> {
+        // 실제로는 서버에서 순위 가져오기
+        return listOf(
+            RankingItem(
+                rank = 1,
+                nickname = "플레이어1",
+                score = 95000,
+                playedDate = LocalDate.now()
+            ),
+            RankingItem(
+                rank = 2,
+                nickname = "플레이어2",
+                score = 92000,
+                playedDate = LocalDate.now()
+            ),
+            RankingItem(
+                rank = 3,
+                nickname = "플레이어3",
+                score = 89000,
+                playedDate = LocalDate.now()
+            )
+        )
+    }
+    
+    override suspend fun getTop3Rankings(songId: String): List<RankingItem> {
+        val allRankings = getRankings(songId)
+        return allRankings.take(3)
+    }
+    
+    override suspend fun submitRanking(songId: String, score: Int, nickname: String): RankingItem {
+        // 실제로는 서버에 순위 제출
+        val song = getSongs().find { it.id == songId }
+        return RankingItem(
+            rank = 1, // 서버에서 계산된 순위
+            nickname = nickname,
+            score = score,
+            playedDate = LocalDate.now()
+        )
     }
     
     override suspend fun getUserBestScore(songId: String): Int? {
         // 실제로는 서버에서 사용자 최고 점수 가져오기
-        // TODO: API 연동 시 실제 서버 API 호출로 교체
-        // 예: GET /api/user/best-score/{songId}
-        return null
-    }
-    
-    override suspend fun getRankings(songId: String): List<RankingItem> {
-        // 실제로는 서버에서 순위 목록 가져오기
-        // TODO: API 연동 시 실제 서버 API 호출로 교체
-        // 예: GET /api/rankings/{songId}
-        return getDummyRankings(songId)
-    }
-    
-    override suspend fun getTop3Rankings(songId: String): List<RankingItem> {
-        // 실제로는 서버에서 Top 3 순위 가져오기
-        // TODO: API 연동 시 실제 서버 API 호출로 교체
-        // 예: GET /api/rankings/{songId}?limit=3
-        return getDummyRankings(songId).take(3)
+        val song = getSongs().find { it.id == songId }
+        return song?.bestScore
     }
     
     override suspend fun getMyRanking(songId: String): RankingItem? {
         // 실제로는 서버에서 내 순위 가져오기
-        // TODO: API 연동 시 실제 서버 API 호출로 교체
-        // 예: GET /api/user/ranking/{songId}
-        return getDummyMyRanking(songId)
+        return null
     }
     
     override suspend fun calculateGameResult(
@@ -231,95 +254,33 @@ class DummyGameApiService : GameApiService {
         maxCombo: Int,
         missWords: List<String>
     ): GameResultUi {
-        // 실제로는 백엔드에서 게임 결과 계산
-        // TODO: API 연동 시 실제 서버 API 호출로 교체
-        // 예: POST /api/game/calculate-result { songId, score, correctCount, missCount, maxCombo, missWords }
-        
-        val song = getSongs().find { it.id == songId } ?: throw IllegalArgumentException("Song not found: $songId")
-        
-        // 더미 데이터로 백엔드 계산 결과를 시뮬레이션
-        val totalWords = correctCount + missCount
-        val accuracyPercent = if (totalWords > 0) (correctCount * 100 / totalWords) else 0
-        val comboMultiplier = when {
-            maxCombo >= 50 -> 1.5
-            maxCombo >= 30 -> 1.3
-            maxCombo >= 20 -> 1.2
-            maxCombo >= 10 -> 1.1
-            else -> 1.0
-        }
-        val grade = when {
-            accuracyPercent >= 95 -> "S"
-            accuracyPercent >= 85 -> "A"
-            accuracyPercent >= 70 -> "B"
-            accuracyPercent >= 50 -> "C"
-            else -> "F"
-        }
-        val isNewRecord = score > (song.bestScore ?: 0)
+        // 실제로는 서버에서 게임 결과 계산
+        val song = getSongs().find { it.id == songId }
+        val accuracyPercent = if (correctCount + missCount > 0) (correctCount * 100 / (correctCount + missCount)) else 0
         
         return GameResultUi(
-            songTitle = song.title,
-            score = score, // 백엔드에서 계산된 점수
-            accuracyPercent = accuracyPercent, // 백엔드에서 계산된 정확도
-            grade = grade, // 백엔드에서 계산된 등급
-            maxCombo = maxCombo, // 백엔드에서 계산된 최대 콤보
-            correctCount = correctCount, // 백엔드에서 계산된 정답 개수
-            missCount = missCount, // 백엔드에서 계산된 실패 개수
-            comboMultiplier = comboMultiplier, // 백엔드에서 계산된 콤보 배율
-            isNewRecord = isNewRecord, // 백엔드에서 확인된 신기록 여부
-            missWords = missWords // 백엔드에서 수집된 실패한 단어들
+            songTitle = song?.title ?: "Unknown Song",
+            score = score,
+            accuracyPercent = accuracyPercent,
+            grade = when {
+                accuracyPercent >= 95 -> "S"
+                accuracyPercent >= 85 -> "A"
+                accuracyPercent >= 70 -> "B"
+                accuracyPercent >= 50 -> "C"
+                else -> "F"
+            },
+            maxCombo = maxCombo,
+            correctCount = correctCount,
+            missCount = missCount,
+            comboMultiplier = when {
+                maxCombo >= 50 -> 1.5
+                maxCombo >= 30 -> 1.3
+                maxCombo >= 20 -> 1.2
+                maxCombo >= 10 -> 1.1
+                else -> 1.0
+            },
+            isNewRecord = false,
+            missWords = missWords
         )
-    }
-    
-    /**
-     * 더미 순위 데이터 생성
-     */
-    private fun getDummyRankings(songId: String): List<RankingItem> {
-        val baseDate = LocalDate.now().minusDays(30)
-        return when (songId) {
-            "way_back_home" -> listOf(
-                RankingItem(1, "수어마스터", 987650, baseDate.minusDays(2)),
-                RankingItem(2, "리듬킹", 965420, baseDate.minusDays(5)),
-                RankingItem(3, "사인랭커", 944300, baseDate.minusDays(1)),
-                RankingItem(4, "수어고수", 923150, baseDate.minusDays(7)),
-                RankingItem(5, "손짓왕", 901200, baseDate.minusDays(3)),
-                RankingItem(6, "수어신", 889750, baseDate.minusDays(10)),
-                RankingItem(7, "제스처마스터", 876300, baseDate.minusDays(4)),
-                RankingItem(8, "수어전사", 864200, baseDate.minusDays(8)),
-                RankingItem(9, "손동작킹", 852100, baseDate.minusDays(6)),
-                RankingItem(10, "수어마법사", 840000, baseDate.minusDays(9))
-            )
-            "asap" -> listOf(
-                RankingItem(1, "STAYC팬", 876500, baseDate.minusDays(1)),
-                RankingItem(2, "ASAP러버", 854200, baseDate.minusDays(3)),
-                RankingItem(3, "K팝킹", 832100, baseDate.minusDays(2)),
-                RankingItem(4, "음악마스터", 810000, baseDate.minusDays(5)),
-                RankingItem(5, "리듬킹", 788500, baseDate.minusDays(4))
-            )
-            "hello" -> listOf(
-                RankingItem(1, "인사왕", 952000, baseDate.minusDays(1)),
-                RankingItem(2, "안녕마스터", 934500, baseDate.minusDays(2)),
-                RankingItem(3, "기초킹", 917200, baseDate.minusDays(3)),
-                RankingItem(4, "수어초보", 900000, baseDate.minusDays(4)),
-                RankingItem(5, "학습자", 882800, baseDate.minusDays(5))
-            )
-            else -> listOf(
-                RankingItem(1, "플레이어1", 800000, baseDate.minusDays(1)),
-                RankingItem(2, "플레이어2", 750000, baseDate.minusDays(2)),
-                RankingItem(3, "플레이어3", 700000, baseDate.minusDays(3))
-            )
-        }
-    }
-    
-    /**
-     * 더미 내 순위 데이터 생성
-     */
-    private fun getDummyMyRanking(songId: String): RankingItem? {
-        val baseDate = LocalDate.now().minusDays(15)
-        return when (songId) {
-            "way_back_home" -> RankingItem(15, "나", 756800, baseDate, isMe = true)
-            "asap" -> RankingItem(8, "나", 723400, baseDate, isMe = true)
-            "hello" -> RankingItem(12, "나", 845600, baseDate, isMe = true)
-            else -> RankingItem(25, "나", 650000, baseDate, isMe = true)
-        }
     }
 }

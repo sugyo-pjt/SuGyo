@@ -1,5 +1,6 @@
 package com.ssafy.a602.game.data
 
+import com.ssafy.a602.game.GameResultUi
 import com.ssafy.a602.game.Song
 import com.ssafy.a602.game.SongSection
 import com.ssafy.a602.game.RankingItem
@@ -7,6 +8,7 @@ import java.time.LocalDate
 
 /**
  * 게임 API 서비스 인터페이스
+ * ERD 구조에 맞춰 설계됨
  * 실제 API 연동 시 이 인터페이스를 구현하면 됨
  */
 interface GameApiService {
@@ -50,6 +52,18 @@ interface GameApiService {
      * 내 순위 가져오기
      */
     suspend fun getMyRanking(songId: String): RankingItem?
+    
+    /**
+     * 게임 결과 계산 (백엔드에서 계산된 결과 반환)
+     */
+    suspend fun calculateGameResult(
+        songId: String,
+        score: Int,
+        correctCount: Int,
+        missCount: Int,
+        maxCombo: Int,
+        missWords: List<String>
+    ): GameResultUi
 }
 
 /**
@@ -177,31 +191,83 @@ class DummyGameApiService : GameApiService {
     
     override suspend fun saveGameResult(songId: String, score: Int, accuracy: Float) {
         // 실제로는 서버에 결과 저장
-        // TODO: API 호출 구현
+        // TODO: API 연동 시 실제 서버 API 호출로 교체
+        // 예: POST /api/game/result { songId, score, accuracy }
     }
     
     override suspend fun getUserBestScore(songId: String): Int? {
         // 실제로는 서버에서 사용자 최고 점수 가져오기
-        // TODO: API 호출 구현
+        // TODO: API 연동 시 실제 서버 API 호출로 교체
+        // 예: GET /api/user/best-score/{songId}
         return null
     }
     
     override suspend fun getRankings(songId: String): List<RankingItem> {
         // 실제로는 서버에서 순위 목록 가져오기
-        // TODO: API 호출 구현
+        // TODO: API 연동 시 실제 서버 API 호출로 교체
+        // 예: GET /api/rankings/{songId}
         return getDummyRankings(songId)
     }
     
     override suspend fun getTop3Rankings(songId: String): List<RankingItem> {
         // 실제로는 서버에서 Top 3 순위 가져오기
-        // TODO: API 호출 구현
+        // TODO: API 연동 시 실제 서버 API 호출로 교체
+        // 예: GET /api/rankings/{songId}?limit=3
         return getDummyRankings(songId).take(3)
     }
     
     override suspend fun getMyRanking(songId: String): RankingItem? {
         // 실제로는 서버에서 내 순위 가져오기
-        // TODO: API 호출 구현
+        // TODO: API 연동 시 실제 서버 API 호출로 교체
+        // 예: GET /api/user/ranking/{songId}
         return getDummyMyRanking(songId)
+    }
+    
+    override suspend fun calculateGameResult(
+        songId: String,
+        score: Int,
+        correctCount: Int,
+        missCount: Int,
+        maxCombo: Int,
+        missWords: List<String>
+    ): GameResultUi {
+        // 실제로는 백엔드에서 게임 결과 계산
+        // TODO: API 연동 시 실제 서버 API 호출로 교체
+        // 예: POST /api/game/calculate-result { songId, score, correctCount, missCount, maxCombo, missWords }
+        
+        val song = getSongs().find { it.id == songId } ?: throw IllegalArgumentException("Song not found: $songId")
+        
+        // 더미 데이터로 백엔드 계산 결과를 시뮬레이션
+        val totalWords = correctCount + missCount
+        val accuracyPercent = if (totalWords > 0) (correctCount * 100 / totalWords) else 0
+        val comboMultiplier = when {
+            maxCombo >= 50 -> 1.5
+            maxCombo >= 30 -> 1.3
+            maxCombo >= 20 -> 1.2
+            maxCombo >= 10 -> 1.1
+            else -> 1.0
+        }
+        val grade = when {
+            accuracyPercent >= 95 -> "S"
+            accuracyPercent >= 85 -> "A"
+            accuracyPercent >= 70 -> "B"
+            accuracyPercent >= 50 -> "C"
+            else -> "F"
+        }
+        val isNewRecord = score > (song.bestScore ?: 0)
+        
+        return GameResultUi(
+            songTitle = song.title,
+            score = score, // 백엔드에서 계산된 점수
+            accuracyPercent = accuracyPercent, // 백엔드에서 계산된 정확도
+            grade = grade, // 백엔드에서 계산된 등급
+            maxCombo = maxCombo, // 백엔드에서 계산된 최대 콤보
+            correctCount = correctCount, // 백엔드에서 계산된 정답 개수
+            missCount = missCount, // 백엔드에서 계산된 실패 개수
+            comboMultiplier = comboMultiplier, // 백엔드에서 계산된 콤보 배율
+            isNewRecord = isNewRecord, // 백엔드에서 확인된 신기록 여부
+            missWords = missWords // 백엔드에서 수집된 실패한 단어들
+        )
     }
     
     /**

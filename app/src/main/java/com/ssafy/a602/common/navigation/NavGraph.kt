@@ -1,6 +1,7 @@
-package com.ssafy.a602.common.navigation
+package com.ssafy.a602.common.navigation  // 패키지 경로(모듈/폴더 구조 상의 네임스페이스)
 
 // ── AndroidX / Compose ─────────────────────────────────────────────
+import androidx.camera.core.ExperimentalMirrorMode
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
@@ -33,6 +34,7 @@ import com.ssafy.a602.game.GameResultUi
 import com.ssafy.a602.game.Song
 import com.ssafy.a602.game.data.GameDataManager
 
+@OptIn(ExperimentalMirrorMode::class)
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -86,7 +88,7 @@ fun NavGraph(
             Total_RoadMap(
                 onBack = { navController.popBackStack() },
                 onDayClick = { day ->
-                    // Day별 상세 학습으로 이동
+                    // Day별 상세 학습으로 이동 (Screen.DailyStudy가 존재해야 함)
                     navController.navigate(Screen.DailyStudy.route(day))
                 }
             )
@@ -157,8 +159,6 @@ fun NavGraph(
                 title = "알 수 없는 곡",
                 artist = "알 수 없는 아티스트",
                 durationText = "0:00",
-                bpm = 120,
-                rating = 0.0,
                 bestScore = null
             )
 
@@ -180,10 +180,11 @@ fun NavGraph(
         /* ---------- Game : 플레이 화면 ---------- */
         composable("game_play/{songId}") { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
+
             GamePlayScreen(
                 songId = songId,
                 isPaused = false,
-                onTogglePause = { /* TODO */ },
+                onTogglePause = { /* TODO: 일시정지 토글 로직(ViewModel 연동) */ },
                 onGameComplete = { gameResult ->
                     GameDataManager.endGame()
                     navController.navigate("game_result/${songId}") {
@@ -197,7 +198,7 @@ fun NavGraph(
                     }
                 },
                 onOpenSettings = { openSettings?.invoke() },
-                judgmentResult = null
+                judgmentResult = null // 실제 게임에서는 ViewModel에서 관리
             )
         }
 
@@ -216,6 +217,7 @@ fun NavGraph(
                 isNewRecord = false,
                 missWords = emptyList()
             )
+
             GameResultScreen(
                 result = gameResult,
                 onBack = {

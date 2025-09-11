@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: sugyo
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+  # Database Configuration
+  datasource:
+    url:
+    username:
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # JPA Configuration
+  jpa:
+    database: mysql
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto:
+    show-sql:
+    properties:
+      hibernate:
+        format_sql: true
+
+  # AWS S3 Configuration
+  cloud:
+    aws:
+      credentials:
+        access-key:
+        secret-key:
+      region:
+        static:
+      s3:
+        bucket:
+        cdn-url:
+
+  jwt:
+    access-token-validity-in-ms: 3600000 #1시간
+    refresh-token-validity-in-ms: 604800000 #7일
+    secret:
+
+cors:
+  allowed-origins:
+
+# SWAGGER CONFIG
+swagger:
+  server-url:
+
+logging:
+  level:
+    root: INFO
+    com.sugyo: DEBUG
+#    org.springframework.web.cors: DEBUG  # CORS 로그 활성화
+#    org.hibernate.SQL: debug       # 실행되는 SQL 문 출력
+#    org.hibernate.type.descriptor.sql.BasicBinder: trace  # 바인딩되는 값 출력
+#    org.hibernate.orm.jdbc.bind: trace                    # Hibernate 6.x 이상에서 바인딩 출력
+#    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: debug  # 배치 쿼리 로그
+#    org.hibernate: info          # 전체 Hibernate 로그 레벨 (기본 INFO)
+
+server.port: 8080

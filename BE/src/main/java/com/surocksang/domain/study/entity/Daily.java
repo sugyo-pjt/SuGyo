@@ -1,4 +1,4 @@
-package com.surocksang.domain.entity;
+package com.surocksang.domain.study.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -8,22 +8,22 @@ import lombok.Setter;
 import java.util.List;
 
 @Entity
-@Table(name = "vocabulary")
+@Table(name = "daily")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Vocabulary {
+public class Daily {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
     @Column(nullable = false)
-    private String word;
-    
+    private Integer day;
+
     @Column
-    private String meaning;
-    
-    @OneToMany(mappedBy = "vocabulary", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<DailyVocabulary> dailyVocabularies;
+    private String sentence;
+
+    @Column
+    private Integer totalCount;
 }

@@ -1,6 +1,6 @@
-package com.surocksang.domain.game.repository;
+package com.surocksang.domain.study.repository;
 
-import com.surocksang.domain.entity.UserDailyVocabulary;
+import com.surocksang.domain.study.entity.UserDailyVocabulary;
 import com.surocksang.domain.study.dto.response.DayProgressDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

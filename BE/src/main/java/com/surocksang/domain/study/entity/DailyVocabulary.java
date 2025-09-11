@@ -1,4 +1,4 @@
-package com.surocksang.domain.entity;
+package com.surocksang.domain.study.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -11,7 +11,6 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class DailyVocabulary {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

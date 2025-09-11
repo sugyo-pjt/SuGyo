@@ -1,4 +1,4 @@
-package com.surocksang.domain.entity;
+package com.surocksang.domain.study.entity;
 
 import com.surocksang.domain.user.domain.User;
 import jakarta.persistence.*;

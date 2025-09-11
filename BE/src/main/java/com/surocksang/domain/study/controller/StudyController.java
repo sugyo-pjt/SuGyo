@@ -6,6 +6,7 @@ import com.surocksang.common.exception.CommonErrorCode;
 import com.surocksang.common.exception.GlobalErrorCode;
 import com.surocksang.domain.study.dto.response.StudyProgressResponseDto;
 import com.surocksang.domain.study.dto.response.StudyProgressDetailsResponseDto;
+import com.surocksang.domain.study.dto.response.StudyDayResponseDto;
 import com.surocksang.domain.study.service.StudyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -192,6 +194,68 @@ public class StudyController {
         return ResponseEntity.ok(response);
     }
 
-
+    @Operation(
+            summary = "특정 일차 학습 내용 조회",
+            description = "특정 일차의 학습 내용(단어 목록)을 조회합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "학습 내용 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시",
+                                            value =
+                                            """
+                                            {
+                                              "day": 1,
+                                              "items": [
+                                                {
+                                                  "wordId": 1444,
+                                                  "word": "안녕하세요",
+                                                  "description": "왼손은 오른손 위에 두고 ...",
+                                                  "videoUrl": "https://commondatastorage.googleapis.com/gtv-vi4"
+                                                },
+                                                {
+                                                  "wordId": 1633,
+                                                  "word": "나",
+                                                  "description": "손바닥으로 자기자신을 가르키며...",
+                                                  "videoUrl": "https://commondatastorage.googleapis.com/gtv-v"
+                                                }
+                                              ]
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "해당 일차를 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @GetMapping("/days/{dayId}")
+    public ResponseEntity<StudyDayResponseDto> getStudyDay(@PathVariable Long dayId) {
+        StudyDayResponseDto response = studyService.getStudyDay(dayId);
+        return ResponseEntity.ok(response);
+    }
 
 }

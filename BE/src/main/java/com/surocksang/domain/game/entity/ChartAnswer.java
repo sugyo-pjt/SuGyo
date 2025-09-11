@@ -1,4 +1,4 @@
-package com.surocksang.domain.entity;
+package com.surocksang.domain.game.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

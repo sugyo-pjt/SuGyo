@@ -1,6 +1,6 @@
 package com.surocksang.domain.game.repository;
 
-import com.surocksang.domain.entity.Music;
+import com.surocksang.domain.game.entity.Music;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

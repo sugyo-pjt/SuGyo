@@ -1,4 +1,3 @@
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -7,10 +6,11 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from pathlib import Path
+from config import ModelConfig as cf
 import pickle
 
 class SignLanguageCNNLSTM:
-    def __init__(self, num_classes, sequence_length=60, feature_dim=225):
+    def __init__(self, num_classes: int = 500, sequence_length: int=60, feature_dim: int=225):
         '''
         수어 인식용 CNN+LSTM 모델
 
@@ -19,11 +19,12 @@ class SignLanguageCNNLSTM:
             sequence_length: 시퀀스 길이 (프레임 수)
             feature_dim: MediaPipe landmark 특성 차원 (pose:99 + hands:126 = 225)
         '''
-        # 이론 상 ai허브에서 제공하는 단어가 3000개
+        # 이론 상 ai허브에서 제공하는 단어가 3000개. 우리는 일단 500개 선정해서 학습 예정.
         self.num_classes = num_classes
         # 프레임 수(mediapipe 기준이라면 30으로 낮추면 됨. 이는 우리 컴퓨터 성능으로 타협하면서 해야할 듯)
         self.sequence_length = sequence_length
         # 특성 차원(좌표값들. 손이면 42개였나? 3배수 하고 골격에도 뽑아서 225차원을 맞춰 줌)
+        # 그리고 하반신을 버리기로 했으니 조금 더 조정이 필요함.
         self.feature_dim = feature_dim
         # 시작 시에는 모델이 없음(학습 된 모델이 없음. 추후에 학습이 완료 된 모델이 되겠지)
         self.model = None
@@ -34,11 +35,18 @@ class SignLanguageCNNLSTM:
         '''
         CNN+LSTM 하이브리드 모델 구성
         L40S 48GB GPU 최적화
-        AI 모델이 어떻게 만들어지는지에 관한 것.
+        AI 모델을 어떻게 만들지에 관한 실제 코드.
         '''
         # 입력층: (T, F) 시계열 좌표를 입력으로 받음
         inputs = keras.Input(shape=(self.sequence_length, self.feature_dim))
 
+        '''
+        # Attention 메커니즘 추가
+        x = layers.MultiHeadAttention(num_heads=8, key_dim=64)(inputs, inputs)
+        x = layers.Add()([inputs, x])  # Residual connection
+        x = layers.LayerNormalization()(x)
+        '''
+        
         # Reshape for CNN (시간축을 배치로 처리) - 시간축 기준 재배치
         x = layers.Reshape((self.sequence_length, self.feature_dim, 1))(inputs)
 
@@ -131,10 +139,27 @@ class SignLanguageCNNLSTM:
 
         return np.array(X), y_categorical
 
-    def normalize_sequence_length(self, sequence):
+    def normalize_sequence_length(self, sequence, target_length=None):
         '''
         시퀀스 길이를 고정 길이로 정규화
+
+        일단 테스트 할 코드도 추가로 작성. 이건 유동적으로 시퀀스 길이를 바꾸는 것. 60프레임 말고 90이 될 수도 있음.
+        여기서 부터 코드
+        
+        # 단어 등장 1초 + 앞뒤로 1초일 경우 총 30프레임이니 최소 1초~3초로 설정
+        if target_length is None:
+            target_length = min(max(len(sequence), 30), 90)
+
+        # 시퀀스의 길이가 타겟보다 길다면 알아서 자름
+        if len(sequence) > target_length:
+            indices = self.smart_sampling(sequence, target_length)
+            return sequence[indices]
+        # 그게 아니라면 알아서 패딩 넣고 타겟 길이로 맞춤
+        else:
+            return self.intelligent_padding(sequence, target_length)
         '''
+
+
         current_length = sequence.shape[0]
 
         if current_length > self.sequence_length:
@@ -147,6 +172,17 @@ class SignLanguageCNNLSTM:
             return np.vstack([sequence, padding])
         else:
             return sequence
+        
+    def augment_landmarks(self, landmarks):
+        '''
+        들어갈 내용 = 데이터 전처리(학습을 위한 처리)
+        1. 시간축 왜곡
+        2. 공간 회전
+        3. 노이즈 추가
+        4. 스케일링
+        '''
+        augmented_landmarks = None
+        return augmented_landmarks
 
     def train(self, data_path, validation_split=0.2, epochs=100, batch_size=32):
         '''

@@ -6,11 +6,11 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from pathlib import Path
-from config import ModelConfig as cf
+from AI_train.training.config import ModelConfig as cf
 import pickle
 
 class SignLanguageCNNLSTM:
-    def __init__(self, num_classes: int = 500, sequence_length: int=60, feature_dim: int=225):
+    def __init__(self, num_classes: int, sequence_length: int=60, feature_dim: int=225):
         '''
         수어 인식용 CNN+LSTM 모델
 
@@ -20,12 +20,12 @@ class SignLanguageCNNLSTM:
             feature_dim: MediaPipe landmark 특성 차원 (pose:99 + hands:126 = 225)
         '''
         # 이론 상 ai허브에서 제공하는 단어가 3000개. 우리는 일단 500개 선정해서 학습 예정.
-        self.num_classes = num_classes
+        self.num_classes = cf.NUM_CLASSES 
         # 프레임 수(mediapipe 기준이라면 30으로 낮추면 됨. 이는 우리 컴퓨터 성능으로 타협하면서 해야할 듯)
-        self.sequence_length = sequence_length
+        self.sequence_length = cf.SEQUENCE_LENGTH
         # 특성 차원(좌표값들. 손이면 42개였나? 3배수 하고 골격에도 뽑아서 225차원을 맞춰 줌)
         # 그리고 하반신을 버리기로 했으니 조금 더 조정이 필요함.
-        self.feature_dim = feature_dim
+        self.feature_dim = cf.FEATURE_DIM
         # 시작 시에는 모델이 없음(학습 된 모델이 없음. 추후에 학습이 완료 된 모델이 되겠지)
         self.model = None
         # 인코더... 예.. 그거.

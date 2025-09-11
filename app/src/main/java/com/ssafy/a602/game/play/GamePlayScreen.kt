@@ -249,26 +249,36 @@ fun GamePlayScreen(
         // 미디어 아이템이 설정되지 않은 경우에만 초기화
         if (player.mediaItemCount == 0) {
             currentSong?.let { song ->
-                // 선택된 곡의 실제 음악 파일 URL 사용 (API에서 가져온 URL)
-                val audioUrl = song.audioUrl ?: throw IllegalStateException("음악 파일 URL이 없습니다. API에서 올바른 URL을 제공해야 합니다.")
-                Log.d("GamePlayScreen", "ExoPlayer 미디어 설정: $audioUrl")
-                
-                // MediaItem 생성: ExoPlayer가 재생할 미디어를 나타내는 객체
-                val mediaItem = MediaItem.fromUri(audioUrl)
-                
-                // ExoPlayer에 미디어 아이템 설정
-                player.setMediaItem(mediaItem)
-                
-                // 미디어 준비: 네트워크에서 로딩, 메타데이터 파싱 등
-                player.prepare()
-                Log.d("GamePlayScreen", "ExoPlayer 미디어 준비 완료")
-                
-                // 게임이 일시정지 상태가 아니면 자동으로 재생 시작
-                if (!isPaused) {
-                    Log.d("GamePlayScreen", "ExoPlayer 자동 재생 시작")
-                    player.play()
-                } else {
-                    Log.d("GamePlayScreen", "ExoPlayer 일시정지 상태로 시작")
+                try {
+                    // API에서 음악 URL 가져오기
+                    val audioUrl = GameDataManager.getMusicUrl(song.id)
+                    if (audioUrl == null) {
+                        Log.e("GamePlayScreen", "음악 URL을 가져올 수 없습니다. songId=${song.id}")
+                        return@LaunchedEffect
+                    }
+                    
+                    Log.d("GamePlayScreen", "ExoPlayer 미디어 설정: $audioUrl")
+                    
+                    // MediaItem 생성: ExoPlayer가 재생할 미디어를 나타내는 객체
+                    val mediaItem = MediaItem.fromUri(audioUrl)
+                    
+                    // ExoPlayer에 미디어 아이템 설정
+                    player.setMediaItem(mediaItem)
+                    
+                    // 미디어 준비: 네트워크에서 로딩, 메타데이터 파싱 등
+                    player.prepare()
+                    Log.d("GamePlayScreen", "ExoPlayer 미디어 준비 완료")
+                    
+                    // 게임이 일시정지 상태가 아니면 자동으로 재생 시작
+                    if (!isPaused) {
+                        Log.d("GamePlayScreen", "ExoPlayer 자동 재생 시작")
+                        player.play()
+                    } else {
+                        Log.d("GamePlayScreen", "ExoPlayer 일시정지 상태로 시작")
+                    }
+                } catch (e: Exception) {
+                    Log.e("GamePlayScreen", "음악 URL 가져오기 실패", e)
+                    // 에러 처리 - 사용자에게 알림 표시 등
                 }
             }
         } else {

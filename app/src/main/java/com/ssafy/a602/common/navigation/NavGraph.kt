@@ -1,6 +1,7 @@
 package com.ssafy.a602.common.navigation  // 패키지 경로(모듈/폴더 구조 상의 네임스페이스)
 
 // ── 필요한 것만 한 번씩만 import ─────────────────────────────────────────────
+import androidx.camera.core.ExperimentalMirrorMode
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
@@ -44,6 +45,7 @@ import com.ssafy.a602.game.data.GameDataManager
  * @param snackbarHostState 스낵바 표시용 호스트 (필요 시 화면에서 사용)
  * @param openSettings 앱 설정 화면(권한 화면 등)으로 이동시키는 콜백
  */
+@ExperimentalMirrorMode
 @Composable
 fun NavGraph(
     navController: NavHostController, // 화면 전환 컨트롤러
@@ -157,8 +159,6 @@ fun NavGraph(
                 title = "알 수 없는 곡",
                 artist = "알 수 없는 아티스트",
                 durationText = "0:00",
-                bpm = 120,
-                rating = 0.0,
                 bestScore = null
             )
 

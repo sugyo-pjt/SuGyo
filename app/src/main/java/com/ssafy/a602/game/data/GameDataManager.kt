@@ -15,10 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object GameDataManager {
     
-    // API 서비스 (더미 구현체 사용, 실제 API 연동 시 교체)
-    // TODO: API 연동 시 아래 한 줄만 바꾸면 됨
-    // private val apiService: GameApiService = RealApiService()
-    private val apiService: GameApiService = DummyGameApiService()
+    // API 서비스 (실제 API 연동)
+    private val apiService: GameApiService = RealApiService()
     
     // 현재 선택된 곡
     private val _currentSong = MutableStateFlow<Song?>(null)
@@ -133,6 +131,17 @@ object GameDataManager {
      */
     suspend fun searchSongs(query: String): List<Song> {
         return apiService.searchSongs(query)
+    }
+    
+    /**
+     * 음악 URL 가져오기 (ExoPlayer용)
+     */
+    suspend fun getMusicUrl(songId: String): String? {
+        return if (apiService is RealApiService) {
+            apiService.getMusicUrl(songId)
+        } else {
+            null
+        }
     }
     
     /**

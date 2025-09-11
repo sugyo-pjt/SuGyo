@@ -1,31 +1,57 @@
 package com.ssafy.a602.game
 
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalMirrorMode
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.platform.LocalContext
-import androidx.camera.core.CameraSelector
 import com.ssafy.a602.MainActivity
 
+@ExperimentalMirrorMode
 @Composable
 fun GamePreparationScreen(
     song: Song,
@@ -96,6 +122,7 @@ fun GamePreparationScreen(
                             is GamePreparationState.Countdown -> "준비 중"
                             is GamePreparationState.Ready -> "0:00"
                             is GamePreparationState.Error -> "오류"
+                            else -> "준비 중"
                         },
                         style = GameTheme.Typography.CardTitle
                     )
@@ -116,6 +143,7 @@ fun GamePreparationScreen(
                             is GamePreparationState.Countdown -> 0.9f
                             is GamePreparationState.Ready -> 1f
                             is GamePreparationState.Error -> 0f
+                            else -> 0f
                         }
                     },
                     modifier = Modifier
@@ -159,6 +187,7 @@ fun GamePreparationScreen(
                         }
                         is GamePreparationState.Ready -> {
                             // 실제 카메라 프리뷰를 미리 보여줌 (게임과 동일한 경험)
+                            @OptIn(ExperimentalMirrorMode::class)
                             CameraPreview(
                                 modifier = Modifier.fillMaxSize(),
                                 lensFacing = CameraSelector.LENS_FACING_FRONT,
@@ -171,6 +200,12 @@ fun GamePreparationScreen(
                                 onRetry = { viewModel.retryPermission() },
                                 onOpenSettings = { viewModel.openAppSettings() },
                                 shouldShowSettingsButton = currentState.message.contains("설정")
+                            )
+                        }
+                        else -> {
+                            LoadingResourcesContent(
+                                resourceLoadingState = resourceLoadingState,
+                                progressColor = progress
                             )
                         }
                     }
@@ -199,6 +234,7 @@ fun GamePreparationScreen(
                                 is GamePreparationState.Countdown -> "게임을 시작합니다"
                                 is GamePreparationState.Ready -> "어떤 길을 걸어도"
                                 is GamePreparationState.Error -> "오류가 발생했습니다"
+                                else -> "준비 중입니다"
                             },
                             transitionSpec = {
                                 fadeIn(animationSpec = tween(300)) togetherWith
@@ -223,6 +259,7 @@ fun GamePreparationScreen(
                                 is GamePreparationState.Countdown -> "곧 시작됩니다"
                                 is GamePreparationState.Ready -> "열린 문을 향해 나아가"
                                 is GamePreparationState.Error -> currentState.message
+                                else -> "잠시만 기다려주세요"
                             },
                             transitionSpec = {
                                 fadeIn(animationSpec = tween(300)) togetherWith
@@ -507,6 +544,7 @@ private fun ErrorContent(
     }
 }
 
+@ExperimentalMirrorMode
 @Preview(showBackground = true, widthDp = 360, heightDp = 800, backgroundColor = 0xFF0D1118)
 @Composable
 private fun GamePreparationScreenPreview() {
@@ -516,9 +554,8 @@ private fun GamePreparationScreenPreview() {
             title = "WAY BACK HOME",
             artist = "SHAUN",
             durationText = "3:14",
-            bpm = 120,
-            rating = 4.5,
-            bestScore = 85000
+            bestScore = 85000,
+            albumImageUrl = "https://example.com/album/way_back_home.jpg"
         ),
         onGameStart = {},
         onBack = {}

@@ -1,5 +1,6 @@
 package com.ssafy.a602.game
 
+import androidx.camera.core.ExperimentalMirrorMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import com.ssafy.a602.game.data.GameDataManager
 
 /* ========== Preview ========== */
 
+@ExperimentalMirrorMode
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -41,11 +43,8 @@ fun GamePlayScreenPreview() {
             title = "WAY BACK HOME",
             artist = "SHAUN",
             durationText = "3:14",
-            bpm = 120,
-            rating = 4.2,
             bestScore = 89650,
-            thumbnailRes = null,
-            audioUrl = "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" // Preview용 더미 URL
+            albumImageUrl = "https://example.com/album/way_back_home.jpg"
         )
         GameDataManager.selectSong(sampleSong)
         GameDataManager.startGame()
@@ -62,6 +61,7 @@ fun GamePlayScreenPreview() {
     )
 }
 
+@ExperimentalMirrorMode
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -77,11 +77,8 @@ fun GamePlayScreenPerfectPreview() {
             title = "WAY BACK HOME",
             artist = "SHAUN",
             durationText = "3:14",
-            bpm = 120,
-            rating = 4.2,
             bestScore = 89650,
-            thumbnailRes = null,
-            audioUrl = "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" // Preview용 더미 URL
+            albumImageUrl = "https://example.com/album/way_back_home.jpg"
         )
         GameDataManager.selectSong(sampleSong)
         GameDataManager.startGame()
@@ -98,6 +95,7 @@ fun GamePlayScreenPerfectPreview() {
     )
 }
 
+@ExperimentalMirrorMode
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -113,11 +111,8 @@ fun GamePlayScreenMissPreview() {
             title = "WAY BACK HOME",
             artist = "SHAUN",
             durationText = "3:14",
-            bpm = 120,
-            rating = 4.2,
             bestScore = 89650,
-            thumbnailRes = null,
-            audioUrl = "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" // Preview용 더미 URL
+            albumImageUrl = "https://example.com/album/way_back_home.jpg"
         )
         GameDataManager.selectSong(sampleSong)
         GameDataManager.startGame()

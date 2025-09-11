@@ -135,7 +135,7 @@ fun SongCard(
         )
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            // 썸네일
+            // 썸네일 (앨범 이미지 URL 사용)
             Box(
                 modifier = Modifier
                     .size(60.dp)
@@ -143,14 +143,7 @@ fun SongCard(
                     .background(Color(0xFFF3F4F6)),
                 contentAlignment = Alignment.Center
             ) {
-                song.thumbnailRes?.let {
-                    Image(
-                        painter = painterResource(it),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } ?: Icon(
+                Icon(
                     Icons.Outlined.PlayArrow, 
                     contentDescription = null,
                     tint = Color(0xFF9CA3AF),

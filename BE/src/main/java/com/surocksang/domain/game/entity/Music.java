@@ -1,4 +1,4 @@
-package com.surocksang.domain.entity;
+package com.surocksang.domain.game.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -9,26 +9,32 @@ import java.time.LocalTime;
 import java.util.List;
 
 @Entity
-@Table(name = "chart")
+@Table(name = "music")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Chart {
+public class Music {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(nullable = false)
+    private String title;
+    
+    @Column(nullable = false)
+    private String singer;
+    
+    @Column(nullable = false)
+    private LocalTime songTime;
+    
+    @Column
+    private String albumImageUrl;
 
-    @Column(nullable = false)
-    private Integer sequence;
-    
-    @Column(nullable = false, length = 50)
-    private String lyrics;
-    
-    @Column(nullable = false)
-    private LocalTime startedAt;
+    @Column
+    private String songUrl;
 
     @OneToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chart_id")
-    private List<ChartAnswer> chartAnswers;
+    @JoinColumn(name = "music_id")
+    private List<Chart> chart;
 }

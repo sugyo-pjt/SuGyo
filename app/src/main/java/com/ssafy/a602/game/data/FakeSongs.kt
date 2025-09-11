@@ -5,18 +5,91 @@ import com.ssafy.a602.game.Song
 /**
  * 더미 데이터 제공자
  * TODO: 실제 API 연동 시 이 클래스를 API 서비스로 교체
+ * 
+ * ⚠️ 주의: 아래 URL들은 테스트용 무료 오디오 파일입니다.
+ * 실제 API 연동 시에는 서버에서 제공하는 실제 URL을 사용해야 합니다.
  */
 object FakeSongs {
     val items = listOf(
-        Song("way_back_home","WAY BACK HOME","SHAUN","1:02",120,4.2,89650,null),
-        Song("asap","ASAP","STAYC","2:58",128,4.8,76420,null),
-        Song("hello","안녕하세요","기초 인사말","2:30",100,4.5,95200,null),
-        Song("dynamite","Dynamite","BTS","3:19",114,4.9,null,null),
-        Song("butter","Butter","BTS","2:42",110,4.7,88750,null),
-        Song("permission_to_dance","Permission to Dance","BTS","3:07",105,4.6,92300,null),
-        Song("life_goes_on","Life Goes On","BTS","3:27",95,4.4,78900,null),
-        Song("boy_with_luv","Boy With Luv","BTS","3:49",100,4.8,95600,null),
-        Song("spring_day","Spring Day","BTS","4:34",85,4.9,98750,null),
-        Song("fake_love","Fake Love","BTS","4:02",90,4.7,91200,null)
+        Song(
+            id = "way_back_home",
+            title = "WAY BACK HOME",
+            artist = "SHAUN",
+            durationText = "1:02",
+            bestScore = 89650,
+            albumImageUrl = "https://example.com/album/way_back_home.jpg"
+        ),
+        Song(
+            id = "asap",
+            title = "ASAP",
+            artist = "STAYC",
+            durationText = "2:58",
+            bestScore = 76420,
+            albumImageUrl = "https://example.com/album/asap.jpg"
+        ),
+        Song(
+            id = "hello",
+            title = "안녕하세요",
+            artist = "기초 인사말",
+            durationText = "2:30",
+            bestScore = 95200,
+            albumImageUrl = "https://example.com/album/hello.jpg"
+        ),
+        Song(
+            id = "dynamite",
+            title = "Dynamite",
+            artist = "BTS",
+            durationText = "3:19",
+            bestScore = null,
+            albumImageUrl = "https://example.com/album/dynamite.jpg"
+        ),
+        Song(
+            id = "butter",
+            title = "Butter",
+            artist = "BTS",
+            durationText = "2:42",
+            bestScore = 88750,
+            albumImageUrl = "https://example.com/album/butter.jpg"
+        ),
+        Song(
+            id = "permission_to_dance",
+            title = "Permission to Dance",
+            artist = "BTS",
+            durationText = "3:07",
+            bestScore = 92300,
+            albumImageUrl = "https://example.com/album/permission_to_dance.jpg"
+        ),
+        Song(
+            id = "life_goes_on",
+            title = "Life Goes On",
+            artist = "BTS",
+            durationText = "3:27",
+            bestScore = 78900,
+            albumImageUrl = "https://example.com/album/life_goes_on.jpg"
+        ),
+        Song(
+            id = "boy_with_luv",
+            title = "Boy With Luv",
+            artist = "BTS",
+            durationText = "3:49",
+            bestScore = 95600,
+            albumImageUrl = "https://example.com/album/boy_with_luv.jpg"
+        ),
+        Song(
+            id = "spring_day",
+            title = "Spring Day",
+            artist = "BTS",
+            durationText = "4:34",
+            bestScore = 98750,
+            albumImageUrl = "https://example.com/album/spring_day.jpg"
+        ),
+        Song(
+            id = "fake_love",
+            title = "Fake Love",
+            artist = "BTS",
+            durationText = "4:02",
+            bestScore = 91200,
+            albumImageUrl = "https://example.com/album/fake_love.jpg"
+        )
     )
 }

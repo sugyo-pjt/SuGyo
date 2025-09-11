@@ -24,27 +24,8 @@ sealed class Screen(val route: String) {
 
     // ── 게임 흐름 라우트(파라미터 포함) ───────────────────────────────────────
     // NavGraph에서 사용하는 문자열과 동일하게 정의
-    object GamePreparation {
-        const val ARG_SONG_ID = "songId"
-        const val route = "game_preparation/{$ARG_SONG_ID}"
-        fun route(songId: String) = "game_preparation/$songId"
-    }
-
-    object GamePlay {
-        const val ARG_SONG_ID = "songId"
-        const val route = "game_play/{$ARG_SONG_ID}"
-        fun route(songId: String) = "game_play/$songId"
-    }
-
-    object GameResult {
-        const val ARG_SONG_ID = "songId"
-        const val route = "game_result/{$ARG_SONG_ID}"
-        fun route(songId: String) = "game_result/$songId"
-    }
-
-    object GameRanking {
-        const val ARG_SONG_ID = "songId"
-        const val route = "game_ranking/{$ARG_SONG_ID}"
-        fun route(songId: String) = "game_ranking/$songId"
-    }
+        object GameRanking : Screen("game_ranking")
+    object GamePreparation : Screen("game_preparation")
+    object GamePlay : Screen("game_play")
+    object GameResult : Screen("game_result")
 }

@@ -35,7 +35,7 @@
         <DropdownSelection timestamp="2025-09-09T04:00:34.702617600Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\SSAFY\.android\avd\Pixel_5.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R3CT105KZRL" />
             </handle>
           </Target>
         </DropdownSelection>

@@ -58,10 +58,10 @@ private data class DayItem(
     val status: DayStatus
 )
 
-private sealed interface UiState {
-    data object Loading : UiState                 // 로딩 스피너
-    data class Success(val items: List<DayItem>) : UiState // 데이터 표시
-    data class Error(val throwable: Throwable) : UiState   // 에러 표시/재시도
+private sealed interface RoadmapUiState {                 // [변경] UiState → RoadmapUiState
+    data object Loading : RoadmapUiState                  // [변경]
+    data class Success(val items: List<DayItem>) : RoadmapUiState // [변경]
+    data class Error(val throwable: Throwable) : RoadmapUiState   // [변경]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ fun Total_RoadMap(
     onBack: () -> Unit = {},                  // 상단바 뒤로가기 콜백(보통 navController.popBackStack)
     onDayClick: (Int) -> Unit = {}            // Day 버튼 눌렀을 때 콜백(예: navController.navigate("lesson/$day"))
 ) {
-    var uiState by remember { mutableStateOf<UiState>(UiState.Loading) }
+    var uiState by remember { mutableStateOf<RoadmapUiState>(RoadmapUiState.Loading) }
     val scope = rememberCoroutineScope()
 
     // 화면 진입 시 1회 로드
@@ -113,14 +113,14 @@ fun Total_RoadMap(
                 .background(Color(0xFFF1FBF4)) // 연한 그린 배경
         ) {
             when (val s = uiState) {
-                UiState.Loading -> {
+                RoadmapUiState.Loading -> {
                     // 로딩 스피너
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
 
-                is UiState.Error -> {
+                is RoadmapUiState.Error -> {
                     // 에러 메시지 + 재시도 버튼
                     Column(
                         Modifier.fillMaxSize().padding(24.dp),
@@ -138,7 +138,7 @@ fun Total_RoadMap(
                     }
                 }
 
-                is UiState.Success -> {
+                is RoadmapUiState.Success -> {
                     // 중앙 세로 라인 + 좌/우 번갈아 나오는 Day 아이템들
                     Box(Modifier.fillMaxSize()) {
                         // 중앙 라인 (얇은 세로선)
@@ -176,8 +176,8 @@ fun Total_RoadMap(
 //  - day == progress+1 -> CURRENT
 //  - 그 외 -> LOCKED
 // ─────────────────────────────────────────────────────────────────────────────
-private suspend fun reload(setState: (UiState) -> Unit) {
-    setState(UiState.Loading)
+private suspend fun reload(setState: (RoadmapUiState) -> Unit) {
+    setState(RoadmapUiState.Loading)
     try {
         val meta = fetchRoadmapMetaFromServer()
         val items = (1..meta.totalDays).map { day ->
@@ -188,9 +188,9 @@ private suspend fun reload(setState: (UiState) -> Unit) {
             }
             DayItem(day, status)
         }
-        setState(UiState.Success(items))
+        setState(RoadmapUiState.Success(items))
     } catch (t: Throwable) {
-        setState(UiState.Error(t))
+        setState(RoadmapUiState.Error(t))
     }
 }
 

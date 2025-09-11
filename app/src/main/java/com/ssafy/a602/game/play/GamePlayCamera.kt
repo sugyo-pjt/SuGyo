@@ -1,166 +1,129 @@
-package com.ssafy.a602.game
+package com.ssafy.a602.game.play
 
-import androidx.camera.core.CameraSelector
+import android.content.Context
+import android.graphics.Bitmap
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.camera.view.CameraController
-import androidx.camera.view.LifecycleCameraController
-import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CameraAlt
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import java.util.concurrent.Executors
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
+import com.ssafy.a602.game.play.input.LandmarkResultHandler
+import com.ssafy.a602.game.play.input.WordWindowUploader
+import java.util.concurrent.TimeUnit
 
-@Composable
-fun CameraPreview(
-    modifier: Modifier = Modifier,
-    lensFacing: Int = CameraSelector.LENS_FACING_FRONT,
-    enableAnalysis: Boolean = false,
-    mirrorPreview: Boolean = true, // 미러 ON 기본
-    onFrame: ((ImageProxy) -> Unit)? = null
+/**
+ * GamePlayCamera
+ * 
+ * MediaPipe Pose Landmarker와 Hand Landmarker를 사용하여 실시간 수어 인식을 수행하는 카메라 클래스
+ * 카메라 프레임을 분석하여 포즈와 손 랜드마크를 추출하고 서버로 전송
+ */
+@ExperimentalGetImage
+class GamePlayCamera(
+    private val resultHandler: LandmarkResultHandler,
+    private val uploader: WordWindowUploader
 ) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    private var poseLandmarker: PoseLandmarker? = null
+    private var handLandmarker: HandLandmarker? = null
+    private var rgb: Bitmap? = null
+    private lateinit var yuv2rgb: YuvToRgbConverter
 
-    // Preview 모드에서는 카메라를 사용하지 않고 플레이스홀더 표시
-    val isPreviewMode = context.javaClass.name.contains("Preview") ||
-                       context.javaClass.name.contains("ComposeViewAdapter")
+    /**
+     * MediaPipe Pose Landmarker와 Hand Landmarker 초기화
+     */
+    fun init(context: Context) {
+        yuv2rgb = YuvToRgbConverter(context)
 
-    if (isPreviewMode) {
-        // Preview 모드에서는 카메라 아이콘만 표시
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Outlined.CameraAlt,
-                    contentDescription = "카메라",
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "수어 인식 카메라",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-        }
-        return
-    }
-
-    val controller = remember {
         try {
-            LifecycleCameraController(context).apply {
-                cameraSelector = CameraSelector.Builder()
-                    .requireLensFacing(lensFacing)
-                    .build()
-            }
+            android.util.Log.d("GamePlayCamera", "MediaPipe 모델 초기화 시작")
+            
+            // Pose Landmarker 초기화
+            android.util.Log.d("GamePlayCamera", "Pose Landmarker 모델 로드: models/pose_landmarker_lite.task")
+            val poseBaseOptions = BaseOptions.builder()
+                .setModelAssetPath("models/pose_landmarker_lite.task")
+                .build()
+            
+            val poseOptions = PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(poseBaseOptions)
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setResultListener { result, image ->
+                    val timestampMs = System.currentTimeMillis()
+                    resultHandler.onPoseResult(result, timestampMs)
+                }
+                .build()
+            
+            poseLandmarker = PoseLandmarker.createFromOptions(context, poseOptions)
+            android.util.Log.d("GamePlayCamera", "Pose Landmarker 초기화 완료")
+
+            // Hand Landmarker 초기화
+            android.util.Log.d("GamePlayCamera", "Hand Landmarker 모델 로드: models/hand_landmarker.task")
+            val handBaseOptions = BaseOptions.builder()
+                .setModelAssetPath("models/hand_landmarker.task")
+                .build()
+            
+            val handOptions = HandLandmarker.HandLandmarkerOptions.builder()
+                .setBaseOptions(handBaseOptions)
+                .setNumHands(2) // ★ 두 손 감지
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setResultListener { result, image ->
+                    val timestampMs = System.currentTimeMillis()
+                    resultHandler.onHandResult(result, timestampMs)
+                    uploader.maybeFlush()
+                }
+                .build()
+            
+            handLandmarker = HandLandmarker.createFromOptions(context, handOptions)
+            android.util.Log.d("GamePlayCamera", "Hand Landmarker 초기화 완료")
+            android.util.Log.d("GamePlayCamera", "MediaPipe 모델 초기화 완료")
         } catch (e: Exception) {
-            // 카메라 초기화 실패 시 null 반환
-            null
+            android.util.Log.e("GamePlayCamera", "MediaPipe 초기화 실패: ${e.message}", e)
+            throw RuntimeException("MediaPipe 초기화에 실패했습니다. pose_landmarker_lite.task와 hand_landmarker.task 파일을 확인해주세요.", e)
         }
     }
 
-    // controller가 null이면 플레이스홀더 표시
-    if (controller == null) {
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Outlined.CameraAlt,
-                    contentDescription = "카메라",
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "카메라를 사용할 수 없습니다",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
+    /**
+     * CameraX ImageAnalysis.Analyzer
+     * 카메라 프레임을 받아서 MediaPipe로 분석
+     */
+    val analyzer = ImageAnalysis.Analyzer { image: ImageProxy ->
+        val media = image.image ?: run { 
+            image.close()
+            return@Analyzer 
         }
-        return
+        
+        // Bitmap 크기 조정 (필요시)
+        if (rgb == null || rgb!!.width != image.width || rgb!!.height != image.height) {
+            rgb = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+        }
+        
+        // YUV → RGB 변환
+        yuv2rgb.yuvToRgb(media, rgb!!)
+        
+        // MediaPipe 이미지 생성
+        val mpImage = BitmapImageBuilder(rgb!!).build()
+        val timestampMs = TimeUnit.NANOSECONDS.toMillis(image.imageInfo.timestamp)
+        
+        // MediaPipe 분석 실행
+        poseLandmarker?.detectAsync(mpImage, timestampMs)
+        handLandmarker?.detectAsync(mpImage, timestampMs)
+        
+        // 디버그: 분석 실행 확인 (너무 많은 로그를 방지하기 위해 30프레임마다)
+        if (timestampMs % 1000 < 33) { // 약 1초마다
+            android.util.Log.d("GamePlayCamera", "MediaPipe 분석 실행 중... timestamp: $timestampMs")
+        }
+        
+        image.close()
     }
 
-    // 1) Executor를 한번만 만들고, 화면 사라질 때 종료
-    val analyzerExecutor = remember { Executors.newSingleThreadExecutor() }
-    DisposableEffect(Unit) {
-        onDispose { analyzerExecutor.shutdown() }
+    /**
+     * 리소스 해제
+     */
+    fun release() {
+        poseLandmarker?.close()
+        handLandmarker?.close()
+        poseLandmarker = null
+        handLandmarker = null
     }
-
-    // 2) 분석기 on/off를 수명에 맞춰 관리
-    DisposableEffect(enableAnalysis, onFrame) {
-        if (enableAnalysis && onFrame != null) {
-            controller.setImageAnalysisBackpressureStrategy(
-                ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-            )
-            controller.setImageAnalysisAnalyzer(analyzerExecutor) { image ->
-                try {
-                    onFrame(image)
-                } finally {
-                    image.close()
-                }
-            }
-            controller.setEnabledUseCases(CameraController.IMAGE_ANALYSIS)
-        } else {
-            controller.clearImageAnalysisAnalyzer()
-            controller.setEnabledUseCases(0) // 분석 끔 (필요 시 PREVIEW만 켜도 됨)
-        }
-        onDispose {
-            // 해제 시점에 안전하게 클리어
-            controller.clearImageAnalysisAnalyzer()
-        }
-    }
-
-    // 3) 실제 프리뷰 붙이기
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                scaleType = PreviewView.ScaleType.FILL_CENTER
-                // 전면 카메라일 때 거울 효과
-                if (lensFacing == CameraSelector.LENS_FACING_FRONT && mirrorPreview) {
-                    scaleX = -1f
-                }
-                controller.bindToLifecycle(lifecycleOwner)
-                this.controller = controller
-            }
-        },
-        update = { previewView ->
-            // lensFacing 또는 mirrorPreview 바뀌면 반영
-            previewView.scaleX =
-                if (lensFacing == CameraSelector.LENS_FACING_FRONT && mirrorPreview) -1f else 1f
-        }
-    )
 }

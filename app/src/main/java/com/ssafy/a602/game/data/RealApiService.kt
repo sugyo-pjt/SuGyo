@@ -99,7 +99,7 @@ class RealApiService : GameApiService {
         return GameResultUi(
             songTitle = "Unknown Song",
             score = score,
-            accuracyPercent = 0f,
+            accuracyPercent = 0,
             grade = "F",
             maxCombo = maxCombo,
             correctCount = correctCount,

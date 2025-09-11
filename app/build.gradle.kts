@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    kotlin("plugin.serialization") version "2.0.21"
 }
 
 android {
@@ -16,6 +17,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // 16KB 페이지 크기 지원을 위한 NDK 설정
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -36,6 +42,24 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    
+    // assets 폴더 포함을 위한 설정
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("src/main/assets")
+        }
+    }
+    
+    // 16KB 페이지 크기 지원을 위한 패키징 옵션
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+        // assets 폴더 포함
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
@@ -76,9 +100,10 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.8.0")
     implementation("androidx.media3:media3-ui-compose:1.8.0")
 
-    // MediaPipe
+    // MediaPipe - Vision 모듈만 사용 (16KB 페이지 크기 호환성을 위해 불필요한 모듈 제거)
     implementation(libs.mediapipe.tasks.vision)
-    implementation(libs.mediapipe.tasks.text)
-    implementation(libs.mediapipe.tasks.audio)
+    
+    // Kotlinx Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
 }

@@ -65,6 +65,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.time.TimelineTick
 import com.ssafy.a602.game.time.TimelineViewModel
+import com.ssafy.a602.game.play.GamePlayCamera
+import com.ssafy.a602.game.CameraPreview
+import com.ssafy.a602.game.play.input.LandmarkBuffer3s
+import com.ssafy.a602.game.play.input.LandmarkResultHandler
+import com.ssafy.a602.game.play.input.WordWindowUploader
 
 /* ========== Data Classes ========== */
 
@@ -154,6 +159,32 @@ fun GamePlayScreen(
         val viewModel = TimelineViewModel(player)
         Log.d("GamePlayScreen", "TimelineViewModel 생성 완료")
         viewModel
+    }
+    
+    // MediaPipe 통합을 위한 의존성 생성
+    val buffer = remember { LandmarkBuffer3s() }
+    val resultHandler = remember { LandmarkResultHandler(buffer) }
+    val uploader = remember { 
+        WordWindowUploader(buffer, endpoint = "https://your.api/landmarks/upload") 
+    }
+    val mediaPipeCamera = remember { GamePlayCamera(resultHandler, uploader) }
+    
+    // MediaPipe 초기화
+    LaunchedEffect(Unit) {
+        Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
+        mediaPipeCamera.init(context)
+        Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+    }
+
+    // 단어 이벤트 트리거 함수
+    fun onWordEvent(centerMs: Long, wordId: String) {
+        Log.d("GamePlayScreen", "단어 이벤트 트리거: centerMs=$centerMs, wordId=$wordId")
+        uploader.onWord(centerMs, wordId)
+    }
+    
+    // 단어 이벤트 트리거 조건 확인 함수
+    fun shouldTriggerWordEvent(wordCenterMs: Long, currentMs: Long, toleranceMs: Long = 500L): Boolean {
+        return kotlin.math.abs(currentMs - wordCenterMs) <= toleranceMs
     }
     
     // TimelineTick 수집
@@ -290,6 +321,10 @@ fun GamePlayScreen(
         onDispose { 
             Log.d("GamePlayScreen", "컴포넌트 해제 시작")
             
+            // MediaPipe 리소스 해제
+            mediaPipeCamera.release()
+            Log.d("GamePlayScreen", "MediaPipe 리소스 해제 완료")
+            
             // TimelineViewModel 정지: Choreographer 콜백 제거
             timelineViewModel.stop()
             Log.d("GamePlayScreen", "TimelineViewModel 정지 완료")
@@ -309,6 +344,19 @@ fun GamePlayScreen(
     // ExoPlayer의 현재 위치를 기반으로 게임 시간 업데이트
     // TimelineTick의 positionMs(밀리초)를 초 단위로 변환하여 게임 시간으로 사용
     val gameTime = (tick?.positionMs ?: 0L) / 1000f
+    
+    // 단어 이벤트 트리거 처리
+    // 현재 시간이 단어의 중심 시각에 도달했을 때 MediaPipe 데이터 업로드 트리거
+    LaunchedEffect(tick?.positionMs) {
+        tick?.let { currentTick ->
+            val currentMs = currentTick.positionMs
+            // TODO: 실제 단어 타임라인 데이터를 사용하여 단어 이벤트 트리거
+            // 예시: 단어의 centerMs와 현재 시간이 ±500ms 내에 있을 때 트리거
+            // if (shouldTriggerWordEvent(word.centerMs, currentMs)) {
+            //     onWordEvent(word.centerMs, word.wordId)
+            // }
+        }
+    }
     
     // 디버깅용 로그: TimelineTick 상태 변화 모니터링
     LaunchedEffect(tick) {
@@ -412,12 +460,14 @@ fun GamePlayScreen(
                         .border(3.dp, greenBorder, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    // 게임 플레이 - 카메라 프리뷰 표시
+                    // 게임 플레이 - 카메라 프리뷰 표시 (MediaPipe 분석 포함)
                     CameraPreview(
                         modifier = Modifier.fillMaxSize(),
                         lensFacing = CameraSelector.LENS_FACING_FRONT,
-                        enableAnalysis = onFrame != null,
-                        onFrame = onFrame
+                        enableAnalysis = true,
+                        onFrame = { imageProxy: androidx.camera.core.ImageProxy -> 
+                            mediaPipeCamera.analyzer.analyze(imageProxy) 
+                        }
                     )
                     
                     // 판정 결과 오버레이

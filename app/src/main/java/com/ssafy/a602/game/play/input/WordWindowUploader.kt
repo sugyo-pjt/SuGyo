@@ -81,6 +81,9 @@ class WordWindowUploader(
             android.util.Log.d("WordWindowUploader", "  왼손: ${firstFrame.left.size}개 (예: ${firstFrame.left.take(2).joinToString { "(${String.format("%.2f", it.x)}, ${String.format("%.2f", it.y)})" }})")
             android.util.Log.d("WordWindowUploader", "  오른손: ${firstFrame.right.size}개 (예: ${firstFrame.right.take(2).joinToString { "(${String.format("%.2f", it.x)}, ${String.format("%.2f", it.y)})" }})")
             
+            // 상세 좌표 데이터 로깅 (업로드용)
+            buffer.logCoordinatesForUpload(frames)
+            
             upload(payload)
             android.util.Log.d("WordWindowUploader", "수어 데이터 업로드 완료: ${frames.size}개 프레임, segment: $segment")
             android.util.Log.d("WordWindowUploader", "================================")

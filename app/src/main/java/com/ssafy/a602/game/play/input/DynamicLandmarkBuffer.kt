@@ -22,6 +22,9 @@ class DynamicLandmarkBuffer {
     fun add(p: FramePack) = synchronized(lock) {
         buf.addLast(p)
         
+        // 미디어파이프 좌표 데이터 상세 로깅
+        logFramePackDetails(p)
+        
         // 현재 활성화된 수어 타이밍이 있으면 해당 범위에 맞춰 버퍼 정리
         currentActionStart?.let { startTime ->
             currentActionEnd?.let { endTime ->
@@ -175,5 +178,68 @@ class DynamicLandmarkBuffer {
             }
         }
         Log.d("DynamicLandmarkBuffer", "========================")
+    }
+    
+    /**
+     * FramePack의 상세 좌표 데이터 로깅
+     */
+    private fun logFramePackDetails(framePack: FramePack) {
+        Log.d("MediaPipeCoordinates", "=== 프레임 ${framePack.tsMs}ms 좌표 데이터 ===")
+        
+        // 포즈 랜드마크 (23개)
+        Log.d("MediaPipeCoordinates", "포즈 랜드마크 (${framePack.pose.size}개):")
+        framePack.pose.forEachIndexed { index, lm ->
+            Log.d("MediaPipeCoordinates", "  포즈[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+        }
+        
+        // 왼손 랜드마크 (21개)
+        Log.d("MediaPipeCoordinates", "왼손 랜드마크 (${framePack.left.size}개):")
+        framePack.left.forEachIndexed { index, lm ->
+            Log.d("MediaPipeCoordinates", "  왼손[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+        }
+        
+        // 오른손 랜드마크 (21개)
+        Log.d("MediaPipeCoordinates", "오른손 랜드마크 (${framePack.right.size}개):")
+        framePack.right.forEachIndexed { index, lm ->
+            Log.d("MediaPipeCoordinates", "  오른손[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+        }
+        
+        // 수어 타이밍 상태
+        if (isActionActive()) {
+            Log.d("MediaPipeCoordinates", "수어 타이밍 활성: ${currentActionStart}ms ~ ${currentActionEnd}ms (wordId: $currentWordId)")
+        } else {
+            Log.d("MediaPipeCoordinates", "수어 타이밍 비활성")
+        }
+        
+        Log.d("MediaPipeCoordinates", "================================")
+    }
+    
+    /**
+     * 특정 시간대의 좌표 데이터를 JSON 형태로 로깅 (API 전송용)
+     */
+    fun logCoordinatesForUpload(frames: List<FramePack>) {
+        Log.d("MediaPipeUpload", "=== 업로드용 좌표 데이터 (${frames.size}개 프레임) ===")
+        frames.forEachIndexed { frameIndex, frame ->
+            Log.d("MediaPipeUpload", "프레임 $frameIndex (${frame.tsMs}ms):")
+            
+            // 포즈 데이터
+            val poseData = frame.pose.mapIndexed { index, lm ->
+                "포즈[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+            }.joinToString("|")
+            Log.d("MediaPipeUpload", "  포즈: $poseData")
+            
+            // 왼손 데이터
+            val leftHandData = frame.left.mapIndexed { index, lm ->
+                "왼손[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+            }.joinToString("|")
+            Log.d("MediaPipeUpload", "  왼손: $leftHandData")
+            
+            // 오른손 데이터
+            val rightHandData = frame.right.mapIndexed { index, lm ->
+                "오른손[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+            }.joinToString("|")
+            Log.d("MediaPipeUpload", "  오른손: $rightHandData")
+        }
+        Log.d("MediaPipeUpload", "==========================================")
     }
 }

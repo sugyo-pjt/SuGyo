@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object GameDataManager {
     
-    // API 서비스 (실제 API 연동)
+    // API 서비스 (실제 API 사용)
     private val apiService: GameApiService = RealApiService()
     
     // 현재 선택된 곡
@@ -71,8 +71,24 @@ object GameDataManager {
      */
     fun updateGameProgress(currentTime: Float) {
         _gameProgress.value?.let { currentProgress ->
-            _gameProgress.value = currentProgress.copy(currentTime = currentTime)
+            val currentSectionIndex = findCurrentSectionIndex(currentProgress.sections, currentTime)
+            _gameProgress.value = currentProgress.copy(
+                currentTime = currentTime,
+                currentSectionIndex = currentSectionIndex
+            )
         }
+    }
+    
+    /**
+     * 현재 시간에 해당하는 섹션 인덱스 찾기
+     */
+    private fun findCurrentSectionIndex(sections: List<SongSection>, currentTime: Float): Int {
+        for (i in sections.indices.reversed()) {
+            if (currentTime >= sections[i].startTime) {
+                return i
+            }
+        }
+        return 0
     }
     
     /**
@@ -101,14 +117,27 @@ object GameDataManager {
     }
     
     /**
-     * 시간 문자열을 초로 변환 ("3:14" -> 194)
+     * 시간 문자열을 초로 변환 ("3:14" -> 194, "00:03:14" -> 194)
      */
     private fun parseDurationToSeconds(durationText: String): Float {
         return try {
             val parts = durationText.split(":")
-            val minutes = parts[0].toInt()
-            val seconds = parts[1].toInt()
-            (minutes * 60 + seconds).toFloat()
+            when (parts.size) {
+                2 -> {
+                    // MM:SS 형식
+                    val minutes = parts[0].toInt()
+                    val seconds = parts[1].toInt()
+                    (minutes * 60 + seconds).toFloat()
+                }
+                3 -> {
+                    // HH:MM:SS 형식
+                    val hours = parts[0].toInt()
+                    val minutes = parts[1].toInt()
+                    val seconds = parts[2].toInt()
+                    (hours * 3600 + minutes * 60 + seconds).toFloat()
+                }
+                else -> 180f // 기본값
+            }
         } catch (e: Exception) {
             180f // 기본값
         }
@@ -139,9 +168,9 @@ object GameDataManager {
      * 음악 URL 가져오기 (ExoPlayer용)
      */
     suspend fun getMusicUrl(songId: String): String? {
-        return if (apiService is RealApiService) {
+        return try {
             apiService.getMusicUrl(songId)
-        } else {
+        } catch (e: Exception) {
             null
         }
     }

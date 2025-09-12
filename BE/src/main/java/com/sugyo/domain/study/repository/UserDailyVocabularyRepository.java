@@ -15,10 +15,6 @@ public interface UserDailyVocabularyRepository extends JpaRepository<UserDailyVo
     
     List<UserDailyVocabulary> findByUserId(Long userId);
     
-    Optional<UserDailyVocabulary> findByUserIdAndDailyId(Long userId, Long dailyId);
-    
-    boolean existsByUserIdAndDailyId(Long userId, Long dailyId);
-
     @Query("SELECT new com.sugyo.domain.study.dto.response.DayProgressDto(d.id, d.day, u.correctCount, d.totalCount) " +
             "FROM Daily d " +
             "LEFT JOIN UserDailyVocabulary u ON d.id = u.daily.id AND u.user.id = :userId " +

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -30,5 +31,7 @@ public class RhythmGameRank {
     private Integer score;
     
     @Column(name = "record_time", nullable = false)
+    @CreationTimestamp
     private LocalDateTime recordTime;
 }
+

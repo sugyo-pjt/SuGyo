@@ -4,6 +4,7 @@ import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
+import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
 import com.sugyo.domain.game.service.RhythmGameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -183,5 +184,93 @@ public class RhythmGameController {
     public ResponseEntity<?> getMusicChart(@PathVariable Long musicId) {
         List<MusicChartResponseDto> chartData = rhythmGameService.getMusicChart(musicId);
         return ResponseEntity.ok(chartData);
+    }
+
+    @Operation(
+            summary = "곡별 랭킹 조회",
+            description = "JWT 토큰을 통해 사용자 인증 후 특정 곡의 상위 5명 랭킹과 내 랭킹 정보를 조회합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "곡별 랭킹 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시",
+                                            value =
+                                            """
+                                            {
+                                              "musicId": 123,
+                                              "musicTitle": "Hello Rhythm",
+                                              "ranking": [
+                                                {
+                                                  "rank": 1,
+                                                  "userId": 42,
+                                                  "userNickName": "Alice",
+                                                  "userProfileUrl": "https://example.com/alice.jpg",
+                                                  "score": 98000,
+                                                  "recordDate": "2025-09-12T10:30:00"
+                                                }
+                                              ],
+                                              "myInfo": {
+                                                "rank": 2,
+                                                "score": 96000,
+                                                "recordDate": "2025-09-12T11:00:00"
+                                              }
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 401,
+                                              "code": "AUTH-401-01",
+                                              "message": "인증에 실패했습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "곡을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @GetMapping("/rank/{musicId}")
+    public ResponseEntity<MusicRankingResponseDto> getMusicRanking(
+            @PathVariable Long musicId, 
+            @AuthenticationPrincipal CustomUserDetails user) {
+        MusicRankingResponseDto rankingData = rhythmGameService.getMusicRanking(musicId, user.getId());
+        return ResponseEntity.ok(rankingData);
     }
 }

@@ -16,6 +16,7 @@ import com.ssafy.a602.game.GameScreen
 import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.login.LoginScreen
+import com.ssafy.a602.signup.SignUpScreen
 @Composable
 fun NavGraph(
     navController: NavHostController, // 화면 전환 컨트롤러
@@ -40,7 +41,26 @@ fun NavGraph(
                     }
                 },
                 onForgot = { /* navController.navigate("forgot") 등 필요 시 구현 */ },
-                onSignup = { /* navController.navigate("signup") 등 필요 시 구현 */ }
+                onSignup = { navController.navigate(Screen.Signup.route) }
+            )
+        }
+
+        /* ---------- Signup ---------- */
+        composable(Screen.Signup.route) {
+            SignUpScreen(
+                onBack = { navController.popBackStack() },
+                onPickProfile = { /* 프로필 이미지 선택 로직 */ },
+                onOpenTerms = { /* 이용약관 화면으로 이동 */ },
+                onOpenPrivacy = { /* 개인정보처리방침 화면으로 이동 */ },
+                onSubmit = { email, nickname, password, photo ->
+                    // TODO: 실제 회원가입 로직
+                    // 회원가입 성공 시 로그인 화면으로 이동
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Signup.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                onLogin = { navController.popBackStack() }
             )
         }
 

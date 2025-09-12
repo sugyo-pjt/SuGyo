@@ -110,7 +110,8 @@ fun SignUpScreen(
     onPickProfile: () -> Unit = {},
     onOpenTerms: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
-    onSubmit: (email: String, nickname: String, password: String, photo: Uri?) -> Unit = {_,_,_,_ ->}
+    onSubmit: (email: String, nickname: String, password: String, photo: Uri?) -> Unit = {_,_,_,_ ->},
+    onLogin: () -> Unit = {}
 ) {
     // state
     var email by rememberSaveable { mutableStateOf("") }
@@ -143,7 +144,6 @@ fun SignUpScreen(
         Modifier
             .fillMaxSize()
             .background(BgGradient)
-            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Column(
             Modifier
@@ -317,7 +317,7 @@ fun SignUpScreen(
                 Text(
                     "로그인",
                     color = LinkBlue,
-                    modifier = Modifier.clickable { /* go login */ },
+                    modifier = Modifier.clickable { onLogin() },
                     fontSize = 14.sp
                 )
             }
@@ -467,7 +467,8 @@ private fun SignUpScreenWithState(
     onPickProfile: () -> Unit = {},
     onOpenTerms: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
-    onSubmit: (email: String, nickname: String, password: String, photo: Uri?) -> Unit = { _,_,_,_ -> }
+    onSubmit: (email: String, nickname: String, password: String, photo: Uri?) -> Unit = { _,_,_,_ -> },
+    onLogin: () -> Unit = {}
 ) {
     // 상태
     var emailState by remember { mutableStateOf(email) }
@@ -500,7 +501,6 @@ private fun SignUpScreenWithState(
         Modifier
             .fillMaxSize()
             .background(BgGradient)
-            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Column(
             Modifier
@@ -675,7 +675,7 @@ private fun SignUpScreenWithState(
                 Text(
                     "로그인",
                     color = LinkBlue,
-                    modifier = Modifier.clickable { /* go login */ },
+                    modifier = Modifier.clickable { onLogin() },
                     fontSize = 14.sp
                 )
             }

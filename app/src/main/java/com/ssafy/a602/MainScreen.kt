@@ -33,6 +33,7 @@ fun MainScreen() {
     val showBottomBar = when (currentRoute) {
         "home" -> false
         "login" -> false
+        "signup" -> false
         null -> false
         else -> true  // 다른 모든 화면에서는 네비게이션 바 표시
     }

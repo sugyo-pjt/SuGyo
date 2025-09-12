@@ -15,8 +15,32 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object GameDataManager {
     
-    // API 서비스 (실제 API 연동)
-    private val apiService: GameApiService = RealApiService()
+    // API 서비스들
+    private val realApiService: GameApiService = RealApiService()
+    private val dummyApiService: GameApiService = DummyApiService()
+    
+    // 더미 모드 활성화 여부 (개발/테스트용)
+    private var isDummyMode = false // 기본값을 실제 API로 설정
+    
+    /**
+     * 현재 활성화된 API 서비스 반환
+     */
+    private fun getCurrentApiService(): GameApiService {
+        return if (isDummyMode) dummyApiService else realApiService
+    }
+    
+    /**
+     * 더미 모드 전환 (개발/테스트용)
+     */
+    fun setDummyMode(enabled: Boolean) {
+        isDummyMode = enabled
+        android.util.Log.d("GameDataManager", "API 모드: ${if (enabled) "더미 모드" else "실제 API 모드"}")
+    }
+    
+    /**
+     * 현재 더미 모드 상태 확인
+     */
+    fun isDummyModeEnabled(): Boolean = isDummyMode
     
     // 현재 선택된 곡
     private val _currentSong = MutableStateFlow<SongItem?>(null)
@@ -71,8 +95,24 @@ object GameDataManager {
      */
     fun updateGameProgress(currentTime: Float) {
         _gameProgress.value?.let { currentProgress ->
-            _gameProgress.value = currentProgress.copy(currentTime = currentTime)
+            val currentSectionIndex = findCurrentSectionIndex(currentProgress.sections, currentTime)
+            _gameProgress.value = currentProgress.copy(
+                currentTime = currentTime,
+                currentSectionIndex = currentSectionIndex
+            )
         }
+    }
+    
+    /**
+     * 현재 시간에 해당하는 섹션 인덱스 찾기
+     */
+    private fun findCurrentSectionIndex(sections: List<SongSection>, currentTime: Float): Int {
+        for (i in sections.indices.reversed()) {
+            if (currentTime >= sections[i].startTime) {
+                return i
+            }
+        }
+        return 0
     }
     
     /**
@@ -97,18 +137,31 @@ object GameDataManager {
      * 소절 데이터 생성 (API 서비스 사용)
      */
     private suspend fun createSections(song: SongItem): List<SongSection> {
-        return apiService.getSongSections(song.id)
+        return getCurrentApiService().getSongSections(song.id)
     }
     
     /**
-     * 시간 문자열을 초로 변환 ("3:14" -> 194)
+     * 시간 문자열을 초로 변환 ("3:14" -> 194, "00:03:14" -> 194)
      */
     private fun parseDurationToSeconds(durationText: String): Float {
         return try {
             val parts = durationText.split(":")
-            val minutes = parts[0].toInt()
-            val seconds = parts[1].toInt()
-            (minutes * 60 + seconds).toFloat()
+            when (parts.size) {
+                2 -> {
+                    // MM:SS 형식
+                    val minutes = parts[0].toInt()
+                    val seconds = parts[1].toInt()
+                    (minutes * 60 + seconds).toFloat()
+                }
+                3 -> {
+                    // HH:MM:SS 형식
+                    val hours = parts[0].toInt()
+                    val minutes = parts[1].toInt()
+                    val seconds = parts[2].toInt()
+                    (hours * 3600 + minutes * 60 + seconds).toFloat()
+                }
+                else -> 180f // 기본값
+            }
         } catch (e: Exception) {
             180f // 기본값
         }
@@ -118,30 +171,30 @@ object GameDataManager {
      * 현재 곡의 소절 정보 가져오기
      */
     suspend fun getSongSections(songId: String): List<SongSection> {
-        return apiService.getSongSections(songId)
+        return getCurrentApiService().getSongSections(songId)
     }
     
     /**
      * 곡 목록 가져오기
      */
     suspend fun getSongs(): List<SongItem> {
-        return apiService.getSongs()
+        return getCurrentApiService().getSongs()
     }
     
     /**
      * 곡 검색
      */
     suspend fun searchSongs(query: String): List<SongItem> {
-        return apiService.searchSongs(query)
+        return getCurrentApiService().searchSongs(query)
     }
     
     /**
      * 음악 URL 가져오기 (ExoPlayer용)
      */
     suspend fun getMusicUrl(songId: String): String? {
-        return if (apiService is RealApiService) {
-            apiService.getMusicUrl(songId)
-        } else {
+        return try {
+            getCurrentApiService().getMusicUrl(songId)
+        } catch (e: Exception) {
             null
         }
     }
@@ -176,7 +229,7 @@ object GameDataManager {
         val song = getSongById(songId) ?: throw IllegalArgumentException("Song not found: $songId")
         
         // 백엔드에서 계산된 결과를 받아와서 사용
-        return apiService.calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
+        return getCurrentApiService().calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
     }
     
     /**
@@ -209,7 +262,7 @@ object GameDataManager {
      * 신기록 여부 확인
      */
     private suspend fun checkNewRecord(songId: String, score: Int): Boolean {
-        val bestScore = apiService.getUserBestScore(songId)
+        val bestScore = getCurrentApiService().getUserBestScore(songId)
         return bestScore == null || score > bestScore
     }
     
@@ -217,20 +270,49 @@ object GameDataManager {
      * 특정 곡의 순위 목록 가져오기
      */
     suspend fun getRankings(songId: String): List<RankingItem> {
-        return apiService.getRankings(songId)
+        return getCurrentApiService().getRankings(songId)
     }
     
     /**
      * 특정 곡의 Top 3 순위 가져오기
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem> {
-        return apiService.getTop3Rankings(songId)
+        return getCurrentApiService().getTop3Rankings(songId)
     }
     
     /**
      * 내 순위 가져오기
      */
     suspend fun getMyRanking(songId: String): RankingItem? {
-        return apiService.getMyRanking(songId)
+        return getCurrentApiService().getMyRanking(songId)
+    }
+    
+    /**
+     * 개발/테스트용 유틸리티 함수들
+     */
+    object DevUtils {
+        /**
+         * 더미 모드로 전환 (개발/테스트용)
+         */
+        fun enableDummyMode() {
+            setDummyMode(true)
+            android.util.Log.d("GameDataManager", "🔧 개발 모드: 더미 데이터 사용")
+        }
+        
+        /**
+         * 실제 API 모드로 전환 (운영용)
+         */
+        fun enableRealApiMode() {
+            setDummyMode(false)
+            android.util.Log.d("GameDataManager", "🚀 운영 모드: 실제 API 사용")
+        }
+        
+        /**
+         * 현재 모드 상태 출력
+         */
+        fun printCurrentMode() {
+            val mode = if (isDummyModeEnabled()) "더미 모드" else "실제 API 모드"
+            android.util.Log.d("GameDataManager", "현재 모드: $mode")
+        }
     }
 }

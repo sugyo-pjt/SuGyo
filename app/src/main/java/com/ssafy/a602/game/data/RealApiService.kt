@@ -1,5 +1,6 @@
 package com.ssafy.a602.game.data
 
+import android.util.Log
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.SongSection
@@ -30,7 +31,8 @@ class RealApiService : GameApiService {
     // TODO: 실제 인증 토큰 관리 로직 구현
     private fun getAuthToken(): String {
         // 실제로는 SharedPreferences나 다른 저장소에서 토큰을 가져와야 함
-        return "Bearer your_access_token_here"
+        // 현재는 테스트용 토큰 사용 (실제 배포 시에는 적절한 토큰 관리 로직 필요)
+        return "Bearer test_token_for_development"
     }
     
     override suspend fun getSongs(): List<SongItem> {
@@ -69,23 +71,45 @@ class RealApiService : GameApiService {
     
     override suspend fun getSongSections(songId: String): List<SongSection> {
         return try {
+            Log.d("RealApiService", "가사 및 채보 다운로드 시작: music_id=$songId")
             val chartSegments = rhythmApi.getChart(getAuthToken(), songId.toLong())
-            chartSegments.map { segment ->
+            Log.d("RealApiService", "API 응답 받음: ${chartSegments.size}개 섹션")
+            
+            val songSections = chartSegments.map { segment ->
+                val startTime = parseTimeToSeconds(segment.barStartedAt)
+                val endTime = startTime + calculateSegmentDuration(segment)
+                
+                Log.d("RealApiService", "섹션 ${segment.segment}: '$segment.lyrics' (${segment.correct.size}개 정답 정보)")
+                
                 SongSection(
                     id = segment.segment.toString(),
                     songId = songId,
-                    startTime = parseTimeToSeconds(segment.barStartedAt),
-                    endTime = parseTimeToSeconds(segment.barStartedAt) + calculateSegmentDuration(segment),
-                    text = segment.lyrics
+                    startTime = startTime,
+                    endTime = endTime,
+                    text = segment.lyrics,
+                    correctInfo = segment.correct // ChartCorrect 정보 포함
                 )
             }
+            
+            Log.d("RealApiService", "SongSection 변환 완료: ${songSections.size}개")
+            songSections
         } catch (e: HttpException) {
-            handleHttpException(e)
-            emptyList()
+            when (e.code()) {
+                404 -> {
+                    Log.e("RealApiService", "곡을 찾을 수 없습니다: music_id=$songId")
+                    throw RuntimeException("요청한 리소스를 찾을 수 없습니다.", e)
+                }
+                else -> {
+                    handleHttpException(e)
+                    emptyList()
+                }
+            }
         } catch (e: IOException) {
+            Log.e("RealApiService", "네트워크 오류: ${e.message}")
             handleNetworkException(e)
             emptyList()
         } catch (e: Exception) {
+            Log.e("RealApiService", "예상치 못한 오류: ${e.message}")
             handleGenericException(e)
             emptyList()
         }

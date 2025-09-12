@@ -40,22 +40,16 @@ fun MainScreen(
     val showBottomBar = when (currentRoute) {
         "login" -> false
         "home" -> false
+        "signup" -> false
         null -> false
         else -> !(currentRoute?.startsWith("game_preparation") == true ||
                 currentRoute?.startsWith("game_play") == true ||
                 currentRoute?.startsWith("game_result") == true ||
                 currentRoute?.startsWith("game_ranking") == true)
-
-    // 로그인과 홈 화면에서는 네비게이션 바 숨김
-    val showBottomBar = when (currentRoute) {
-        "home" -> false
-        "login" -> false
-        "signup" -> false
-        null -> false
-        else -> true  // 다른 모든 화면에서는 네비게이션 바 표시
     }
+
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
-    val onTabSelected = { tab: BottomTab ->
+    val onTabSelected: (BottomTab) -> Unit = { tab ->
         val route = when (tab) {
             BottomTab.SEARCH -> "search"
             BottomTab.LEARNING -> "learning"

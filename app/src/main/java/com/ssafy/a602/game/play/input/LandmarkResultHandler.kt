@@ -5,7 +5,7 @@ import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 
 class LandmarkResultHandler(
-    private val buffer: LandmarkBuffer3s,
+    private val buffer: DynamicLandmarkBuffer,
     private val mirrorCompensation: Boolean = false // 전면 미러링 입력으로 추론했다면 true
 ) {
     private var currentPoseResult: PoseLandmarkerResult? = null

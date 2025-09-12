@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ssafy.a602.game.songs.SongsViewModel
 import com.ssafy.a602.game.data.GameDataManager
-import com.ssafy.a602.game.data.FakeSongs
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.PermissionManager
 
@@ -232,7 +231,8 @@ private fun SongsScreenPreview() {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    items(FakeSongs.items) { SongCard(it) }
+                    // Preview에서는 빈 리스트 사용 (실제 데이터는 SongsViewModel에서 가져옴)
+                    items(emptyList<SongItem>()) { SongCard(it) }
                 }
             }
         }

@@ -6,4 +6,14 @@ data class FramePack(
     val pose: List<LM>,   // pose 0..22 (23)
     val left: List<LM>,   // left hand 0..20 (21)
     val right: List<LM>   // right hand 0..20 (21)
-)
+) {
+    // 전송용 FramePack (tsMs 제외)
+    @kotlinx.serialization.Serializable
+    data class UploadFrame(
+        val pose: List<LM>,
+        val left: List<LM>,
+        val right: List<LM>
+    )
+    
+    fun toUploadFrame(): UploadFrame = UploadFrame(pose, left, right)
+}

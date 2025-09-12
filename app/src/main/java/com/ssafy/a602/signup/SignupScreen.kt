@@ -13,6 +13,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AlternateEmail
@@ -59,8 +64,8 @@ private val FieldBorder = Color(0x00FFFFFF)
 private val LabelColor = Color(0xFF4A4A55)
 private val Subtle = Color(0xFF7C7C88)
 private val LinkBlue = Color(0xFF6E7BFF)
-private val Primary = Color(0xFF9B5CFF)
-private val PrimaryDark = Color(0xFF7D42F7)
+private val Primary = Color(0xFF8A2BE2)  // BlueViolet - 더 자주색에 가까운 색상
+private val PrimaryDark = Color(0xFF6A1B9A)  // 더 진한 자주색
 private val DisabledGrad = Brush.horizontalGradient(listOf(Color(0xFFE8DAFF), Color(0xFFE8DAFF)))
 private val EnabledGrad = Brush.horizontalGradient(listOf(Primary, PrimaryDark))
 
@@ -125,23 +130,27 @@ fun SignUpScreen(
     }
 
     // validation (목업엔 메시지 노출 최소화)
-    val emailOk = email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
+    val emailOk = email.isNotBlank() && email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
+    val nicknameOk = nickname.trim().length >= 2
     val pwOk = pw.length >= 8 &&
-        listOf(Regex(".*[A-Za-z].*"), Regex(".*\\d.*"), Regex(".*[^A-Za-z0-9].*"))
-            .count { it.containsMatchIn(pw) } >= 2
+        pw.any { it.isDigit() } &&
+        pw.any { it.isLetter() } &&
+        pw.any { !it.isLetterOrDigit() }
     val pwMatch = pw.isNotEmpty() && pw == pw2
-    val canSubmit = emailOk && nickname.isNotBlank() && pwOk && pwMatch && agree
+    val canSubmit = emailOk && nicknameOk && pwOk && pwMatch && agree
 
     Box(
         Modifier
             .fillMaxSize()
             .background(BgGradient)
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 22.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
             // 상단바 영역
             Row(
@@ -296,21 +305,23 @@ fun SignUpScreen(
             )
 
             Spacer(Modifier.height(14.dp))
-            Text(
-                "이미 계정이 있으신가요?  ",
-                color = Subtle,
-                modifier = Modifier.fillMaxWidth().clickable { /* go login */ },
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
                 Text(
-                "로그인",
-                color = LinkBlue,
-                modifier = Modifier.fillMaxWidth().clickable { /* go login */ },
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
-            )
-            Spacer(Modifier.height(10.dp))
+                    "이미 계정이 있으신가요? ",
+                    color = Subtle,
+                    fontSize = 14.sp
+                )
+                Text(
+                    "로그인",
+                    color = LinkBlue,
+                    modifier = Modifier.clickable { /* go login */ },
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -476,23 +487,27 @@ private fun SignUpScreenWithState(
     }
 
     // validation
-    val emailOk = emailState.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
+    val emailOk = emailState.isNotBlank() && emailState.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
+    val nicknameOk = nicknameState.trim().length >= 2
     val pwOk = passwordState.length >= 8 &&
-        listOf(Regex(".*[A-Za-z].*"), Regex(".*\\d.*"), Regex(".*[^A-Za-z0-9].*"))
-            .count { it.containsMatchIn(passwordState) } >= 2
+        passwordState.any { it.isDigit() } &&
+        passwordState.any { it.isLetter() } &&
+        passwordState.any { !it.isLetterOrDigit() }
     val pwMatch = passwordState.isNotEmpty() && passwordState == password2State
-    val canSubmit = emailOk && nicknameState.isNotBlank() && pwOk && pwMatch && agreeState
+    val canSubmit = emailOk && nicknameOk && pwOk && pwMatch && agreeState
 
     Box(
         Modifier
             .fillMaxSize()
             .background(BgGradient)
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 22.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
             // 상단바 영역
             Row(
@@ -648,14 +663,23 @@ private fun SignUpScreenWithState(
             )
 
             Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
                 Text(
-                "이미 계정이 있으신가요?  로그인",
-                color = LinkBlue,
-                modifier = Modifier.fillMaxWidth().clickable { /* go login */ },
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
-            )
-            Spacer(Modifier.height(10.dp))
+                    "이미 계정이 있으신가요? ",
+                    color = Subtle,
+                    fontSize = 14.sp
+                )
+                Text(
+                    "로그인",
+                    color = LinkBlue,
+                    modifier = Modifier.clickable { /* go login */ },
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

@@ -105,6 +105,17 @@ CREATE TABLE `daily_vocabulary` (
 	CONSTRAINT FK_vocabulary_TO_daily_vocabulary FOREIGN KEY (vocabulary_id) REFERENCES vocabulary(id)
 );
 
+CREATE TABLE `rhythm_game_rank` (
+	`id`	BIGINT	NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	`music_id`	BIGINT	NOT NULL,
+	`user_id`	BIGINT	NOT NULL,
+	`score`	INT	NOT NULL,
+	`record_time`	TIMESTAMP	NOT NULL,
+	CONSTRAINT FK_music_TO_rank FOREIGN KEY (music_id) REFERENCES music(id),
+	CONSTRAINT FK_user_TO_rank FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+
 INSERT INTO users (id,email,nickname,password,profile_image_url,created_at,updated_at,self_introduction) VALUES (
     1,
     'user@example.com',
@@ -191,3 +202,9 @@ INSERT INTO daily_vocabulary (daily_id, vocabulary_id) VALUES
 INSERT INTO user_daily_vocabulary (user_id, daily_id, correct_count) VALUES
 (1, 1, 6),  -- day1
 (1, 2, 10);  -- day2
+
+INSERT INTO rhythm_game_rank (music_id,user_id,score,record_time) VALUES
+(1,1,1150,now());
+
+INSERT INTO music (id, title, singer, song_time, album_image_url,song_url ) VALUES
+(2, 'Way Back Home', '몰라', '00:01:00', NULL,'none');

@@ -8,7 +8,9 @@ import com.sugyo.domain.game.entity.Music;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
+import com.sugyo.domain.game.dto.response.MusicWithScoreDto;
 import com.sugyo.domain.game.repository.MusicRepository;
+import com.sugyo.domain.game.repository.RankRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,22 +25,41 @@ public class RhythmGameService {
 
     private final MusicRepository musicRepository;
     private final ObjectStorageRepository objectStorageRepository;
+    private final RankRepository rankRepository;
+
+//    @Transactional
+//    public List<MusicListResponseDto> getAllMusic() {
+//        List<Music> musicList = musicRepository.findAll();
+//        return musicList.stream()
+//                .map(music -> {
+//                    String imageUrl = objectStorageRepository.getDownloadUrl(music.getAlbumImageUrl());
+//                    return MusicListResponseDto.builder()
+//                            .id(music.getId())
+//                            .title(music.getTitle())
+//                            .singer(music.getSinger())
+//                            .songTime(music.getSongTime())
+//                            .albumImageUrl(imageUrl)
+//                            .build();
+//                })
+//            .toList();
+//    }
 
     @Transactional
-    public List<MusicListResponseDto> getAllMusic() {
-        List<Music> musicList = musicRepository.findAll();
-        return musicList.stream()
-                .map(music -> {
-                    String imageUrl = objectStorageRepository.getDownloadUrl(music.getAlbumImageUrl());
+    public List<MusicListResponseDto> getAllMusicWithScore(Long userId) {
+        List<MusicWithScoreDto> musicListWithScore = musicRepository.findAllMusicWithUserScore(userId);
+        return musicListWithScore.stream()
+                .map(musicWithScore -> {
+                    String imageUrl = objectStorageRepository.getDownloadUrl(musicWithScore.getAlbumImageUrl());
                     return MusicListResponseDto.builder()
-                            .id(music.getId())
-                            .title(music.getTitle())
-                            .singer(music.getSinger())
-                            .songTime(music.getSongTime())
-                            .albumImageUrl(imageUrl)
+                            .id(musicWithScore.getId())
+                            .title(musicWithScore.getTitle())
+                            .singer(musicWithScore.getSinger())
+                            .songTime(musicWithScore.getSongTime())
+                            .albumImageUrl(musicWithScore.getAlbumImageUrl() !=null ? imageUrl : null)
+                            .myScore(musicWithScore.getMyScore() != null ? musicWithScore.getMyScore().longValue() : null)
                             .build();
                 })
-            .toList();
+                .toList();
     }
 
     @Transactional

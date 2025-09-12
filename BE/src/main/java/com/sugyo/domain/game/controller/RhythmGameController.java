@@ -1,5 +1,6 @@
 package com.sugyo.domain.game.controller;
 
+import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -65,7 +67,7 @@ public class RhythmGameController {
 
     @Operation(
             summary = "곡 목록 조회",
-            description = "등록된 모든 곡의 목록을 조회합니다."
+            description = "JWT 토큰을 통해 사용자 인증 후 등록된 모든 곡의 목록과 사용자의 최고 점수를 조회합니다."
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -92,11 +94,31 @@ public class RhythmGameController {
                                     )
                             }
                     )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 401,
+                                              "code": "AUTH-401-01",
+                                              "message": "인증에 실패했습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
             )
     })
     @GetMapping("/music/list")
-    public ResponseEntity<?> getAllMusic() {
-        List<MusicListResponseDto> musicList = rhythmGameService.getAllMusic();
+    public ResponseEntity<?> getAllMusic(@AuthenticationPrincipal CustomUserDetails user) {
+        List<MusicListResponseDto> musicList = rhythmGameService.getAllMusicWithScore(user.getId());
         return ResponseEntity.ok((musicList));
     }
 

@@ -13,12 +13,15 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+
       <SelectionState runConfigName="SongsScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+
       <SelectionState runConfigName="GamePlayScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
       </SelectionState>
+
       <SelectionState runConfigName="GameResultScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2025-09-08T07:47:07.973308200Z">
@@ -30,6 +33,12 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+
+      <!-- 두 분기 모두 유지 -->
+      <SelectionState runConfigName="PreviewSignUpScreenDefault - 기본 상태">
+        <option name="selectionMode" value="DROPDOWN" />
+      </SelectionState>
+
       <SelectionState runConfigName="GameRankingScreenPreview">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2025-09-09T04:00:34.702617600Z">
@@ -41,6 +50,7 @@
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
+
     </selectionStates>
   </component>
 </project>

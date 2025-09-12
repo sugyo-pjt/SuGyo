@@ -93,8 +93,8 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.4.0")
     implementation("androidx.camera:camera-lifecycle:1.4.0")
     implementation("androidx.camera:camera-view:1.4.0")// Preview
-    // 이미지
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    // Coil for image loading
+    implementation(libs.coil.compose)
 
     // ExoPlayer
     implementation("androidx.media3:media3-exoplayer:1.8.0")
@@ -113,5 +113,4 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
 }

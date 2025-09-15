@@ -20,4 +20,7 @@ public interface RankRepository extends JpaRepository<RhythmGameRank, Long> {
 
     @Query("SELECT COUNT(r2) + 1 FROM RhythmGameRank r2 WHERE r2.music.id = :musicId AND r2.score > :score")
     Integer findRankByMusicIdAndScore(@Param("musicId") Long musicId, @Param("score") Integer score);
+
+    @Query("SELECT r FROM RhythmGameRank r WHERE r.music.id = :musicId AND r.user.id = :userId")
+    Optional<RhythmGameRank> findByMusicIdAndUserId(@Param("musicId") Long musicId, @Param("userId") Long userId);
 }

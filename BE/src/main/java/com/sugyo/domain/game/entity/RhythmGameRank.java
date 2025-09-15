@@ -2,9 +2,7 @@ package com.sugyo.domain.game.entity;
 
 import com.sugyo.domain.user.domain.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -13,7 +11,9 @@ import java.time.LocalDateTime;
 @Table(name = "rhythm_game_rank")
 @Getter
 @Setter
+@AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class RhythmGameRank {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

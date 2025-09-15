@@ -5,6 +5,9 @@ import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
 import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
+import com.sugyo.domain.game.dto.request.GameResultRequestDto;
+import com.sugyo.domain.game.dto.response.GameResultResponseDto;
+import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
 import com.sugyo.domain.game.service.RhythmGameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -272,5 +275,155 @@ public class RhythmGameController {
             @AuthenticationPrincipal CustomUserDetails user) {
         MusicRankingResponseDto rankingData = rhythmGameService.getMusicRanking(musicId, user.getId());
         return ResponseEntity.ok(rankingData);
+    }
+
+    @Operation(
+            summary = "게임 결과 저장",
+            description = "JWT 토큰을 통해 사용자 인증 후 게임 결과를 저장합니다. 기존 기록이 없으면 새로 생성하고, 있으면 최고 점수인지 확인 후 업데이트합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "게임 결과 저장 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시 - 최고 기록",
+                                            value =
+                                            """
+                                            {
+                                              "musicId": 1,
+                                              "isBestRecord": true
+                                            }
+                                            """
+                                    ),
+                                    @ExampleObject(
+                                            name = "성공 예시 - 기존 기록보다 낮음",
+                                            value =
+                                            """
+                                            {
+                                              "musicId": 1,
+                                              "isBestRecord": false
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 401,
+                                              "code": "AUTH-401-01",
+                                              "message": "인증에 실패했습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "곡을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @PostMapping("/complete")
+    public ResponseEntity<GameResultResponseDto> saveGameResult(
+            @RequestBody GameResultRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        GameResultResponseDto result = rhythmGameService.saveGameResult(request, user.getId());
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(
+            summary = "게임 플레이 데이터 처리",
+            description = "JWT 토큰을 통해 사용자 인증 후 게임 플레이 중 발생하는 데이터를 처리합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "게임 플레이 데이터 처리 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시",
+                                            value = "\"OK\""
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 401,
+                                              "code": "AUTH-401-01",
+                                              "message": "인증에 실패했습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "곡을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @PostMapping("/play")
+    public ResponseEntity<String> processGamePlay(
+            @RequestBody GamePlayRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        rhythmGameService.processGamePlay(request, user.getId());
+        return ResponseEntity.ok("OK");
     }
 }

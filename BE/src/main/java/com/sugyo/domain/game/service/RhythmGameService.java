@@ -13,13 +13,19 @@ import com.sugyo.domain.game.dto.response.MusicWithScoreDto;
 import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
 import com.sugyo.domain.game.dto.response.RankingUserDto;
 import com.sugyo.domain.game.dto.response.MyRankInfoDto;
+import com.sugyo.domain.game.dto.request.GameResultRequestDto;
+import com.sugyo.domain.game.dto.response.GameResultResponseDto;
+import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
 import com.sugyo.domain.game.repository.MusicRepository;
 import com.sugyo.domain.game.repository.RankRepository;
+import com.sugyo.domain.user.repository.UserRepository;
+import com.sugyo.domain.user.domain.User;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,6 +38,7 @@ public class RhythmGameService {
     private final MusicRepository musicRepository;
     private final ObjectStorageRepository objectStorageRepository;
     private final RankRepository rankRepository;
+    private final UserRepository userRepository;
 
 //    @Transactional
 //    public List<MusicListResponseDto> getAllMusic() {
@@ -158,6 +165,59 @@ public class RhythmGameService {
                 .ranking(ranking)
                 .myInfo(myInfo)
                 .build();
+    }
+
+    @Transactional
+    public GameResultResponseDto saveGameResult(GameResultRequestDto request, Long userId) {
+        if (userId == null) {
+            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
+        }
+
+        // 음악 존재 확인
+        Music music = musicRepository.findById(request.getMusicId())
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+
+        // 사용자 존재 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+
+        // 기존 기록 조회
+        Optional<RhythmGameRank> existingRank = rankRepository.findByMusicIdAndUserId(request.getMusicId(), userId);
+
+        boolean isBestRecord = false;
+
+        if (existingRank.isPresent()) {
+            // 기존 기록이 있는 경우 - 최고 점수인지 확인
+            RhythmGameRank currentRank = existingRank.get();
+            if (request.getScore() > currentRank.getScore()) {
+                // 최고 기록 갱신
+                currentRank.setScore(request.getScore());
+                currentRank.setRecordTime(LocalDateTime.now());
+                rankRepository.save(currentRank);
+                isBestRecord = true;
+            }
+        } else {
+            // 기존 기록이 없는 경우 - 새로운 기록 생성
+            RhythmGameRank newRank = RhythmGameRank.builder()
+                    .music(music)
+                    .user(user)
+                    .score(request.getScore())
+                    .build();
+            rankRepository.save(newRank);
+            isBestRecord = true;
+        }
+
+        return GameResultResponseDto.builder()
+                .musicId(request.getMusicId())
+                .isBestRecord(isBestRecord)
+                .build();
+    }
+
+    public void processGamePlay(GamePlayRequestDto request, Long userId) {
+        if (userId == null) {
+            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
+        }
+
     }
 
 }

@@ -201,7 +201,8 @@ fun GamePlayScreen(
                     actionEndMs = actionEndTime,
                     segment = currentSection.id.toInt(),
                     correctStartedIndex = correctInfo.correctStartedIndex,
-                    correctEndedIndex = correctInfo.correctEndedIndex
+                    correctEndedIndex = correctInfo.correctEndedIndex,
+                    musicId = songId.toInt()
                 )
                 
                 // 수어 타이밍 시작 시 버퍼 상태 로그

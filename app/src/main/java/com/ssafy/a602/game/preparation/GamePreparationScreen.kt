@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlin.OptIn
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -56,7 +57,7 @@ import com.ssafy.a602.game.preparation.GamePreparationState
 import com.ssafy.a602.game.preparation.ResourceLoadingState
 import com.ssafy.a602.game.GameTheme
 
-@ExperimentalMirrorMode
+@OptIn(ExperimentalMirrorMode::class)
 @Composable
 fun GamePreparationScreen(
     song: SongItem,
@@ -542,7 +543,7 @@ private fun ErrorContent(
     }
 }
 
-@ExperimentalMirrorMode
+@OptIn(ExperimentalMirrorMode::class)
 @Preview(showBackground = true, widthDp = 360, heightDp = 800, backgroundColor = 0xFF0D1118)
 @Composable
 private fun GamePreparationScreenPreview() {

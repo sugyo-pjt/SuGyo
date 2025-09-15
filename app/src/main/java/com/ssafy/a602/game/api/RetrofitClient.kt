@@ -14,7 +14,8 @@ import java.util.concurrent.TimeUnit
  */
 object RetrofitClient {
 
-    private const val BASE_URL = "https://j13a602.p.ssafy.io"
+    private const val BASE_URL =
+            "http://70.12.246.177:8080"
     
     private val gson: Gson by lazy {
         GsonBuilder()

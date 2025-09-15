@@ -43,6 +43,7 @@ import com.ssafy.a602.game.play.input.WordWindowUploader
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.time.TimelineTick
 import com.ssafy.a602.game.time.TimelineViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /* ========== Utility Functions ========== */
 
@@ -55,8 +56,6 @@ private fun parseTimeToSeconds(timeString: String): Float = try {
     (hours * 3600 + minutes * 60 + secondsWithMs)
 } catch (_: Exception) { 0f }
 
-@ExperimentalMirrorMode
-@ExperimentalGetImage
 @OptIn(ExperimentalMirrorMode::class, ExperimentalGetImage::class)
 @Composable
 fun GamePlayScreen(
@@ -67,9 +66,14 @@ fun GamePlayScreen(
     onGameQuit: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onFrame: ((ImageProxy) -> Unit)? = null,
-    judgmentResult: JudgmentResult? = null
+    judgmentResult: JudgmentResult? = null,
+    gamePlayViewModel: GamePlayViewModel? = null
 ) {
     val context = LocalContext.current
+
+    // GamePlayViewModel 상태
+    val gameUi by (gamePlayViewModel?.ui?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(GameUiState()) })
+    val completeUi by (gamePlayViewModel?.complete?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(CompleteUiState()) })
 
     // ExoPlayer
     val player = remember {
@@ -129,11 +133,19 @@ fun GamePlayScreen(
     val currentSong by GameDataManager.currentSong.collectAsState()
     val gameProgressState by GameDataManager.gameProgress.collectAsState()
 
-    // 곡 선택
+    // 곡 선택 및 게임 초기화
     LaunchedEffect(songId) {
         val song = GameDataManager.getSongById(songId)
-        if (song != null) GameDataManager.selectSong(song)
-        else Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")
+        if (song != null) {
+            GameDataManager.selectSong(song)
+            // GamePlayViewModel 초기화
+            gamePlayViewModel?.let { vm ->
+                val sections = GameDataManager.getSongSections(songId)
+                vm.startGame(songId, totalWords = sections.size)
+            }
+        } else {
+            Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")
+        }
     }
 
     // ExoPlayer 준비/재생
@@ -187,7 +199,8 @@ fun GamePlayScreen(
                     actionEndMs = actionEndTime,
                     segment = currentSection.id.toInt(),
                     correctStartedIndex = correctInfo.correctStartedIndex,
-                    correctEndedIndex = correctInfo.correctEndedIndex
+                    correctEndedIndex = correctInfo.correctEndedIndex,
+                    musicId = songId.toInt()
                 )
                 
                 // 수어 타이밍 시작 시 버퍼 상태 로그
@@ -228,13 +241,22 @@ fun GamePlayScreen(
         if (!isScreenVisible) return@LaunchedEffect
         GameDataManager.updateGameProgress(gameTime)
         if (gameTime >= totalTime && totalTime > 0) {
+            // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
+            gamePlayViewModel?.finishGameAndPost()
+        }
+    }
+    
+    // 게임 완료 상태 감지 (새로운 API 사용)
+    LaunchedEffect(completeUi.submitted) {
+        if (completeUi.submitted) {
+            // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,
-                score = 876_420,
-                correctCount = 65,
-                missCount = 17,
-                maxCombo = 27,
-                missWords = listOf("함께", "만들어", "기억", "별", "여름밤", "망령")
+                score = gameUi.score,
+                correctCount = gameUi.correctCount,
+                missCount = gameUi.missCount,
+                maxCombo = gameUi.maxCombo,
+                missWords = gameUi.missWords
             )
             GameDataManager.saveGameResult(gameResult)
             onGameComplete(gameResult)
@@ -283,6 +305,65 @@ fun GamePlayScreen(
                         onOpenSettings = { showPauseButton = !showPauseButton },
                         showPauseButton = showPauseButton
                     )
+                    
+                    // 게임 상태 표시 (점수, 등급, 콤보)
+                    if (gameUi.score > 0 || gameUi.grade.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = card),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Score",
+                                        color = Color(0xFF9AA3B2),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                    Text(
+                                        "${gameUi.score}",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Grade",
+                                        color = Color(0xFF9AA3B2),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                    Text(
+                                        gameUi.grade,
+                                        color = Color(0xFFFFD700),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Max Combo",
+                                        color = Color(0xFF9AA3B2),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                    Text(
+                                        "${gameUi.maxCombo}",
+                                        color = Color(0xFF4CAF50),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(Modifier.height(8.dp))
 
@@ -412,6 +493,96 @@ fun GamePlayScreen(
                                     textAlign = TextAlign.Center
                                 )
                             }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // 게임 완료 결과 전송 상태 표시
+                    if (completeUi.submitting) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = card),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color(0xFF4CAF50)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    "게임 결과를 전송하고 있습니다...",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (completeUi.submitError != null) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFF5A5A)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                "에러: ${completeUi.submitError}",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
+                    
+                    if (completeUi.submitted && completeUi.isBestRecord) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                "🏆 개인 최고 기록 갱신!",
+                                color = Color.Black,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            )
+                        }
+                    }
+                    
+                    if (completeUi.submitted && !completeUi.isBestRecord) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                "기록이 저장되었습니다.",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            )
                         }
                     }
 

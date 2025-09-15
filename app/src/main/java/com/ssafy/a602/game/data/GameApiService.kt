@@ -4,6 +4,7 @@ import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.SongSection
 import com.ssafy.a602.game.ranking.RankingItem
+import com.ssafy.a602.game.score.GameResultRequest
 import java.time.LocalDate
 
 /**
@@ -74,4 +75,9 @@ interface GameApiService {
         maxCombo: Int,
         missWords: List<String>
     ): GameResultUi
+    
+    /**
+     * 게임 결과 전송 (프론트에서 계산된 결과)
+     */
+    suspend fun submitGameResult(result: GameResultRequest): GameResultUi
 }

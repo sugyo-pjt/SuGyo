@@ -6,6 +6,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import kotlin.OptIn
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -21,7 +22,7 @@ import java.util.concurrent.Executors
  * CameraX를 사용한 카메라 프리뷰 컴포넌트
  * MediaPipe 분석을 위한 ImageAnalysis 기능 포함
  */
-@androidx.camera.core.ExperimentalMirrorMode
+@OptIn(androidx.camera.core.ExperimentalMirrorMode::class)
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,

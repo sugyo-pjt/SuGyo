@@ -2,6 +2,8 @@ package com.ssafy.a602.game.api
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.ssafy.a602.auth.interceptor.AuthInterceptor
+import com.ssafy.a602.auth.interceptor.TokenAuthenticator
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -23,6 +25,34 @@ object RetrofitClient {
             .create()
     }
     
+    // AuthInterceptor와 TokenAuthenticator를 주입받기 위해 함수로 변경
+    fun createOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator
+    ): OkHttpClient {
+        val loggingInterceptor = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        
+        return OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)  // 인증 토큰 자동 주입
+            .authenticator(tokenAuthenticator)  // 401 응답시 자동 토큰 재발행
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+    
+    fun createRetrofit(okHttpClient: OkHttpClient): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+    }
+    
+    // 기존 호환성을 위한 레거시 메서드 (AuthInterceptor 없이)
     private val okHttpClient: OkHttpClient by lazy {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY

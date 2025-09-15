@@ -51,7 +51,7 @@ fun NavGraph(
         composable(Screen.Login.route) {
             LoginScreen(
                 onBack = {}, // 시작 화면은 뒤로가기 무시 권장
-                onSubmit = { _, _ ->
+                onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                         launchSingleTop = true
@@ -69,7 +69,7 @@ fun NavGraph(
                 onPickProfile = { /* TODO */ },
                 onOpenTerms = { /* TODO */ },
                 onOpenPrivacy = { /* TODO */ },
-                onSubmit = { _, _, _, _ ->
+                onSignupSuccess = {
                     // 회원가입 완료 → 로그인으로 복귀(스택 정리)
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Signup.route) { inclusive = true }

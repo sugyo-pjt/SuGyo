@@ -1,6 +1,5 @@
 FROM bellsoft/liberica-openjdk-debian:21 AS builder
 
-# 작업 디렉토리 설정
 WORKDIR /app
 
 # Gradle Wrapper 스크립트 복사
@@ -34,8 +33,5 @@ WORKDIR /app
 # 의존성 -> 스프링 부트 로더 -> 애플리케이션 순으로 복사하여 변경이 잦은 'application' 레이어만 새로 빌드되도록 합니다.
 COPY --from=builder /app/build/libs/*.jar app.jar
 
-
-
-# 컨테이너 실행 명령어
 # java -jar app.jar 대신 JarLauncher를 직접 실행하여 부팅 속도를 약간 개선합니다.
 ENTRYPOINT ["java", "-jar", "app.jar"]

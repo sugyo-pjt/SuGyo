@@ -192,8 +192,7 @@ class RealApiService : GameApiService {
     }
     
     override suspend fun submitGameResult(result: GameResultRequest): GameResultUi {
-        // TODO: 실제 API 엔드포인트 구현 시 이 부분을 수정
-        // 현재는 백엔드 API가 준비되지 않았으므로 더미 응답 반환
+        // 새로운 API 엔드포인트 사용 (completeGame 메서드로 대체됨)
         Log.d("RealApiService", "게임 결과 전송: ${result.songId}, 점수: ${result.totalScore}")
         
         val songs = getSongs()
@@ -217,8 +216,8 @@ class RealApiService : GameApiService {
             isNewRecord = false,
             missWords = result.missWords,
             accepted = true,
-            isPersonalBest = false, // TODO: 백엔드에서 계산
-            rankUpdated = false, // TODO: 백엔드에서 계산
+            isPersonalBest = false, // 새로운 API에서 isBestRecord로 받아옴
+            rankUpdated = false, // 새로운 API에서 처리됨
             serverScoreEcho = result.totalScore
         )
     }

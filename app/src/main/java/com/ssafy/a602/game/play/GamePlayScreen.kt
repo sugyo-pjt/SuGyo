@@ -56,27 +56,6 @@ private fun parseTimeToSeconds(timeString: String): Float = try {
     (hours * 3600 + minutes * 60 + secondsWithMs)
 } catch (_: Exception) { 0f }
 
-/**
- * 게임 플레이 화면
- * 
- * 사용 예시:
- * ```kotlin
- * val gamePlayViewModel = viewModel<GamePlayViewModel>()
- * 
- * GamePlayScreen(
- *     songId = "song_123",
- *     gamePlayViewModel = gamePlayViewModel,
- *     onGameComplete = { result -> 
- *         // 게임 완료 처리
- *     }
- * )
- * ```
- * 
- * 서버에서 판정 결과를 받을 때:
- * ```kotlin
- * gamePlayViewModel.onServerVerdict(isPerfect = true, word = "안녕하세요")
- * ```
- */
 @ExperimentalMirrorMode
 @ExperimentalGetImage
 @OptIn(ExperimentalMirrorMode::class, ExperimentalGetImage::class)
@@ -96,6 +75,7 @@ fun GamePlayScreen(
 
     // GamePlayViewModel 상태
     val gameUi by (gamePlayViewModel?.ui?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(GameUiState()) })
+    val completeUi by (gamePlayViewModel?.complete?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(CompleteUiState()) })
 
     // ExoPlayer
     val player = remember {
@@ -262,23 +242,22 @@ fun GamePlayScreen(
         if (!isScreenVisible) return@LaunchedEffect
         GameDataManager.updateGameProgress(gameTime)
         if (gameTime >= totalTime && totalTime > 0) {
-            // GamePlayViewModel을 사용하여 게임 완료 처리
-            gamePlayViewModel?.finishGame()
+            // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
+            gamePlayViewModel?.finishGameAndPost()
         }
     }
     
-    // 게임 완료 상태 감지
-    LaunchedEffect(gameUi.submitted) {
-        if (gameUi.submitted) {
+    // 게임 완료 상태 감지 (새로운 API 사용)
+    LaunchedEffect(completeUi.submitted) {
+        if (completeUi.submitted) {
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
-            // TODO: GameScoreCalculator에서 정확한 값들을 가져와야 함
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,
                 score = gameUi.score,
-                correctCount = 0, // TODO: calc.getFinal()에서 가져오기
-                missCount = 0, // TODO: calc.getFinal()에서 가져오기
+                correctCount = gameUi.correctCount,
+                missCount = gameUi.missCount,
                 maxCombo = gameUi.maxCombo,
-                missWords = emptyList() // TODO: calc.getFinal()에서 가져오기
+                missWords = gameUi.missWords
             )
             GameDataManager.saveGameResult(gameResult)
             onGameComplete(gameResult)
@@ -520,8 +499,8 @@ fun GamePlayScreen(
 
                     Spacer(Modifier.height(16.dp))
                     
-                    // 로딩 및 에러 상태 표시
-                    if (gameUi.loading) {
+                    // 게임 완료 결과 전송 상태 표시
+                    if (completeUi.submitting) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -550,7 +529,7 @@ fun GamePlayScreen(
                         }
                     }
                     
-                    if (gameUi.error != null) {
+                    if (completeUi.submitError != null) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -559,7 +538,7 @@ fun GamePlayScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                "에러: ${gameUi.error}",
+                                "에러: ${completeUi.submitError}",
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(16.dp)
@@ -567,7 +546,7 @@ fun GamePlayScreen(
                         }
                     }
                     
-                    if (gameUi.personalBest) {
+                    if (completeUi.submitted && completeUi.isBestRecord) {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -580,6 +559,26 @@ fun GamePlayScreen(
                                 color = Color.Black,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            )
+                        }
+                    }
+                    
+                    if (completeUi.submitted && !completeUi.isBestRecord) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                "기록이 저장되었습니다.",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .fillMaxWidth()

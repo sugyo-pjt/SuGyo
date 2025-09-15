@@ -15,15 +15,19 @@ pipeline {
             steps {
                 script {
                     echo "Checking for changes in branch: ${env.BRANCH_NAME}"
-                    // 이전 빌드와의 변경점 또는 커밋과의 변경점을 비교
-                    // def changedFiles = sh(script: "git diff --name-only HEAD~1 HEAD", returnStdout: true).trim().split('\n')
-                    def changedFiles = sh(script: """
-                        if [ -n "${env.CHANGE_TARGET}" ]; then
-                            git diff --name-only ${env.CHANGE_TARGET} HEAD
-                        else
-                            git ls-files
-                        fi
-                    """, returnStdout: true).trim().split('\n')
+            
+            def changedFilesScript = ""
+            // env.CHANGE_TARGET 변수가 존재하고 비어있지 않은지 Groovy 레벨에서 먼저 확인
+            if (env.CHANGE_TARGET != null && !env.CHANGE_TARGET.isEmpty()) {
+                echo "Comparing with previous build target: ${env.CHANGE_TARGET}"
+                changedFilesScript = "git diff --name-only ${env.CHANGE_TARGET} HEAD"
+            } else {
+                // 첫 빌드인 경우, 현재 브랜치의 모든 파일을 변경사항으로 간주
+                echo "First build for this branch. Listing all files."
+                changedFilesScript = "git ls-files"
+            }
+
+            def changedFiles = sh(script: changedFilesScript, returnStdout: true).trim().split('\n')
                     
                     echo "=== List of changed files ==="
                     // changedFiles 리스트의 각 항목(it)을 순회하며 출력

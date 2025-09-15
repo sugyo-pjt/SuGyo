@@ -1,3 +1,4 @@
+@file:OptIn(androidx.camera.core.ExperimentalMirrorMode::class)
 package com.ssafy.a602.game.preparation
 
 import androidx.camera.core.CameraSelector

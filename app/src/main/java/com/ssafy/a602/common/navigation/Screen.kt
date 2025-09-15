@@ -9,6 +9,13 @@ sealed class Screen(val route: String) {
     object Search : Screen("search")
     object Game : Screen("game")
     object Chat : Screen("chat")
+    // 검색 구현하는 부분
+    object SearchDetail {
+        const val ARG_ID = "wordId"
+        private const val BASE = "search/detail"
+        const val route = "$BASE/{$ARG_ID}"
+        fun route(id: Long) = "$BASE/$id"
+    }
     object LearningMainPage : Screen("learning")
     object MyPage           : Screen("mypage")
     object Total_RoadMap    : Screen("learning/roadmap")

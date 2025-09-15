@@ -10,6 +10,7 @@ import com.ssafy.a602.game.api.RetrofitClient
 import com.ssafy.a602.game.api.dto.ChartSegment
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
+import com.ssafy.a602.game.score.GameResultRequest
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.LocalDate
@@ -187,6 +188,37 @@ class RealApiService : GameApiService {
             },
             isNewRecord = false, // 백엔드에서 계산 필요
             missWords = missWords
+        )
+    }
+    
+    override suspend fun submitGameResult(result: GameResultRequest): GameResultUi {
+        // 새로운 API 엔드포인트 사용 (completeGame 메서드로 대체됨)
+        Log.d("RealApiService", "게임 결과 전송: ${result.songId}, 점수: ${result.totalScore}")
+        
+        val songs = getSongs()
+        val song = songs.find { it.id == result.songId }
+        
+        return GameResultUi(
+            songTitle = song?.title ?: "Unknown Song",
+            score = result.totalScore,
+            accuracyPercent = result.percent,
+            grade = result.grade,
+            maxCombo = result.maxCombo,
+            correctCount = result.correctCount,
+            missCount = result.missCount,
+            comboMultiplier = when {
+                result.maxCombo >= 50 -> 1.5
+                result.maxCombo >= 30 -> 1.3
+                result.maxCombo >= 20 -> 1.2
+                result.maxCombo >= 10 -> 1.1
+                else -> 1.0
+            },
+            isNewRecord = false,
+            missWords = result.missWords,
+            accepted = true,
+            isPersonalBest = false, // 새로운 API에서 isBestRecord로 받아옴
+            rankUpdated = false, // 새로운 API에서 처리됨
+            serverScoreEcho = result.totalScore
         )
     }
     

@@ -15,6 +15,7 @@ class WordWindowUploader(
     @Volatile private var pendingSegment: Int? = null
     @Volatile private var pendingCorrectStartedIndex: Int? = null
     @Volatile private var pendingCorrectEndedIndex: Int? = null
+    @Volatile private var pendingMusicId: Int? = null
 
     private val http = OkHttpClient()
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
@@ -28,19 +29,21 @@ class WordWindowUploader(
         actionEndMs: Long, 
         segment: Int,
         correctStartedIndex: Int,
-        correctEndedIndex: Int
+        correctEndedIndex: Int,
+        musicId: Int
     ) {
         pendingActionStart = actionStartMs
         pendingActionEnd = actionEndMs
         pendingSegment = segment
         pendingCorrectStartedIndex = correctStartedIndex
         pendingCorrectEndedIndex = correctEndedIndex
+        pendingMusicId = musicId
         
         // 동적 버퍼에 수어 타이밍 설정
         val wordId = "${segment}_${correctStartedIndex}_${correctEndedIndex}"
         buffer.setActionTiming(actionStartMs, actionEndMs, wordId)
         
-        android.util.Log.d("WordWindowUploader", "수어 타이밍 시작: ${actionStartMs}ms ~ ${actionEndMs}ms, segment: $segment, range: $correctStartedIndex~$correctEndedIndex")
+        android.util.Log.d("WordWindowUploader", "수어 타이밍 시작: ${actionStartMs}ms ~ ${actionEndMs}ms, segment: $segment, range: $correctStartedIndex~$correctEndedIndex, musicId: $musicId")
     }
 
     /**
@@ -52,18 +55,21 @@ class WordWindowUploader(
         val segment = pendingSegment ?: return
         val correctStartedIndex = pendingCorrectStartedIndex ?: return
         val correctEndedIndex = pendingCorrectEndedIndex ?: return
+        val musicId = pendingMusicId ?: return
         
         // 수어 타이밍 범위 내의 프레임들 추출
         val frames = buffer.sliceForAction()
         
         if (frames.isNotEmpty()) {
             val payload = UploadPayload(
+                musicId = musicId,
                 segment = segment,
                 frames = frames.map { it.toUploadFrame() }
             )
             
             // 업로드할 데이터 상세 정보 출력
             android.util.Log.d("WordWindowUploader", "=== 업로드 데이터 상세 정보 ===")
+            android.util.Log.d("WordWindowUploader", "musicId: $musicId")
             android.util.Log.d("WordWindowUploader", "segment: $segment")
             android.util.Log.d("WordWindowUploader", "correctRange: $correctStartedIndex~$correctEndedIndex")
             android.util.Log.d("WordWindowUploader", "시간 범위: ${startTime}ms ~ ${endTime}ms")
@@ -98,34 +104,9 @@ class WordWindowUploader(
         pendingSegment = null
         pendingCorrectStartedIndex = null
         pendingCorrectEndedIndex = null
+        pendingMusicId = null
     }
 
-    /**
-     * 기존 호환성을 위한 메서드 (중심 시간 기반)
-     * @deprecated 새로운 API 사용 권장
-     */
-    @Deprecated("새로운 onWord 메서드 사용을 권장합니다")
-    fun onWord(centerMs: Long, wordId: String) {
-        // 기존 방식: 중심 시간 기준으로 ±1초 범위 설정
-        val actionStart = centerMs - 1000
-        val actionEnd = centerMs + 1000
-        
-        // wordId 파싱: "segment_startIndex_endIndex" 형식
-        val parts = wordId.split("_")
-        if (parts.size == 3) {
-            val segment = parts[0].toIntOrNull() ?: 1
-            val startIndex = parts[1].toIntOrNull() ?: 0
-            val endIndex = parts[2].toIntOrNull() ?: 2
-            
-            onWord(
-                actionStartMs = actionStart,
-                actionEndMs = actionEnd,
-                segment = segment,
-                correctStartedIndex = startIndex,
-                correctEndedIndex = endIndex
-            )
-        }
-    }
 
     /**
      * 기존 호환성을 위한 메서드

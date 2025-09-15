@@ -68,15 +68,22 @@ fun DailyDetailStudyScreen(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // 화면 진입/Day 변경 시 데이터 로딩
+    // ✅ 화면 진입/Day 변경 시: 서버에서 목록 로드 → UI 상태 반영 + 캐시에 저장
     LaunchedEffect(day) {
-        uiState = DailyStudyUiState .Loading
+        uiState = DailyStudyUiState.Loading
         try {
             val items = fetchDailyStudyFromServer(day)
-            uiState = DailyStudyUiState .Success(items)
-            if (items.isNotEmpty()) listState.scrollToItem(0) // 첫 단어 보이게
+
+            // ▼ 학습 단어 목록을 메모리 캐시에 저장(MVP)
+            LearningMemCache.save(
+                day = day,
+                items = items.map { LearningMemCache.Item(word = it.word, videoUrl = it.videoUrl) }
+            )
+
+            uiState = DailyStudyUiState.Success(items)
+            if (items.isNotEmpty()) listState.scrollToItem(0) // 첫 단어 보이기
         } catch (t: Throwable) {
-            uiState = DailyStudyUiState .Error(t)
+            uiState = DailyStudyUiState.Error(t)
         }
     }
 
@@ -94,10 +101,15 @@ fun DailyDetailStudyScreen(
                 mode = mode,
                 onModeChange = {
                     mode = it
-                    if (it == StudyMode.QUIZ) onStartQuiz(day)
+                    if (it == StudyMode.QUIZ) {
+                        // ⚠️ 이미 LaunchedEffect에서 캐시에 저장됨.
+                        //    (혹시 모를 빈 케이스 대비하여 체크하고 경고 다이얼로그를 띄워도 됨)
+                        onStartQuiz(day)
+                    }
                 },
                 onBack = onBack
             )
+
 
             Spacer(Modifier.height(12.dp))
 

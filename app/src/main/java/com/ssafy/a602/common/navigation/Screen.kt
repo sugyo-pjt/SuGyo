@@ -23,9 +23,16 @@ sealed class Screen(val route: String) {
         fun route(day: Int) = "$BASE/$day"
     }
 
+    object DailyQuiz {
+        const val ARG_DAY = "day"
+        private const val BASE = "learning/quiz"
+        const val route = "$BASE/{$ARG_DAY}"
+        fun route(day: Int) = "$BASE/$day"
+    }
+
     // ── 게임 흐름 라우트(파라미터 포함) ───────────────────────────────────────
     // NavGraph에서 사용하는 문자열과 동일하게 정의
-        object GameRanking : Screen("game_ranking")
+    object GameRanking : Screen("game_ranking")
     object GamePreparation : Screen("game_preparation")
     object GamePlay : Screen("game_play")
     object GameResult : Screen("game_result")

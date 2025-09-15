@@ -20,6 +20,7 @@ import com.ssafy.a602.home.HomeScreen
 import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.learning.DailyDetailStudyScreen
+import com.ssafy.a602.learning.DailyQuizScreen
 import com.ssafy.a602.login.LoginScreen
 import com.ssafy.a602.signup.SignUpScreen
 
@@ -118,7 +119,26 @@ fun NavGraph(
             DailyDetailStudyScreen(
                 day = day,
                 onBack = { navController.popBackStack() },
-                onStartQuiz = { /* TODO */ }
+                onStartQuiz = { d -> navController.navigate(Screen.DailyQuiz.route(d)) }
+            )
+        }
+
+        /* ---------- Daily Quiz (Day별 퀴즈) ---------- */
+        composable(
+            route = Screen.DailyQuiz.route,
+            arguments = listOf(
+                navArgument(Screen.DailyQuiz.ARG_DAY) { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val day = backStackEntry.arguments?.getInt(Screen.DailyQuiz.ARG_DAY) ?: 1
+            DailyQuizScreen(
+                day = day,
+                onBack = { navController.popBackStack() },
+                onGoStudy = { d -> navController.navigate(Screen.DailyStudy.route(d)) },
+                onGoRoadmap = {
+                    // 로드맵으로 돌아가기 (스택 위 화면만 제거)
+                    navController.popBackStack(Screen.Total_RoadMap.route, false)
+                }
             )
         }
 

@@ -5,6 +5,7 @@ import com.ssafy.a602.game.api.dto.ChartCorrect
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.ranking.RankingItem
+import com.ssafy.a602.game.score.GameResultRequest
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
@@ -312,5 +313,33 @@ class DummyApiService : GameApiService {
     override suspend fun getMyRanking(songId: String): RankingItem? {
         delay(50)
         return null
+    }
+    
+    override suspend fun submitGameResult(result: GameResultRequest): GameResultUi {
+        delay(200)
+        Log.d("DummyApiService", "게임 결과 전송: ${result.songId}, 점수: ${result.totalScore}")
+        
+        return GameResultUi(
+            songTitle = "테스트 곡",
+            score = result.totalScore,
+            accuracyPercent = result.percent,
+            grade = result.grade,
+            maxCombo = result.maxCombo,
+            correctCount = result.correctCount,
+            missCount = result.missCount,
+            comboMultiplier = when {
+                result.maxCombo >= 50 -> 1.5
+                result.maxCombo >= 30 -> 1.3
+                result.maxCombo >= 20 -> 1.2
+                result.maxCombo >= 10 -> 1.1
+                else -> 1.0
+            },
+            isNewRecord = true, // 더미에서는 항상 신기록으로 설정
+            missWords = result.missWords,
+            accepted = true,
+            isPersonalBest = true, // 더미에서는 항상 개인 최고 기록으로 설정
+            rankUpdated = true, // 더미에서는 항상 순위 업데이트로 설정
+            serverScoreEcho = result.totalScore
+        )
     }
 }

@@ -10,6 +10,7 @@ import com.ssafy.a602.game.api.RetrofitClient
 import com.ssafy.a602.game.api.dto.ChartSegment
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
+import com.ssafy.a602.game.score.GameResultRequest
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.LocalDate
@@ -187,6 +188,38 @@ class RealApiService : GameApiService {
             },
             isNewRecord = false, // 백엔드에서 계산 필요
             missWords = missWords
+        )
+    }
+    
+    override suspend fun submitGameResult(result: GameResultRequest): GameResultUi {
+        // TODO: 실제 API 엔드포인트 구현 시 이 부분을 수정
+        // 현재는 백엔드 API가 준비되지 않았으므로 더미 응답 반환
+        Log.d("RealApiService", "게임 결과 전송: ${result.songId}, 점수: ${result.totalScore}")
+        
+        val songs = getSongs()
+        val song = songs.find { it.id == result.songId }
+        
+        return GameResultUi(
+            songTitle = song?.title ?: "Unknown Song",
+            score = result.totalScore,
+            accuracyPercent = result.percent,
+            grade = result.grade,
+            maxCombo = result.maxCombo,
+            correctCount = result.correctCount,
+            missCount = result.missCount,
+            comboMultiplier = when {
+                result.maxCombo >= 50 -> 1.5
+                result.maxCombo >= 30 -> 1.3
+                result.maxCombo >= 20 -> 1.2
+                result.maxCombo >= 10 -> 1.1
+                else -> 1.0
+            },
+            isNewRecord = false,
+            missWords = result.missWords,
+            accepted = true,
+            isPersonalBest = false, // TODO: 백엔드에서 계산
+            rankUpdated = false, // TODO: 백엔드에서 계산
+            serverScoreEcho = result.totalScore
         )
     }
     

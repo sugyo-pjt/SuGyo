@@ -13,5 +13,10 @@ data class GameResultUi(
     val missCount: Int,
     val comboMultiplier: Double, // 1.0 ~ 1.5
     val isNewRecord: Boolean,
-    val missWords: List<String>
+    val missWords: List<String>,
+    // API 응답용 추가 필드들
+    val accepted: Boolean = true,
+    val isPersonalBest: Boolean = false,
+    val rankUpdated: Boolean = false,
+    val serverScoreEcho: Int = 0
 )

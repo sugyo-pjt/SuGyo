@@ -5,9 +5,11 @@ import com.ssafy.a602.game.data.SongSection
 import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.ranking.RankingItem
+import com.ssafy.a602.game.score.GameResultRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CancellationException
 
 /**
  * 게임 데이터를 중앙에서 관리하는 매니저
@@ -285,6 +287,17 @@ object GameDataManager {
      */
     suspend fun getMyRanking(songId: String): RankingItem? {
         return getCurrentApiService().getMyRanking(songId)
+    }
+    
+    /**
+     * 게임 결과 전송 (프론트에서 계산된 결과)
+     */
+    suspend fun submitGameResult(req: GameResultRequest): Result<GameResultUi> = try {
+        Result.success(getCurrentApiService().submitGameResult(req))
+    } catch (ce: CancellationException) {
+        throw ce
+    } catch (t: Throwable) {
+        Result.failure(t)
     }
     
     /**

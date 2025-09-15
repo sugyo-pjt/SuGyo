@@ -3,6 +3,8 @@ package com.ssafy.a602
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -10,10 +12,14 @@ import androidx.navigation.compose.rememberNavController
 import com.ssafy.a602.common.navigation.NavGraph
 import com.ssafy.a602.navbar.BottomTab
 import com.ssafy.a602.navbar.CustomBottomNavigationBar
-import com.ssafy.a602.common.navigation.Screen
+
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    permissionLauncher: ((Array<String>) -> Unit)? = null,
+    snackbarHostState: SnackbarHostState? = null,
+    openSettings: (() -> Unit)? = null
+) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
@@ -28,17 +34,22 @@ fun MainScreen() {
         else -> BottomTab.SEARCH  // 기본값
     }
 
-
-    // 로그인과 홈 화면에서는 네비게이션 바 숨김
+    // 바텀바 표시 규칙
+    // - 로그인/홈 화면에서는 네비게이션 바 숨김
+    // - 리듬게임 준비/플레이/결과 화면에서도 숨김 (게임 중 UI 몰입을 위해)
     val showBottomBar = when (currentRoute) {
-        "home" -> false
         "login" -> false
+        "home" -> false
         "signup" -> false
         null -> false
-        else -> true  // 다른 모든 화면에서는 네비게이션 바 표시
+        else -> !(currentRoute?.startsWith("game_preparation") == true ||
+                currentRoute?.startsWith("game_play") == true ||
+                currentRoute?.startsWith("game_result") == true ||
+                currentRoute?.startsWith("game_ranking") == true)
     }
+
     // 탭 선택 시 해당 화면으로 이동 (Screen.kt의 route와 일치)
-    val onTabSelected = { tab: BottomTab ->
+    val onTabSelected: (BottomTab) -> Unit = { tab ->
         val route = when (tab) {
             BottomTab.SEARCH -> "search"
             BottomTab.LEARNING -> "learning"
@@ -69,11 +80,19 @@ fun MainScreen() {
                     onTabSelected = onTabSelected
                 )
             }
+        },
+        // 스낵바가 필요한 화면에서 사용 가능 (null이면 미표시)
+        snackbarHost = {
+            snackbarHostState?.let { SnackbarHost(it) }
         }
     ) { innerPadding ->
+        // NavGraph: 실제 라우팅 처리 (권한 요청/설정 이동 콜백을 그대로 전달)
         NavGraph(
             navController = navController,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            permissionLauncher = permissionLauncher,
+            snackbarHostState = snackbarHostState,
+            openSettings = openSettings
         )
     }
 }

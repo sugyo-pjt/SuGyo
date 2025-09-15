@@ -2,6 +2,7 @@ package com.ssafy.a602.common.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -9,38 +10,54 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+
+// ── App Screens ───────────────────────────────────────────────────
 import com.ssafy.a602.home.HomeScreen
-import com.ssafy.a602.game.GameScreen
 import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
+import com.ssafy.a602.learning.DailyDetailStudyScreen
+import com.ssafy.a602.learning.DailyQuizScreen
 import com.ssafy.a602.login.LoginScreen
 import com.ssafy.a602.signup.SignUpScreen
+
+// ── Game Screens & Data ───────────────────────────────────────────
+import com.ssafy.a602.game.songs.SongsScreen
+import com.ssafy.a602.game.preparation.GamePreparationScreen
+import com.ssafy.a602.game.play.GamePlayScreen
+import com.ssafy.a602.game.result.GameResultScreen
+import com.ssafy.a602.game.ranking.GameRankingScreen
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.songs.SongItem
+import com.ssafy.a602.game.data.GameDataManager
+
 @Composable
 fun NavGraph(
-    navController: NavHostController, // 화면 전환 컨트롤러
-    modifier: Modifier = Modifier
+    navController: NavHostController,
+    modifier: Modifier = Modifier,
+    permissionLauncher: ((Array<String>) -> Unit)? = null,
+    snackbarHostState: SnackbarHostState? = null,
+    openSettings: (() -> Unit)? = null
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,   // ✅ 로그인부터 시작
+        startDestination = Screen.Login.route,
         modifier = modifier
     ) {
         /* ---------- Login ---------- */
         composable(Screen.Login.route) {
-            // 뒤로가기 버튼은 보통 비활성/무시 처리. 필요 시 onBack = { navController.popBackStack() }
-            com.ssafy.a602.login.LoginScreen(
-                onBack = {}, // 로그인 첫화면이면 뒤로가기 동작 없음 권장
-                onSubmit = { email, password ->
-                    // TODO: 실제 인증 로직
+            LoginScreen(
+                onBack = {}, // 시작 화면은 뒤로가기 무시 권장
+                onSubmit = { _, _ ->
                     navController.navigate(Screen.Home.route) {
-                        // 로그인 화면을 스택에서 제거하여 뒤로가기로 못 돌아오게
-                        popUpTo(Screen.Login.route) { inclusive = true }   // ✅ 핵심
+                        popUpTo(Screen.Login.route) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
-                onForgot = { /* navController.navigate("forgot") 등 필요 시 구현 */ },
+                onForgot = { /* TODO: 필요 시 구현 */ },
                 onSignup = { navController.navigate(Screen.Signup.route) }
             )
         }
@@ -49,36 +66,17 @@ fun NavGraph(
         composable(Screen.Signup.route) {
             SignUpScreen(
                 onBack = { navController.popBackStack() },
-                onPickProfile = { /* 프로필 이미지 선택 로직 */ },
-                onOpenTerms = { /* 이용약관 화면으로 이동 */ },
-                onOpenPrivacy = { /* 개인정보처리방침 화면으로 이동 */ },
-                onSubmit = { email, nickname, password, photo ->
-                    // TODO: 실제 회원가입 로직
-                    // 회원가입 성공 시 로그인 화면으로 이동
+                onPickProfile = { /* TODO */ },
+                onOpenTerms = { /* TODO */ },
+                onOpenPrivacy = { /* TODO */ },
+                onSubmit = { _, _, _, _ ->
+                    // 회원가입 완료 → 로그인으로 복귀(스택 정리)
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Signup.route) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
                 onLogin = { navController.popBackStack() }
-            )
-        }
-
-        /* ---------- Home ---------- */
-        composable(Screen.Home.route) {
-            HomeScreen(
-                onGoLearning = { navController.navigate(Screen.LearningMainPage.route) },
-                onOpenChat = { navController.navigate(Screen.Chat.route) },
-                onOpenGame = { navController.navigate(Screen.Game.route) },
-                onOpenMyPage = { navController.navigate(Screen.MyPage.route) }
-            )
-        }
-
-        composable(Screen.LearningMainPage.route) {
-            LearningMainPage(
-                // "로드맵 시작하기" 버튼 → 로드맵 화면으로 이동
-                onStartRoadmap = { navController.navigate(Screen.Total_RoadMap.route) },
-                progressDay = 5 // (가짜 값) 백엔드 값으로 교체 예정
             )
         }
 
@@ -104,54 +102,168 @@ fun NavGraph(
         composable(Screen.Total_RoadMap.route) {
             Total_RoadMap(
                 onBack = { navController.popBackStack() },
-                onDayClick = { /* day -> navController.navigate("lesson/$day") */ }
+                onDayClick = { day ->
+                    navController.navigate(Screen.DailyStudy.route(day))
+                }
+            )
+        }
+
+        /* ---------- Daily Study (Day별 상세) ---------- */
+        composable(
+            route = Screen.DailyStudy.route,
+            arguments = listOf(
+                navArgument(Screen.DailyStudy.ARG_DAY) { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val day = backStackEntry.arguments?.getInt(Screen.DailyStudy.ARG_DAY) ?: 1
+            DailyDetailStudyScreen(
+                day = day,
+                onBack = { navController.popBackStack() },
+                onStartQuiz = { d -> navController.navigate(Screen.DailyQuiz.route(d)) }
+            )
+        }
+
+        /* ---------- Daily Quiz (Day별 퀴즈) ---------- */
+        composable(
+            route = Screen.DailyQuiz.route,
+            arguments = listOf(
+                navArgument(Screen.DailyQuiz.ARG_DAY) { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val day = backStackEntry.arguments?.getInt(Screen.DailyQuiz.ARG_DAY) ?: 1
+            DailyQuizScreen(
+                day = day,
+                onBack = { navController.popBackStack() },
+                onGoStudy = { d -> navController.navigate(Screen.DailyStudy.route(d)) },
+                onGoRoadmap = {
+                    // 로드맵으로 돌아가기 (스택 위 화면만 제거)
+                    navController.popBackStack(Screen.Total_RoadMap.route, false)
+                }
             )
         }
 
         /* ---------- Search ---------- */
         composable(Screen.Search.route) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "검색 화면",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "검색 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
 
         /* ---------- Chat ---------- */
         composable(Screen.Chat.route) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "챗봇 화면",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "챗봇 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        /* ---------- Game ---------- */
+        /* ---------- Game : 곡 선택 ---------- */
         composable(Screen.Game.route) {
-            GameScreen()
+            SongsScreen(
+                onSongClick = { song ->
+                    navController.navigate("game_preparation/${song.id}")
+                },
+                permissionLauncher = permissionLauncher,
+                openSettings = openSettings
+            )
+        }
+
+        /* ---------- Game : 준비 화면 ---------- */
+        composable("game_preparation/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+
+            val song = GameDataManager.currentSong.value?.takeIf {
+                GameDataManager.isCurrentSong(songId)
+            } ?: SongItem(
+                id = songId,
+                title = "알 수 없는 곡",
+                artist = "알 수 없는 아티스트",
+                durationText = "0:00",
+                bestScore = null
+            )
+
+            GamePreparationScreen(
+                song = song,
+                onGameStart = { navController.navigate("game_play/$songId") },
+                onBack = {
+                    navController.navigate(Screen.Game.route) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                    }
+                },
+                permissionLauncher = permissionLauncher,
+                openSettings = openSettings
+            )
+        }
+
+        /* ---------- Game : 플레이 화면 ---------- */
+        composable("game_play/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            GamePlayScreen(
+                songId = songId,
+                isPaused = false,
+                onTogglePause = { /* TODO */ },
+                onGameComplete = { _ ->
+                    GameDataManager.endGame()
+                    navController.navigate("game_result/$songId") {
+                        popUpTo("game_play/$songId") { inclusive = true }
+                    }
+                },
+                onGameQuit = {
+                    GameDataManager.endGame()
+                    navController.navigate(Screen.Game.route) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                    }
+                },
+                onOpenSettings = { openSettings?.invoke() },
+                judgmentResult = null // TODO: ViewModel 연동 시 교체
+            )
+        }
+
+        /* ---------- Game : 결과 화면 ---------- */
+        composable("game_result/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            val gameResult = GameDataManager.lastGameResult.value ?: GameResultUi(
+                songTitle = "알 수 없는 곡",
+                score = 0,
+                accuracyPercent = 0,
+                grade = "F",
+                maxCombo = 0,
+                correctCount = 0,
+                missCount = 0,
+                comboMultiplier = 1.0,
+                isNewRecord = false,
+                missWords = emptyList()
+            )
+
+            GameResultScreen(
+                result = gameResult,
+                onBack = {
+                    navController.navigate(Screen.Game.route) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                    }
+                },
+                onRetry = { navController.navigate("game_preparation/$songId") },
+                onSubmitRanking = { navController.navigate("game_ranking/$songId") },
+                onBackToList = {
+                    navController.navigate(Screen.Game.route) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        /* ---------- Game : 랭킹 ---------- */
+        composable("game_ranking/{songId}") { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            GameRankingScreen(
+                songId = songId,
+                onBackClick = { navController.popBackStack() }
+            )
         }
 
         /* ---------- MyPage ---------- */
         composable(Screen.MyPage.route) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "마이페이지 화면",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "마이페이지 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

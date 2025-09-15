@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.auth.AuthManager
 import com.ssafy.a602.auth.AuthResult
+import com.ssafy.a602.auth.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
     
     // UI 상태 관리
@@ -58,9 +60,12 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = authManager.login(email, password)) {
                 is AuthResult.Success -> {
+                    // 로그인 성공 후 토큰을 가져옴
+                    val accessToken = tokenManager.getAccessToken()
                     _uiState.value = _uiState.value.copy(
                         error = null,
-                        loginSuccess = true
+                        loginSuccess = true,
+                        accessToken = accessToken
                     )
                 }
                 is AuthResult.Error -> {
@@ -102,5 +107,6 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isLoggedIn: Boolean = false,
-    val loginSuccess: Boolean = false
+    val loginSuccess: Boolean = false,
+    val accessToken: String? = null
 )

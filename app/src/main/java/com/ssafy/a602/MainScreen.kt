@@ -35,9 +35,10 @@ fun MainScreen(
     }
 
     // 바텀바 표시 규칙
-    // - 로그인/홈 화면에서는 네비게이션 바 숨김
+    // - 인증가드/로그인/홈 화면에서는 네비게이션 바 숨김
     // - 리듬게임 준비/플레이/결과 화면에서도 숨김 (게임 중 UI 몰입을 위해)
     val showBottomBar = when (currentRoute) {
+        "auth_guard" -> false
         "login" -> false
         "home" -> false
         "signup" -> false

@@ -21,6 +21,7 @@ import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.learning.DailyDetailStudyScreen
 import com.ssafy.a602.learning.DailyQuizScreen
+import com.ssafy.a602.auth.AuthGuard
 import com.ssafy.a602.login.LoginScreen
 import com.ssafy.a602.signup.SignUpScreen
 
@@ -44,9 +45,14 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,
+        startDestination = Screen.AuthGuard.route,
         modifier = modifier
     ) {
+        /* ---------- Auth Guard ---------- */
+        composable(Screen.AuthGuard.route) {
+            AuthGuard(navController = navController)
+        }
+        
         /* ---------- Login ---------- */
         composable(Screen.Login.route) {
             LoginScreen(

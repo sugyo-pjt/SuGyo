@@ -6,10 +6,9 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
-import kotlin.OptIn
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -22,7 +21,6 @@ import java.util.concurrent.Executors
  * CameraX를 사용한 카메라 프리뷰 컴포넌트
  * MediaPipe 분석을 위한 ImageAnalysis 기능 포함
  */
-@OptIn(androidx.camera.core.ExperimentalMirrorMode::class)
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
@@ -47,7 +45,7 @@ fun CameraPreview(
         factory = { ctx ->
             PreviewView(ctx).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
-                // 전면 카메라일 때만 UI 미러링 (추론에는 영향 없음)
+                // 전면 카메라일 때 미러 모드 비활성화 (scaleX = -1f로 뒤집기)
                 if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                     scaleX = -1f
                 }
@@ -61,7 +59,6 @@ fun CameraPreview(
                 
                 // Preview 설정 (미러 모드 비활성화)
                 val preview = Preview.Builder()
-                    .setMirrorMode(MirrorMode.MIRROR_MODE_OFF)
                     .build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }

@@ -47,7 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun LoginScreen(
     onBack: () -> Unit = {},                      // 시작화면이라 보통 쓰지 않음(남겨둔 건 재사용 대비)
-    onLoginSuccess: () -> Unit = {},              // 로그인 성공시 콜백
+    onLoginSuccess: (String) -> Unit = {},        // 로그인 성공시 콜백 (토큰 전달)
     onForgot: () -> Unit = {},
     onSignup: () -> Unit = {},
     viewModel: LoginViewModel = hiltViewModel()
@@ -57,8 +57,8 @@ fun LoginScreen(
     
     // 로그인 성공시 콜백 호출
     LaunchedEffect(uiState.loginSuccess) {
-        if (uiState.loginSuccess) {
-            onLoginSuccess()
+        if (uiState.loginSuccess && uiState.accessToken != null) {
+            onLoginSuccess(uiState.accessToken!!)
             viewModel.clearLoginSuccess()
         }
     }

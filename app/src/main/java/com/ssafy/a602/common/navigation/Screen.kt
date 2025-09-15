@@ -2,6 +2,7 @@ package com.ssafy.a602.common.navigation
 
 // 라우트들 모음
 sealed class Screen(val route: String) {
+    object AuthGuard : Screen("auth_guard")
     object Login : Screen("login")
     object Signup : Screen("signup")
     object Home : Screen("home")

@@ -17,7 +17,7 @@ RUN ./gradlew dependencies
 # 전체 소스 코드 복사
 COPY src ./src
 
-# 애플리케이션을 빌드하여 jar 파일을 생성합니다.
+# 애플리케이션을 빌드하여 jar 파일을 생성.
 # 이 때, build.gradle에 설정된 'bootJar'가 계층형 JAR를 생성.
 RUN ./gradlew bootJar
 

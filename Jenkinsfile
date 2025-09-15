@@ -17,8 +17,10 @@ pipeline {
                     echo "Checking for changes in branch: ${env.BRANCH_NAME}"
             
             def changedFilesScript = ""
+            // env.CHANGE_TARGET 변수가 존재하고 비어있지 않은지 Groovy 레벨에서 먼저 확인
             if (env.CHANGE_TARGET != null && !env.CHANGE_TARGET.isEmpty()) {
-                // ... (이전과 동일)
+                echo "Comparing with previous build target: ${env.CHANGE_TARGET}"
+                changedFilesScript = "git diff --name-only ${env.CHANGE_TARGET} HEAD"
             } else {
                 echo "First build for this branch. Listing all files."
                 changedFilesScript = "git ls-files"
@@ -40,9 +42,9 @@ pipeline {
                 }
             }
             echo "==========================="
-
-            echo "Build Spring App: ${env.BUILD_SPRING}"
-            echo "Build FastAPI App: ${env.BUILD_FASTAPI}"
+                    
+                    echo "Build Spring App: ${env.BUILD_SPRING}"
+                    echo "Build FastAPI App: ${env.BUILD_FASTAPI}"
                 }
             }
         }

@@ -37,7 +37,8 @@ import com.ssafy.a602.game.ranking.GameRankingScreen
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.GameDataManager
-
+import com.ssafy.a602.search.SearchScreen
+import com.ssafy.a602.search.WordDetailScreen
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -151,9 +152,19 @@ fun NavGraph(
 
         /* ---------- Search ---------- */
         composable(Screen.Search.route) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "검색 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
+            SearchScreen(
+                onOpenDetail = { id ->
+                    navController.navigate(Screen.SearchDetail.route(id))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.SearchDetail.route,
+            arguments = listOf(navArgument(Screen.SearchDetail.ARG_ID) { type = NavType.LongType })
+        ) { backStackEntry ->
+            val wordId = backStackEntry.arguments?.getLong(Screen.SearchDetail.ARG_ID)!!
+            WordDetailScreen(wordId = wordId, onBack = { navController.popBackStack() })
         }
 
         /* ---------- Chat ---------- */

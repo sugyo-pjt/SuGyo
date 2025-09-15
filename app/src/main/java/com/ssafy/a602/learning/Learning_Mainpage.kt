@@ -93,7 +93,7 @@ fun LearningMainPage(
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "노래 학습 (자음/모음)",
+                        text = "노래 학습",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(

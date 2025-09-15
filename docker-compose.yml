@@ -1,0 +1,118 @@
+services:
+  nginx:
+    build: ./Nginx
+    container_name: nginx
+    volumes:
+      - ./Nginx/conf.d:/etc/nginx/conf.d
+    ports:
+      - "80:80"
+    depends_on:
+      - spring-app-blue
+      - spring-app-green
+    networks:
+      - sugyo-network
+
+  # 2. Spring Boot Backend
+  spring-app-blue:
+    build: ./BE
+    container_name: spring-app-blue
+    expose:
+      - "8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AWS_S3_CDN_URL=${AWS_S3_CDN_URL}
+      - SPRING_JWT_SECRET=${JWT_SECRET}
+      - SPRING_JWT_EXPIRATION=${JWT_EXPIRATION}
+      - SPRING_DATA_REDIS_HOST=redis-cache
+      - SWAGGER_SERVER_URL=http://spring-app-blue
+    depends_on:
+      mysql-db:
+      redis-cache:
+    networks:
+      - sugyo-network
+
+  spring-app-green:
+    build: ./BE
+    container_name: spring-app-green
+    expose:
+      - "8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AWS_S3_CDN_URL=${AWS_S3_CDN_URL}
+      - SPRING_JWT_SECRET=${JWT_SECRET}
+      - SPRING_JWT_EXPIRATION=${JWT_EXPIRATION}
+      - SPRING_DATA_REDIS_HOST=redis-cache
+      - SWAGGER_SERVER_URL=http://spring-app-green
+    depends_on:
+      mysql-db:
+      redis-cache:
+    networks:
+      - sugyo-network
+
+  # 3. FastAPI Backend
+  fastapi-app:
+    build: ./AI_server
+    container_name: fastapi-app
+    expose:
+      - "8000"
+    networks:
+      - sugyo-network
+
+  # 5. MySQL Database
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      # 로컬에서 DB 직접 접속을 위해 포트 개방
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u ${DB_USER} -p${DB_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sugyo-network
+
+  # 6. Redis (Cache)
+  redis-cache:
+    image: redis:latest
+    container_name: redis-cache
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "6379:6379"
+    networks:
+      - sugyo-network
+
+# 데이터 영속성을 위한 볼륨 정의
+volumes:
+  mysql_data:
+
+    # 컨테이너 간 통신을 위한 네트워크 정의
+networks:
+  sugyo-network:
+    driver: bridge

@@ -39,6 +39,8 @@ import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.search.SearchScreen
 import com.ssafy.a602.search.WordDetailScreen
+import com.ssafy.a602.learning.SongStudyListScreen
+import com.ssafy.a602.learning.SongStudyDetailScreen
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -99,6 +101,7 @@ fun NavGraph(
         composable(Screen.LearningMainPage.route) {
             LearningMainPage(
                 onStartRoadmap = { navController.navigate(Screen.Total_RoadMap.route) },
+                onOpenSongStudy = { navController.navigate(Screen.SongStudyList.route) },
                 progressDay = 5 // TODO: 백엔드 값으로 교체
             )
         }
@@ -147,6 +150,27 @@ fun NavGraph(
                         launchSingleTop = true
                     }
                 }
+            )
+        }
+
+        composable(Screen.SongStudyList.route) {
+            SongStudyListScreen(
+                onBack = { navController.popBackStack() },
+                onOpenDetail = { songId ->
+                    navController.navigate(Screen.SongStudyDetail.route(songId))
+                }
+            )
+        }
+
+        /* ---------- Song Study : 상세 ---------- */
+        composable(
+            route = Screen.SongStudyDetail.route,
+            arguments = listOf(navArgument(Screen.SongStudyDetail.ARG_ID) { type = NavType.StringType })
+        ) { backStackEntry ->
+            val songId = backStackEntry.arguments?.getString(Screen.SongStudyDetail.ARG_ID)!!
+            SongStudyDetailScreen(
+                songId = songId,
+                onBack = { navController.popBackStack() }
             )
         }
 

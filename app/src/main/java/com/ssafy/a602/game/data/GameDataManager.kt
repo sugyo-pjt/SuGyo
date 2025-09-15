@@ -5,9 +5,14 @@ import com.ssafy.a602.game.data.SongSection
 import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.ranking.RankingItem
+import com.ssafy.a602.game.score.GameResultRequest
+import com.ssafy.a602.game.api.RetrofitClient
+import com.ssafy.a602.game.api.dto.CompleteReq
+import com.ssafy.a602.game.api.dto.CompleteResp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CancellationException
 
 /**
  * 게임 데이터를 중앙에서 관리하는 매니저
@@ -285,6 +290,31 @@ object GameDataManager {
      */
     suspend fun getMyRanking(songId: String): RankingItem? {
         return getCurrentApiService().getMyRanking(songId)
+    }
+    
+    /**
+     * 게임 결과 전송 (프론트에서 계산된 결과)
+     */
+    suspend fun submitGameResult(req: GameResultRequest): Result<GameResultUi> = try {
+        Result.success(getCurrentApiService().submitGameResult(req))
+    } catch (ce: CancellationException) {
+        throw ce
+    } catch (t: Throwable) {
+        Result.failure(t)
+    }
+    
+    /**
+     * 게임 완료 결과 전송 (새로운 API)
+     */
+    suspend fun completeGame(musicId: Long, score: Int): Result<CompleteResp> = try {
+        val request = CompleteReq(musicId = musicId, score = score)
+        // TODO: 로그인 구현 후 실제 토큰으로 교체
+        val response = RetrofitClient.rhythmApi.complete("Bearer test_token_for_development", request)
+        Result.success(response)
+    } catch (ce: CancellationException) {
+        throw ce
+    } catch (t: Throwable) {
+        Result.failure(t)
     }
     
     /**

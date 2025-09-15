@@ -1,5 +1,9 @@
+@file:OptIn(androidx.camera.core.ExperimentalMirrorMode::class)
+
 package com.ssafy.a602.common.navigation
 
+import androidx.camera.core.ExperimentalMirrorMode
+import androidx.camera.core.MirrorMode
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
@@ -57,7 +61,7 @@ fun NavGraph(
                         launchSingleTop = true
                     }
                 },
-                onForgot = { /* TODO: 필요 시 구현 */ },
+                onForgot = { /* TODO */ },
                 onSignup = { navController.navigate(Screen.Signup.route) }
             )
         }
@@ -136,8 +140,11 @@ fun NavGraph(
                 onBack = { navController.popBackStack() },
                 onGoStudy = { d -> navController.navigate(Screen.DailyStudy.route(d)) },
                 onGoRoadmap = {
-                    // 로드맵으로 돌아가기 (스택 위 화면만 제거)
-                    navController.popBackStack(Screen.Total_RoadMap.route, false)
+                    // 로드맵이 백스택에 없을 수도 있으니 항상 보장되는 방식으로 이동
+                    navController.navigate(Screen.Total_RoadMap.route) {
+                        popUpTo(Screen.LearningMainPage.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
             )
         }

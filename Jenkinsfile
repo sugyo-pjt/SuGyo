@@ -17,34 +17,32 @@ pipeline {
                     echo "Checking for changes in branch: ${env.BRANCH_NAME}"
             
             def changedFilesScript = ""
-            // env.CHANGE_TARGET 변수가 존재하고 비어있지 않은지 Groovy 레벨에서 먼저 확인
             if (env.CHANGE_TARGET != null && !env.CHANGE_TARGET.isEmpty()) {
-                echo "Comparing with previous build target: ${env.CHANGE_TARGET}"
-                changedFilesScript = "git diff --name-only ${env.CHANGE_TARGET} HEAD"
+                // ... (이전과 동일)
             } else {
-                // 첫 빌드인 경우, 현재 브랜치의 모든 파일을 변경사항으로 간주
                 echo "First build for this branch. Listing all files."
                 changedFilesScript = "git ls-files"
             }
 
             def changedFiles = sh(script: changedFilesScript, returnStdout: true).trim().split('\n')
-                    
-                    echo "=== List of changed files ==="
-                    // changedFiles 리스트의 각 항목(it)을 순회하며 출력
-                    changedFiles.each {
-                        echo "File: ${it}"
-                    }
-                    echo "==========================="
+            
+            echo "=== List of changed files ==="
+            changedFiles.each {
+                // 각 파일 경로의 앞뒤 공백을 제거하고 비교 (핵심 수정)
+                def trimmedFile = it.trim()
+                echo "File: ${trimmedFile}"
 
-                    if (changedFiles.any { it.startsWith('BE/') }) {
-                        env.BUILD_SPRING = 'true'
-                    }
-                    if (changedFiles.any { it.startsWith('AI_server/') }) {
-                        env.BUILD_FASTAPI = 'true'
-                    }
-                    
-                    echo "Build Spring App: ${env.BUILD_SPRING}"
-                    echo "Build FastAPI App: ${env.BUILD_FASTAPI}"
+                if (trimmedFile.startsWith('BE/')) {
+                    env.BUILD_SPRING = 'true'
+                }
+                if (trimmedFile.startsWith('AI_server/')) {
+                    env.BUILD_FASTAPI = 'true'
+                }
+            }
+            echo "==========================="
+
+            echo "Build Spring App: ${env.BUILD_SPRING}"
+            echo "Build FastAPI App: ${env.BUILD_FASTAPI}"
                 }
             }
         }

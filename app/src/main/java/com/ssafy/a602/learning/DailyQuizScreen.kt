@@ -289,16 +289,204 @@ fun DailyQuizScreen(
 // (아래 컴포넌트들은 네 기존 코드와 동일하므로 그대로 둬도 됩니다)
 
 @Composable
-private fun AnswerDialog(correct: Boolean, correctWord: String, onNext: () -> Unit) { /* ... 동일 ... */ }
+private fun AnswerDialog(
+    correct: Boolean,
+    correctWord: String,
+    onNext: () -> Unit
+) {
+    val bg = if (correct) Color(0xFFE8FFF1) else Color(0xFFFFF1F2)
+    val iconBg = if (correct) Color(0xFF16A34A) else Color(0xFFEF4444)
+    val title = if (correct) "정답입니다!" else "오답입니다!"
+    val sub   = if (correct) "잘했습니다" else "정답: $correctWord"
+
+    AlertDialog(
+        onDismissRequest = onNext,
+        confirmButton = {
+            Button(onClick = onNext, shape = RoundedCornerShape(12.dp)) { Text("다음 →") }
+        },
+        title = null,
+        text = {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(bg)
+                    .padding(horizontal = 18.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(iconBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (correct) "✓" else "✕",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(sub, color = Color(0xFF6B7280))
+            }
+        },
+        containerColor = Color.Transparent
+    )
+}
+
 
 @Composable
-private fun FinishDialog(day: Int, score: Int, total: Int, onRetry: () -> Unit, onGoRoadmap: () -> Unit) { /* ... 동일 ... */ }
+private fun FinishDialog(
+    day: Int,
+    score: Int,
+    total: Int,
+    onRetry: () -> Unit,
+    onGoRoadmap: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = null,
+        text = {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF22C55E)),
+                    contentAlignment = Alignment.Center
+                ) { Text("🏆", fontSize = 24.sp) }
+
+                Spacer(Modifier.height(10.dp))
+                Text("Day $day 완료!", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "$score / $total",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF16A34A)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text("정답 개수를 확인해보세요", color = Color(0xFF6B7280))
+
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = onRetry,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("퀴즈 다시하기") }
+
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onGoRoadmap,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("로드맵으로 돌아가기") }
+            }
+        },
+        confirmButton = {},
+        containerColor = Color.Transparent
+    )
+}
+
 
 @Composable
-private fun SegmentedTwoToggle(left: String, right: String, selectedLeft: Boolean, onChange: (Boolean) -> Unit) { /* ... 동일 ... */ }
+private fun SegmentedTwoToggle(
+    left: String,
+    right: String,
+    selectedLeft: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    val blue = Color(0xFF1D4ED8)
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(Color(0xFFE9EEF9))
+            .padding(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val leftBg = if (selectedLeft) blue else Color.Transparent
+        val rightBg = if (!selectedLeft) blue else Color.Transparent
+        val leftColor = if (selectedLeft) Color.White else blue
+        val rightColor = if (!selectedLeft) Color.White else blue
+
+        Text(
+            left,
+            color = leftColor,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(leftBg)
+                .clickable { onChange(true) }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+        Text(
+            right,
+            color = rightColor,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(rightBg)
+                .clickable { onChange(false) }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+    }
+}
+
 
 @Composable
-private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) { /* ... 동일 ... */ }
+private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val player = remember(url) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(url))
+            prepare()
+            playWhenReady = false
+        }
+    }
+    var isPlaying by remember { mutableStateOf(false) }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener); player.release() }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.Black)
+    ) {
+        AndroidView(
+            factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } },
+            modifier = Modifier.matchParentSize()
+        )
+        if (!isPlaying) {
+            Box(
+                Modifier.matchParentSize().clickable { player.play() },
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier.size(64.dp).clip(CircleShape).background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) { Text("▶", color = Color(0xFF22C55E), fontSize = 24.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+    }
+}
+
 
 /* ───────── 서버 전송 (MVP: 더미) ───────── */
 // 실제 Retrofit/ktor로 교체하면 됨.

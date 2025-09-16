@@ -4,6 +4,7 @@ WORKDIR /app
 
 # Gradle Wrapper 스크립트 복사
 COPY gradlew .
+RUN chmod +x ./gradlew
 COPY gradle ./gradle
 
 # build.gradle 파일 복사 (의존성 분석을 위함)

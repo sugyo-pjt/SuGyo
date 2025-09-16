@@ -32,7 +32,7 @@ mv $TEMP_CONF $NGINX_CONF_PATH
 echo "Swap logic applied. New configuration:"
 cat $NGINX_CONF_PATH
 
-docker compose exec nginx-proxy nginx -s reload
+docker compose exec nginx nginx -s reload
 
 echo "### Swap complete! ###"
 echo "New API Target (Blue) is now: $TEST_TARGET"

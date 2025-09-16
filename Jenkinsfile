@@ -34,16 +34,12 @@ pipeline {
 
                         if (trimmedFile.startsWith('BE/')) {
                             buildSpring = true
-                            echo "Build Spring App: ${buildSpring}"
                         }
                         if (trimmedFile.startsWith('AI_server/')) {
                             buildFastApi = true
-                            echo "Build FastAPI App: ${buildFastApi}"
                         }
                         if (trimmedFile.startsWith('Nginx/') || trimmedFile.startsWith('MYSQL/') || trimmedFile == 'docker-compose.yml') {
                             restartInfrastructure = true
-                            echo "Infrastructure restart required due to changes in: ${trimmedFile}"
-                            echo "Restart Infrastructure: ${restartInfrastructure}"
                         }
                     }
                     echo "==========================="
@@ -59,7 +55,6 @@ pipeline {
                     // 다음 스테이지에서 사용할 수 있도록 env 변수에 최종 할당
                     env.SERVICES_TO_REBUILD = servicesToRebuild.join(' ')
                     env.RESTART_INFRA = restartInfrastructure.toString()
-                    echo "servicesToRebuild: ${servicesToRebuild}"
 
                     echo "Services to rebuild: ${env.SERVICES_TO_REBUILD}"
                     echo "Restart infrastructure needed: ${env.RESTART_INFRA}"

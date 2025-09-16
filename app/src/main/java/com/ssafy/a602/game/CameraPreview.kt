@@ -17,7 +17,7 @@ import java.util.concurrent.Executors
 
 /**
  * CameraPreview
- * 
+ *
  * CameraX를 사용한 카메라 프리뷰 컴포넌트
  * MediaPipe 분석을 위한 ImageAnalysis 기능 포함
  */
@@ -30,17 +30,17 @@ fun CameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
     // 카메라 실행을 위한 Executor
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    
+
     // 카메라 생명주기 정리
     DisposableEffect(Unit) {
         onDispose {
             cameraExecutor.shutdown()
         }
     }
-    
+
     AndroidView(
         factory = { ctx ->
             PreviewView(ctx).apply {
@@ -56,18 +56,18 @@ fun CameraPreview(
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                
+
                 // Preview 설정 (미러 모드 비활성화)
                 val preview = Preview.Builder()
                     .build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
-                
+
                 // CameraSelector 설정
                 val cameraSelector = CameraSelector.Builder()
                     .requireLensFacing(lensFacing)
                     .build()
-                
+
                 // ImageAnalysis 설정 (MediaPipe 분석용)
                 val imageAnalysis = if (enableAnalysis && onFrame != null) {
                     ImageAnalysis.Builder()
@@ -79,11 +79,11 @@ fun CameraPreview(
                             }
                         }
                 } else null
-                
+
                 try {
                     // 기존 바인딩 해제
                     cameraProvider.unbindAll()
-                    
+
                     // 새로운 바인딩
                     val useCaseGroup = if (imageAnalysis != null) {
                         UseCaseGroup.Builder()
@@ -95,7 +95,7 @@ fun CameraPreview(
                             .addUseCase(preview)
                             .build()
                     }
-                    
+
                     cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         cameraSelector,

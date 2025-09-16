@@ -99,7 +99,7 @@ pipeline {
                         echo "AWS_REGION=${env.AWS_REGION}" >> .env
                         echo "AWS_S3_BUCKET=${env.SPRING_CLOUD_AWS_S3_BUCKET}" >> .env
                         echo "AWS_S3_CDN_URL=${env.SPRING_CLOUD_AWS_S3_CDN_URL}" >> .env
-                        echo "JWT_SECRET='${env.SPRING_JWT_SECRET}'" >> .env
+                        echo "SPRING_JWT_SECRET='${env.SPRING_JWT_SECRET}'" >> .env
                     """
                     if (env.RESTART_INFRA == 'true') {
                         // 인프라 변경이 최우선. 전체 재시작
@@ -156,7 +156,7 @@ pipeline {
                                     echo "AWS_REGION=${env.AWS_REGION}" >> .env
                                     echo "AWS_S3_BUCKET=${env.SPRING_CLOUD_AWS_S3_BUCKET}" >> .env
                                     echo "AWS_S3_CDN_URL=${env.SPRING_CLOUD_AWS_S3_CDN_URL}" >> .env
-                                    echo "JWT_SECRET='${env.SPRING_JWT_SECRET}'" >> .env
+                                    echo "SPRING_JWT_SECRET='${env.SPRING_JWT_SECRET}'" >> .env
                                 """
                                 if (env.RESTART_INFRA == 'true') {
                                     // 인프라 변경이 최우선. Blue/Green 환경 전체를 최신 설정으로 재구성

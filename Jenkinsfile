@@ -30,9 +30,9 @@ pipeline {
             
             echo "=== List of changed files ==="
             changedFiles.each {
-                // 각 파일 경로의 앞뒤 공백을 제거하고 비교 (핵심 수정)
+                // 각 파일 경로의 앞뒤 공백을 제거하고 비교
                 def trimmedFile = it.trim()
-                echo "File: ${trimmedFile}"
+                echo "File:${trimmedFile}"
 
                 if (trimmedFile.startsWith('BE/')) {
                     env.BUILD_SPRING = 'true'

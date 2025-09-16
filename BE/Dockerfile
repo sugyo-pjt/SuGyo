@@ -10,7 +10,7 @@ COPY gradle ./gradle
 COPY build.gradle .
 COPY settings.gradle .
 
-# 먼저 의존성만 다운로드하여 별도의 레이어에 캐싱합니다.
+# 먼저 의존성만 다운로드하여 별도의 레이어에 캐싱.
 # build.gradle 파일이 변경되지 않으면 이 단계는 캐시를 사용해 즉시 완료.
 RUN ./gradlew dependencies
 

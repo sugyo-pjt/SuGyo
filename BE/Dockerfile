@@ -34,7 +34,5 @@ WORKDIR /app
 # 의존성 -> 스프링 부트 로더 -> 애플리케이션 순으로 복사하여 변경이 잦은 'application' 레이어만 새로 빌드.
 COPY --from=builder /app/build/libs/*.jar app.jar
 
-COPY --from=builder /app/build/docs/openapi.json /app/static/openapi.json
-
 # java -jar app.jar 대신 JarLauncher를 직접 실행하여 부팅 속도를 약간 개선.
 ENTRYPOINT ["java", "-jar", "app.jar"]

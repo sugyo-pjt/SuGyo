@@ -1,12 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        // 빌드할 서비스 목록을 관리하는 변수
-        BUILD_SPRING = 'false'
-        BUILD_FASTAPI = 'false'
-    }
-
     stages {
         // =================================================================
         // STAGE 1: 변경 사항 감지 (모든 브랜치에서 실행)
@@ -77,81 +71,133 @@ pipeline {
         // STAGE 2: Green 환경 업데이트 (develop 브랜치 전용)
         // =================================================================
         stage('Update Green Environment') {
-    when {
-        branch 'develop'
-        // 빌드할 앱 코드가 있거나, 인프라 변경이 있을 때 실행
-        anyOf {
-            expression { env.SERVICES_TO_REBUILD != null && !env.SERVICES_TO_REBUILD.isEmpty() }
-            expression { env.RESTART_INFRA == 'true' }
-        }
-    }
-    steps {
-        script {
-            if (env.RESTART_INFRA == 'true') {
-                // 인프라 변경이 최우선. 전체 재시작
-                echo "Infrastructure change detected. Restarting all services."
-                sh 'sh ./scripts/restart_all.sh'
-            } else {
-                // 애플리케이션 코드만 변경된 경우
-                echo "Application code change detected. Rebuilding specific services."
-                sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
+            when {
+                branch 'develop'
+                // 빌드할 앱 코드가 있거나, 인프라 변경이 있을 때 실행
+                anyOf {
+                    expression { env.SERVICES_TO_REBUILD != null && !env.SERVICES_TO_REBUILD.isEmpty() }
+                    expression { env.RESTART_INFRA == 'true' }
+                }
             }
-        }
-    }
-}
-
-
-        // =================================================================
-        // STAGE 3: 프로덕션 배포 (master 브랜치 전용)
-        // =================================================================
-stage('Deploy to Production') {
-    when {
-        branch 'inf/S13P21A602-170'
-        // 빌드할 앱 코드가 있거나, 인프라 변경이 있을 때 실행
-        anyOf {
-            expression { env.SERVICES_TO_REBUILD != null && !env.SERVICES_TO_REBUILD.isEmpty() }
-            expression { env.RESTART_INFRA == 'true' }
-        }
-    }
-    stages {
-        // 하위 스테이지들
-        stage('Prepare for Deployment') {
+            withCredentials([
+                string(credentialsId: 'db-root-password', variable: 'DB_ROOT_PASSWORD'),
+                string(credentialsId: 'db-name', variable: 'DB_NAME'),
+                string(credentialsId: 'db-user', variable: 'DB_USER'),
+                string(credentialsId: 'db-password', variable: 'DB_PASSWORD'),
+                string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
+                string(credentialsId: 'aws-s3-bucket', variable: 'AWS_S3_BUCKET'),
+                string(credentialsId: 'aws-s3-cdn-url', variable: 'AWS_S3_CDN_URL'),
+                string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET')
+            ])
+        
             steps {
                 script {
+                    sh """
+                        echo "DB_ROOT_PASSWORD=${env.DB_ROOT_PASSWORD}" > .env
+                        echo "DB_NAME=${env.DB_NAME}" >> .env
+                        echo "DB_USER=${env.DB_USER}" >> .env
+                        echo "DB_PASSWORD=${env.DB_PASSWORD}" >> .env
+                        echo "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}" >> .env
+                        echo "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}" >> .env
+                        echo "AWS_REGION=${env.AWS_REGION}" >> .env
+                        echo "AWS_S3_BUCKET=${env.AWS_S3_BUCKET}" >> .env
+                        echo "AWS_S3_CDN_URL=${env.AWS_S3_CDN_URL}" >> .env
+                        echo "JWT_SECRET=${env.JWT_SECRET}" >> .env
+                    """
                     if (env.RESTART_INFRA == 'true') {
-                        // 인프라 변경이 최우선. Blue/Green 환경 전체를 최신 설정으로 재구성
-                        echo "[PROD] Infrastructure change detected. Restarting all services before swapping."
+                        // 인프라 변경이 최우선. 전체 재시작
+                        echo "Infrastructure change detected. Restarting all services."
                         sh 'sh ./scripts/restart_all.sh'
                     } else {
-                        // 애플리케이션 코드만 변경된 경우, 스왑 후 Green이 될 서비스만 재빌드
-                        echo "[PROD] Application code change detected. Rebuilding target image."
+                        // 애플리케이션 코드만 변경된 경우
+                        echo "Application code change detected. Rebuilding specific services."
                         sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
                     }
                 }
             }
         }
-        stage('Approval') {
-            steps {
-                timeout(time: 30, unit: 'MINUTES') {
-                    input message: "Ready to swap Blue-Green for production? This will make the latest changes live."
+        // =================================================================
+        // STAGE 3: 프로덕션 배포 (master 브랜치 전용)
+        // =================================================================
+        stage('Deploy to Production') {
+            when {
+                branch 'inf/S13P21A602-170'
+                // 빌드할 앱 코드가 있거나, 인프라 변경이 있을 때 실행
+                anyOf {
+                    expression { env.SERVICES_TO_REBUILD != null && !env.SERVICES_TO_REBUILD.isEmpty() }
+                    expression { env.RESTART_INFRA == 'true' }
+                }
+            }
+            withCredentials([
+                string(credentialsId: 'db-root-password', variable: 'DB_ROOT_PASSWORD'),
+                string(credentialsId: 'db-name', variable: 'DB_NAME'),
+                string(credentialsId: 'db-user', variable: 'DB_USER'),
+                string(credentialsId: 'db-password', variable: 'DB_PASSWORD'),
+                string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
+                string(credentialsId: 'aws-s3-bucket', variable: 'AWS_S3_BUCKET'),
+                string(credentialsId: 'aws-s3-cdn-url', variable: 'AWS_S3_CDN_URL'),
+                string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET')
+            ])
+
+            stages {
+                // 하위 스테이지들
+                stage('Prepare for Deployment') {
+                    steps {
+                        script {
+                            sh """
+                                echo "DB_ROOT_PASSWORD=${env.DB_ROOT_PASSWORD}" > .env
+                                echo "DB_NAME=${env.DB_NAME}" >> .env
+                                echo "DB_USER=${env.DB_USER}" >> .env
+                                echo "DB_PASSWORD=${env.DB_PASSWORD}" >> .env
+                                echo "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}" >> .env
+                                echo "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}" >> .env
+                                echo "AWS_REGION=${env.AWS_REGION}" >> .env
+                                echo "AWS_S3_BUCKET=${env.AWS_S3_BUCKET}" >> .env
+                                echo "AWS_S3_CDN_URL=${env.AWS_S3_CDN_URL}" >> .env
+                                echo "JWT_SECRET=${env.JWT_SECRET}" >> .env
+                            """
+                            if (env.RESTART_INFRA == 'true') {
+                                // 인프라 변경이 최우선. Blue/Green 환경 전체를 최신 설정으로 재구성
+                                echo "[PROD] Infrastructure change detected. Restarting all services before swapping."
+                                sh 'sh ./scripts/restart_all.sh'
+                            } else {
+                                // 애플리케이션 코드만 변경된 경우, 스왑 후 Green이 될 서비스만 재빌드
+                                echo "[PROD] Application code change detected. Rebuilding target image."
+                                sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
+                            }
+                        }
+                    }
+                }
+        
+                stage('Approval') {
+                    steps {
+                        timeout(time: 30, unit: 'MINUTES') {
+                            input message: "Ready to swap Blue-Green for production? This will make the latest changes live."
+                        }
+                    }
+                }
+        
+                stage('Swap Blue-Green') {
+                    steps {
+                        echo "Swapping Blue-Green roles..."
+                        sh 'sh ./scripts/swap_blue_green.sh'
+                    }
                 }
             }
         }
-        stage('Swap Blue-Green') {
-            steps {
-                echo "Swapping Blue-Green roles..."
-                sh 'sh ./scripts/swap_blue_green.sh'
-            }
-        }
     }
-}
-
-    }
-
     // =================================================================
     // POST ACTIONS: 파이프라인 실행 후 작업
     // =================================================================
     post {
+        always {
+            echo "Cleaning up workspace..."
+            deleteDir()
+        }
         success {
             echo 'Pipeline finished successfully.'
             // 성공 알림

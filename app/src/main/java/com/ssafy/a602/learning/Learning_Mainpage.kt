@@ -5,6 +5,7 @@ import com.ssafy.a602.R
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun LearningMainPage(
     onStartRoadmap: () -> Unit = {},
+    onOpenSongStudy: () -> Unit,
     progressDay: Int = 5
 ) {
     Column(
@@ -77,6 +79,7 @@ fun LearningMainPage(
 
         // ── 카드 1: 노래 학습(자음/모음) ─────────────────────────────────────
         ElevatedCard(
+            modifier = Modifier.clickable { onOpenSongStudy() },
             shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.elevatedCardElevation(6.dp),
             colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -93,7 +96,7 @@ fun LearningMainPage(
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "노래 학습 (자음/모음)",
+                        text = "노래 학습",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(

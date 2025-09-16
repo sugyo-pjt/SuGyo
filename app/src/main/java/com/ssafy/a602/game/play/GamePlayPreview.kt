@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlin.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,7 +29,7 @@ import com.ssafy.a602.game.play.JudgmentType
 
 /* ========== Preview ========== */
 
-@ExperimentalMirrorMode
+@OptIn(ExperimentalMirrorMode::class)
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -65,7 +66,7 @@ fun GamePlayScreenPreview() {
     )
 }
 
-@ExperimentalMirrorMode
+@OptIn(ExperimentalMirrorMode::class)
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -105,7 +106,7 @@ fun GamePlayScreenPerfectPreview() {
     )
 }
 
-@ExperimentalMirrorMode
+@OptIn(ExperimentalMirrorMode::class)
 @Preview(
     showBackground = true,
     widthDp = 360,

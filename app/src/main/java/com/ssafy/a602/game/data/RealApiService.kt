@@ -78,7 +78,7 @@ class RealApiService : GameApiService {
             
             val songSections = chartSegments.map { segment ->
                 val startTime = parseTimeToSeconds(segment.barStartedAt)
-                val endTime = startTime + calculateSegmentDuration(segment)
+                val endTime = parseTimeToSeconds(segment.barEndedAt)
                 
                 Log.d("RealApiService", "섹션 ${segment.segment}: '$segment.lyrics' (${segment.correct.size}개 정답 정보)")
                 
@@ -259,19 +259,6 @@ class RealApiService : GameApiService {
         }
     }
     
-    /**
-     * 섹션의 지속 시간 계산
-     */
-    private fun calculateSegmentDuration(segment: ChartSegment): Float {
-        return if (segment.correct.isNotEmpty()) {
-            val firstCorrect = segment.correct.first()
-            val startTime = parseTimeToSeconds(firstCorrect.actionStartedAt)
-            val endTime = parseTimeToSeconds(firstCorrect.actionEndedAt)
-            endTime - startTime
-        } else {
-            1.0f // 기본값
-        }
-    }
     
     // ========== 에러 처리 함수들 ==========
     

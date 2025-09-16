@@ -27,6 +27,8 @@ import androidx.compose.ui.text.style.TextAlign    // 텍스트 중앙 정렬
 import androidx.compose.ui.tooling.preview.Preview // 미리보기
 import androidx.compose.ui.unit.dp                 // dp 단위
 import androidx.compose.ui.unit.sp                 // sp 단위(폰트 크기)
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 // ────────────────────────────────────────────────────────────────────────────────
 //  💡 아이콘이 에러라면?
@@ -45,10 +47,22 @@ import androidx.compose.ui.unit.sp                 // sp 단위(폰트 크기)
 @Composable
 fun LoginScreen(
     onBack: () -> Unit = {},                      // 시작화면이라 보통 쓰지 않음(남겨둔 건 재사용 대비)
-    onSubmit: (String, String) -> Unit = { _, _ -> },
+    onLoginSuccess: (String) -> Unit = {},        // 로그인 성공시 콜백 (토큰 전달)
     onForgot: () -> Unit = {},
-    onSignup: () -> Unit = {}
+    onSignup: () -> Unit = {},
+    viewModel: LoginViewModel = hiltViewModel()
 ) {
+    // ViewModel 상태 관찰
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // 로그인 성공시 콜백 호출
+    LaunchedEffect(uiState.loginSuccess) {
+        if (uiState.loginSuccess && uiState.accessToken != null) {
+            onLoginSuccess(uiState.accessToken!!)
+            viewModel.clearLoginSuccess()
+        }
+    }
+    
     // 1) 상단/전체 배경 그라데이션 정의 (연한 블루 → 화이트)
     val bg = Brush.verticalGradient(
         listOf(
@@ -103,7 +117,9 @@ fun LoginScreen(
                 // 카드 내부 패딩
                 Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     LoginForm(
-                        onSubmit = onSubmit,
+                        uiState = uiState,
+                        onLogin = { email, password -> viewModel.login(email, password) },
+                        onClearError = { viewModel.clearError() },
                         onForgot = onForgot,
                         onSignup = onSignup
                     )
@@ -282,18 +298,26 @@ private fun PrimaryButton(
 /**
  * 로그인 폼
  * - 이메일/비밀번호 입력 상태를 내부에서 관리
- * - "로그인" 클릭 시 onSubmit(email, password) 호출 → 상위(NavGraph/MainScreen)에서 후속 처리
+ * - "로그인" 클릭 시 onLogin(email, password) 호출 → ViewModel에서 후속 처리
  */
 @Composable
 private fun LoginForm(
-    onSubmit: (String, String) -> Unit,
+    uiState: LoginUiState,
+    onLogin: (String, String) -> Unit,
+    onClearError: () -> Unit,
     onForgot: () -> Unit,
     onSignup: () -> Unit
 ) {
     // 입력 상태(간단 버전): 화면 내부에서 로컬 관리
-    //  - 서버 통신/검증이 필요해지면 ViewModel로 올리면 됩니다.
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    
+    // 에러가 있을 때 자동으로 에러 상태 초기화
+    LaunchedEffect(uiState.error) {
+        if (uiState.error != null) {
+            // 에러가 있으면 잠시 후 자동으로 초기화 (선택사항)
+        }
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -322,13 +346,24 @@ private fun LoginForm(
 
         Spacer(Modifier.height(20.dp))
 
+        // 에러 메시지 표시
+        uiState.error?.let { error ->
+            Text(
+                text = error,
+                color = Color.Red,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+
         // 로그인 버튼
         PrimaryButton(
-            text = "로그인",
+            text = if (uiState.isLoading) "로그인 중..." else "로그인",
             onClick = {
-                // 앞뒤 공백 제거 후 상위 콜백으로 전달
-                onSubmit(email.trim(), password)
-            }
+                // 앞뒤 공백 제거 후 ViewModel로 전달
+                onLogin(email.trim(), password)
+            },
+            enabled = !uiState.isLoading
         )
 
         Spacer(Modifier.height(12.dp))

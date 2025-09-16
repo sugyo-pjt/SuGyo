@@ -56,8 +56,6 @@ private fun parseTimeToSeconds(timeString: String): Float = try {
     (hours * 3600 + minutes * 60 + secondsWithMs)
 } catch (_: Exception) { 0f }
 
-@ExperimentalMirrorMode
-@ExperimentalGetImage
 @OptIn(ExperimentalMirrorMode::class, ExperimentalGetImage::class)
 @Composable
 fun GamePlayScreen(

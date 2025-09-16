@@ -17,7 +17,9 @@ import androidx.core.content.ContextCompat
 import com.ssafy.a602.ui.theme.S13P21A602Theme
 import com.ssafy.a602.MainScreen
 import com.ssafy.a602.game.PermissionManager
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
     private lateinit var snackbarHostState: SnackbarHostState

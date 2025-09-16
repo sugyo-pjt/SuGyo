@@ -14,6 +14,9 @@ data class ChartSegment(
     @SerializedName("barStartedAt")
     val barStartedAt: String, // "HH:MM:SS.xx" 형식
     
+    @SerializedName("barEndedAt")
+    val barEndedAt: String, // "HH:MM:SS.xx" 형식
+    
     @SerializedName("lyrics")
     val lyrics: String,
     

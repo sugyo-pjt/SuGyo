@@ -13,6 +13,13 @@ import com.ssafy.a602.common.navigation.NavGraph
 import com.ssafy.a602.navbar.BottomTab
 import com.ssafy.a602.navbar.CustomBottomNavigationBar
 
+// 안전하게 비교하기 위한 헬퍼: 쿼리/플레이스홀더 제거 후 prefix 매칭
+private fun String?.matchesPrefix(prefix: String): Boolean {
+    if (this == null) return false
+    val base = this.substringBefore('?')      // "?..." 제거
+        .substringBefore("/{")                // "/{arg}" 패턴 제거
+    return base == prefix || base.startsWith("$prefix/")
+}
 
 @Composable
 fun MainScreen(
@@ -25,19 +32,20 @@ fun MainScreen(
     val currentRoute = currentBackStackEntry?.destination?.route
 
     // 현재 라우트에 따라 선택된 탭 결정 (Screen.kt의 route와 일치)
-    val selectedTab = when (currentRoute) {
-        "search" -> BottomTab.SEARCH
-        "learning" -> BottomTab.LEARNING
-        "chat" -> BottomTab.CHAT
-        "game" -> BottomTab.GAME
-        "mypage" -> BottomTab.MYPAGE
-        else -> BottomTab.SEARCH  // 기본값
+    val selectedTab = when {
+        currentRoute.matchesPrefix("search")   -> BottomTab.SEARCH
+        currentRoute.matchesPrefix("learning") -> BottomTab.LEARNING    // ← learning/daily/*, learning/roadmap 등 모두 포함
+        currentRoute.matchesPrefix("chat")     -> BottomTab.CHAT
+        currentRoute.matchesPrefix("game")     -> BottomTab.GAME
+        currentRoute.matchesPrefix("mypage")   -> BottomTab.MYPAGE
+        else -> BottomTab.SEARCH
     }
 
     // 바텀바 표시 규칙
-    // - 로그인/홈 화면에서는 네비게이션 바 숨김
+    // - 인증가드/로그인/홈 화면에서는 네비게이션 바 숨김
     // - 리듬게임 준비/플레이/결과 화면에서도 숨김 (게임 중 UI 몰입을 위해)
     val showBottomBar = when (currentRoute) {
+        "auth_guard" -> false
         "login" -> false
         "home" -> false
         "signup" -> false

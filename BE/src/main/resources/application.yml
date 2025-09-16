@@ -46,7 +46,7 @@ cors:
 
 # SWAGGER CONFIG
 swagger:
-  server-url:
+  server-url: ${SWAGGER_SERVER_URL}
 
 logging:
   level:

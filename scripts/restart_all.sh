@@ -1,8 +1,14 @@
 #!/bin/bash
-echo "### Restarting all services based on docker-compose.yml... ###"
+set -e
 
-# --build 옵션으로 이미지 변경이 필요한 경우 새로 빌드하고,
-# 그렇지 않은 서비스는 설정만 반영하여 다시 시작합니다.
-docker compose up -d --build --no-cache
+echo "### Restarting all services with cache invalidation... ###"
+
+# 1. 캐시 없이 모든 이미지를 다시 빌드
+echo "--- Step 1: Building all images without cache ---"
+docker compose build --no-cache
+
+# 2. 기존 컨테이너를 중지 및 삭제하고 새로운 이미지로 컨테이너를 다시 생성 및 시작
+echo "--- Step 2: Recreating all containers with new images ---"
+docker compose up -d --force-recreate
 
 echo "### All services have been updated. ###"

@@ -6,7 +6,9 @@ import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.SongSection
 import com.ssafy.a602.game.ranking.RankingItem
 import com.ssafy.a602.game.api.ApiErrorHandler
-import com.ssafy.a602.game.api.RetrofitClient
+import com.ssafy.a602.game.api.RhythmApi
+import javax.inject.Inject
+import javax.inject.Singleton
 import com.ssafy.a602.game.api.dto.ChartSegment
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
@@ -25,20 +27,16 @@ import java.time.LocalDate
  * 2. RetrofitClient의 BASE_URL을 실제 서버 URL로 변경
  * 3. 인증 토큰을 적절히 관리
  */
-class RealApiService : GameApiService {
+@Singleton
+class RealApiService @Inject constructor(
+    private val rhythmApi: RhythmApi
+) : GameApiService {
     
-    private val rhythmApi = RetrofitClient.rhythmApi
-    
-    // TODO: 실제 인증 토큰 관리 로직 구현
-    private fun getAuthToken(): String {
-        // 실제로는 SharedPreferences나 다른 저장소에서 토큰을 가져와야 함
-        // 현재는 테스트용 토큰 사용 (실제 배포 시에는 적절한 토큰 관리 로직 필요)
-        return "Bearer test_token_for_development"
-    }
+    // AuthInterceptor가 자동으로 토큰을 헤더에 추가하므로 수동으로 토큰을 전달할 필요 없음
     
     override suspend fun getSongs(): List<SongItem> {
         return try {
-            val musicList = rhythmApi.getMusicList(getAuthToken())
+            val musicList = rhythmApi.getMusicList()
             musicList.map { musicItem ->
                 SongItem(
                     id = musicItem.id.toString(),
@@ -73,12 +71,12 @@ class RealApiService : GameApiService {
     override suspend fun getSongSections(songId: String): List<SongSection> {
         return try {
             Log.d("RealApiService", "가사 및 채보 다운로드 시작: music_id=$songId")
-            val chartSegments = rhythmApi.getChart(getAuthToken(), songId.toLong())
+            val chartSegments = rhythmApi.getChart(songId.toLong())
             Log.d("RealApiService", "API 응답 받음: ${chartSegments.size}개 섹션")
             
             val songSections = chartSegments.map { segment ->
                 val startTime = parseTimeToSeconds(segment.barStartedAt)
-                val endTime = startTime + calculateSegmentDuration(segment)
+                val endTime = parseTimeToSeconds(segment.barEndedAt)
                 
                 Log.d("RealApiService", "섹션 ${segment.segment}: '$segment.lyrics' (${segment.correct.size}개 정답 정보)")
                 
@@ -228,7 +226,7 @@ class RealApiService : GameApiService {
      */
     override suspend fun getMusicUrl(songId: String): String {
         return try {
-            val musicUrl = rhythmApi.getMusicUrl(getAuthToken(), songId.toLong())
+            val musicUrl = rhythmApi.getMusicUrl(songId.toLong())
             musicUrl.musicUrl ?: ""
         } catch (e: HttpException) {
             handleHttpException(e)
@@ -259,19 +257,6 @@ class RealApiService : GameApiService {
         }
     }
     
-    /**
-     * 섹션의 지속 시간 계산
-     */
-    private fun calculateSegmentDuration(segment: ChartSegment): Float {
-        return if (segment.correct.isNotEmpty()) {
-            val firstCorrect = segment.correct.first()
-            val startTime = parseTimeToSeconds(firstCorrect.actionStartedAt)
-            val endTime = parseTimeToSeconds(firstCorrect.actionEndedAt)
-            endTime - startTime
-        } else {
-            1.0f // 기본값
-        }
-    }
     
     // ========== 에러 처리 함수들 ==========
     

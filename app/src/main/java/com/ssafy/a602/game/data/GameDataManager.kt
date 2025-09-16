@@ -6,7 +6,8 @@ import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.ranking.RankingItem
 import com.ssafy.a602.game.score.GameResultRequest
-import com.ssafy.a602.game.api.RetrofitClient
+import com.ssafy.a602.game.api.RhythmApi
+import javax.inject.Inject
 import com.ssafy.a602.game.api.dto.CompleteReq
 import com.ssafy.a602.game.api.dto.CompleteResp
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,9 +21,20 @@ import kotlinx.coroutines.CancellationException
  */
 object GameDataManager {
     
-    // API 서비스들
-    private val realApiService: GameApiService = RealApiService()
+    // DI를 통해 주입받을 서비스들 (나중에 Hilt로 주입)
+    private var realApiService: GameApiService? = null
+    private var rhythmApi: RhythmApi? = null
+    
+    // 더미 API 서비스 (개발/테스트용)
     private val dummyApiService: GameApiService = DummyApiService()
+    
+    /**
+     * DI로 서비스들을 주입받는 메서드 (Hilt에서 호출)
+     */
+    fun injectServices(realApiService: RealApiService, rhythmApi: RhythmApi) {
+        this.realApiService = realApiService
+        this.rhythmApi = rhythmApi
+    }
     
     // 더미 모드 활성화 여부 (개발/테스트용)
     private var isDummyMode = false // 기본값을 실제 API로 설정
@@ -31,7 +43,11 @@ object GameDataManager {
      * 현재 활성화된 API 서비스 반환
      */
     private fun getCurrentApiService(): GameApiService {
-        return if (isDummyMode) dummyApiService else realApiService
+        return if (isDummyMode) {
+            dummyApiService
+        } else {
+            realApiService ?: throw IllegalStateException("RealApiService가 주입되지 않았습니다. injectServices()를 먼저 호출하세요.")
+        }
     }
     
     /**
@@ -308,8 +324,9 @@ object GameDataManager {
      */
     suspend fun completeGame(musicId: Long, score: Int): Result<CompleteResp> = try {
         val request = CompleteReq(musicId = musicId, score = score)
-        // TODO: 로그인 구현 후 실제 토큰으로 교체
-        val response = RetrofitClient.rhythmApi.complete("Bearer test_token_for_development", request)
+        // AuthInterceptor가 자동으로 토큰을 헤더에 추가
+        val api = rhythmApi ?: throw IllegalStateException("RhythmApi가 주입되지 않았습니다. injectServices()를 먼저 호출하세요.")
+        val response = api.complete(request)
         Result.success(response)
     } catch (ce: CancellationException) {
         throw ce

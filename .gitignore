@@ -83,6 +83,7 @@ target/
 # IPython
 profile_default/
 ipython_config.py
+hand_lang
 
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
@@ -141,6 +142,7 @@ celerybeat.pid
 .envrc
 .venv
 env/
+langv
 venv/
 ENV/
 env.bak/

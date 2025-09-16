@@ -90,10 +90,10 @@ pipeline {
                 ]){
                 script {
                     sh """
-                        echo "DB_ROOT_PASSWORD=${env.DB_ROOT_PASSWORD}" > .env
-                        echo "DB_NAME=${env.DB_NAME}" >> .env
-                        echo "DB_USER=${env.DB_USER}" >> .env
-                        echo "DB_PASSWORD=${env.DB_PASSWORD}" >> .env
+                        echo "MYSQL_ROOT_PASSWORD=${env.MYSQL_ROOT_PASSWORD}" > .env
+                        echo "MYSQL_DATABASE=${env.MYSQL_DATABASE}" >> .env
+                        echo "MYSQL_USER=${env.MYSQL_USER}" >> .env
+                        echo "MYSQL_PASSWORD=${env.MYSQL_PASSWORD}" >> .env
                         echo "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}" >> .env
                         echo "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}" >> .env
                         echo "AWS_REGION=${env.AWS_REGION}" >> .env
@@ -133,10 +133,11 @@ pipeline {
                     steps {
                         
                         withCredentials([
-                        string(credentialsId: 'db-root-password', variable: 'DB_ROOT_PASSWORD'),
-                        string(credentialsId: 'db-name', variable: 'DB_NAME'),
-                        string(credentialsId: 'db-user', variable: 'DB_USER'),
-                        string(credentialsId: 'db-password', variable: 'DB_PASSWORD'),
+
+                        string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD'),
+                        string(credentialsId: 'mysql-database', variable: 'MYSQL_DATABASE'),
+                        string(credentialsId: 'mysql-user', variable: 'MYSQL_USER'),
+                        string(credentialsId: 'mysql-password', variable: 'MYSQL_PASSWORD'),
                         string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
                         string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
                         string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
@@ -146,10 +147,10 @@ pipeline {
                         ]) {
                             script {
                                 sh """
-                                    echo "DB_ROOT_PASSWORD=${env.DB_ROOT_PASSWORD}" > .env
-                                    echo "DB_NAME=${env.DB_NAME}" >> .env
-                                    echo "DB_USER=${env.DB_USER}" >> .env
-                                    echo "DB_PASSWORD=${env.DB_PASSWORD}" >> .env
+                                    echo "MYSQL_ROOT_PASSWORD=${env.MYSQL_ROOT_PASSWORD}" > .env
+                                    echo "MYSQL_DATABASE=${env.MYSQL_DATABASE}" >> .env
+                                    echo "MYSQL_USER=${env.MYSQL_USER}" >> .env
+                                    echo "MYSQL_PASSWORD=${env.MYSQL_PASSWORD}" >> .env
                                     echo "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}" >> .env
                                     echo "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}" >> .env
                                     echo "AWS_REGION=${env.AWS_REGION}" >> .env

@@ -77,22 +77,29 @@ pipeline {
         // STAGE 2: Green 환경 업데이트 (develop 브랜치 전용)
         // =================================================================
         stage('Update Green Environment') {
-            when {
-                // 'develop' 브랜치이고, 빌드할 서비스가 하나라도 있을 때 실행
-                branch 'develop'
-                anyOf {
-                    expression { env.BUILD_SPRING == 'true' }
-                    expression { env.BUILD_FASTAPI == 'true' }
-                }
-            }
-            steps {
-                script {
-                    echo "Updating Green (test) environment from 'develop' branch."
-                    // 이 스크립트는 내부적으로 docker-compose up --build -d <서비스명>을 실행
-                    sh 'sh ./scripts/rebuild_green.sh'
-                }
+    when {
+        branch 'develop'
+        // 빌드할 앱 코드가 있거나, 인프라 변경이 있을 때 실행
+        anyOf {
+            expression { env.SERVICES_TO_REBUILD != null && !env.SERVICES_TO_REBUILD.isEmpty() }
+            expression { env.RESTART_INFRA == 'true' }
+        }
+    }
+    steps {
+        script {
+            if (env.RESTART_INFRA == 'true') {
+                // 인프라 변경이 최우선. 전체 재시작
+                echo "Infrastructure change detected. Restarting all services."
+                sh 'sh ./scripts/restart_all.sh'
+            } else {
+                // 애플리케이션 코드만 변경된 경우
+                echo "Application code change detected. Rebuilding specific services."
+                sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
             }
         }
+    }
+}
+
 
         // =================================================================
         // STAGE 3: 프로덕션 배포 (master 브랜치 전용)
@@ -118,7 +125,7 @@ stage('Deploy to Production') {
                     } else {
                         // 애플리케이션 코드만 변경된 경우, 스왑 후 Green이 될 서비스만 재빌드
                         echo "[PROD] Application code change detected. Rebuilding target image."
-                        sh "sh ./scripts/rebuild_services.sh ${env.SERVICES_TO_REBUILD}"
+                        sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
                     }
                 }
             }

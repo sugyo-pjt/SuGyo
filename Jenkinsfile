@@ -81,9 +81,9 @@ pipeline {
                     string(credentialsId: 'db-name', variable: 'MYSQL_DATABASE'),
                     string(credentialsId: 'db-user', variable: 'MYSQL_USER'),
                     string(credentialsId: 'db-password', variable: 'MYSQL_PASSWORD'),
-                    string(credentialsId: 'aws-access-key-id', variable: 'SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY'),
-                    string(credentialsId: 'aws-secret-access-key', variable: 'SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY'),
-                    string(credentialsId: 'aws-region', variable: 'SPRING_CLOUD_AWS_REGION_STATIC'),
+                    string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                    string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
                     string(credentialsId: 'aws-s3-bucket', variable: 'SPRING_CLOUD_AWS_S3_BUCKET'),
                     string(credentialsId: 'aws-s3-cdn-url', variable: 'SPRING_CLOUD_AWS_S3_CDN_URL'),
                     string(credentialsId: 'jwt-secret', variable: 'SPRING_JWT_SECRET')
@@ -94,9 +94,9 @@ pipeline {
                         echo "MYSQL_DATABASE=${env.MYSQL_DATABASE}" >> .env
                         echo "MYSQL_USER=${env.MYSQL_USER}" >> .env
                         echo "MYSQL_PASSWORD=${env.MYSQL_PASSWORD}" >> .env
-                        echo "AWS_ACCESS_KEY_ID=${env.SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY}" >> .env
-                        echo "AWS_SECRET_ACCESS_KEY=${env.SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY}" >> .env
-                        echo "AWS_REGION=${env.SPRING_CLOUD_AWS_REGION_STATIC}" >> .env
+                        echo "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}" >> .env
+                        echo "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}" >> .env
+                        echo "AWS_REGION=${env.AWS_REGION}" >> .env
                         echo "AWS_S3_BUCKET=${env.SPRING_CLOUD_AWS_S3_BUCKET}" >> .env
                         echo "AWS_S3_CDN_URL=${env.SPRING_CLOUD_AWS_S3_CDN_URL}" >> .env
                         echo "JWT_SECRET=${env.SPRING_JWT_SECRET}" >> .env
@@ -138,9 +138,9 @@ pipeline {
                         string(credentialsId: 'db-name', variable: 'MYSQL_DATABASE'),
                         string(credentialsId: 'db-user', variable: 'MYSQL_USER'),
                         string(credentialsId: 'db-password', variable: 'MYSQL_PASSWORD'),
-                        string(credentialsId: 'aws-access-key-id', variable: 'SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY'),
-                        string(credentialsId: 'aws-secret-access-key', variable: 'SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY'),
-                        string(credentialsId: 'aws-region', variable: 'SPRING_CLOUD_AWS_REGION_STATIC'),
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                        string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
                         string(credentialsId: 'aws-s3-bucket', variable: 'SPRING_CLOUD_AWS_S3_BUCKET'),
                         string(credentialsId: 'aws-s3-cdn-url', variable: 'SPRING_CLOUD_AWS_S3_CDN_URL'),
                         string(credentialsId: 'jwt-secret', variable: 'SPRING_JWT_SECRET')
@@ -151,9 +151,9 @@ pipeline {
                                     echo "MYSQL_DATABASE=${env.MYSQL_DATABASE}" >> .env
                                     echo "MYSQL_USER=${env.MYSQL_USER}" >> .env
                                     echo "MYSQL_PASSWORD=${env.MYSQL_PASSWORD}" >> .env
-                                    echo "AWS_ACCESS_KEY_ID=${env.SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY}" >> .env
-                                    echo "AWS_SECRET_ACCESS_KEY=${env.SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY}" >> .env
-                                    echo "AWS_REGION=${env.SPRING_CLOUD_AWS_REGION_STATIC}" >> .env
+                                    echo "AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}" >> .env
+                                    echo "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}" >> .env
+                                    echo "AWS_REGION=${env.AWS_REGION}" >> .env
                                     echo "AWS_S3_BUCKET=${env.SPRING_CLOUD_AWS_S3_BUCKET}" >> .env
                                     echo "AWS_S3_CDN_URL=${env.SPRING_CLOUD_AWS_S3_CDN_URL}" >> .env
                                     echo "JWT_SECRET=${env.SPRING_JWT_SECRET}" >> .env

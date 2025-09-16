@@ -18,23 +18,16 @@ services:
     container_name: spring-app-blue
     expose:
       - "8081"
+    env_file:
+      - ./.env
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
-      - AWS_S3_CDN_URL=${AWS_S3_CDN_URL}
-      - SPRING_JWT_SECRET=${JWT_SECRET}
-      - SPRING_JWT_EXPIRATION=${JWT_EXPIRATION}
       - SPRING_DATA_REDIS_HOST=redis-cache
       - SWAGGER_SERVER_URL=http://spring-app-blue
     depends_on:
-      mysql-db:
-      redis-cache:
+      - mysql-db
+      - redis-cache
     networks:
       - sugyo-network
 
@@ -43,23 +36,16 @@ services:
     container_name: spring-app-green
     expose:
       - "8082"
+    env_file:
+      - ./.env
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
-      - AWS_S3_CDN_URL=${AWS_S3_CDN_URL}
-      - SPRING_JWT_SECRET=${JWT_SECRET}
-      - SPRING_JWT_EXPIRATION=${JWT_EXPIRATION}
       - SPRING_DATA_REDIS_HOST=redis-cache
-      - SWAGGER_SERVER_URL=http://spring-app-green
+      - SWAGGER_SERVER_URL=http://spring-app-blue
     depends_on:
-      mysql-db:
-      redis-cache:
+      - mysql-db
+      - redis-cache
     networks:
       - sugyo-network
 
@@ -76,11 +62,8 @@ services:
   mysql-db:
     image: mysql:8.0
     container_name: mysql-db
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
+    env_file:
+      - ./.env
     volumes:
       - mysql_data:/var/lib/mysql
     ports:

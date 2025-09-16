@@ -18,13 +18,24 @@ except NameError:
 TRAINING_DIR = SCRIPT_DIR.parent.parent / 'AI_train' / 'training'
 sys.path.append(str(TRAINING_DIR))
 
+# config 모듈 import
+try:
+    from config import ModelConfig as cf
+except ImportError:
+    print("경고: config.py를 찾을 수 없습니다. 기본값을 사용합니다.")
+    # 기본값 설정
+    class DefaultConfig:
+        SEQUENCE_LENGTH = 60
+        FEATURE_DIM = 234
+    cf = DefaultConfig()
+
 # --- 주요 경로 및 상수 정의 ---
 MODEL_PATH = TRAINING_DIR / 'model' / 'best_model.h5'
 METADATA_PATH = TRAINING_DIR / 'data' / 'dataset_metadata.csv'
 LANDMARKS_DIR = TRAINING_DIR / 'data'
 DB_PERSIST_PATH = str(SCRIPT_DIR / "sign_motion_db") # DB가 저장될 폴더
 COLLECTION_NAME = "sign_motions"
-FEATURE_EXTRACTOR_LAYER_NAME = 'motion_vector_extractor' # 모델 생성 시 지정한 레이어 이름
+FEATURE_EXTRACTOR_LAYER_NAME = 'global_average_pooling1d' # GlobalAveragePooling1D 레이어에서 특징 추출
 
 def pad_or_trim(seq: np.ndarray, target_len: int) -> np.ndarray:
     """
@@ -70,8 +81,12 @@ def create_motion_db():
             outputs=original_model.get_layer(FEATURE_EXTRACTOR_LAYER_NAME).output
         )
         print("   - 특징 추출 모델을 성공적으로 생성했습니다.")
-    except ValueError:
+    except ValueError as e:
         print(f"오류: 모델에서 '{FEATURE_EXTRACTOR_LAYER_NAME}' 레이어를 찾을 수 없습니다.")
+        print(f"상세 오류: {e}")
+        print("사용 가능한 레이어들:")
+        for i, layer in enumerate(original_model.layers):
+            print(f"  {i}: {layer.name} ({type(layer).__name__})")
         print("모델 빌드 시 해당 레이어에 name을 지정했는지 확인하세요.")
         return
 
@@ -107,7 +122,17 @@ def create_motion_db():
             # 랜드마크 데이터 로드 및 전처리
             landmarks = np.load(landmark_file)
             landmarks = np.nan_to_num(landmarks).astype(np.float32)
-            landmarks = pad_or_trim(landmarks, 60)
+            
+            # 데이터 형태 검증
+            if len(landmarks.shape) != 2:
+                print(f"   - 경고: 잘못된 데이터 형태 - {landmarks.shape}, 파일: {landmark_file}")
+                continue
+                
+            if landmarks.shape[1] != cf.FEATURE_DIM:
+                print(f"   - 경고: 특성 차원 불일치 - 예상: {cf.FEATURE_DIM}, 실제: {landmarks.shape[1]}, 파일: {landmark_file}")
+                continue
+            
+            landmarks = pad_or_trim(landmarks, cf.SEQUENCE_LENGTH)
             
             # 모델 입력 형태로 변환 (batch 차원 추가)
             landmarks_batch = np.expand_dims(landmarks, axis=0)
@@ -132,18 +157,44 @@ def create_motion_db():
     # 5. DB에 일괄 추가
     if embeddings:
         print(f"5. 총 {len(embeddings)}개의 벡터를 DB에 저장합니다.")
-        # ChromaDB는 ID가 중복되면 오류를 발생시키므로, 기존 ID는 건너뛰는 로직이 필요할 수 있습니다.
-        # 여기서는 간단하게 일괄 추가합니다.
+        
+        # 기존 데이터가 있는지 확인하고 중복 ID 처리
         try:
-            collection.add(
-                embeddings=embeddings,
-                metadatas=metadatas,
-                ids=ids
-            )
-            print("   - DB 저장이 성공적으로 완료되었습니다.")
+            existing_ids = set()
+            try:
+                existing_data = collection.get()
+                if existing_data and existing_data['ids']:
+                    existing_ids = set(existing_data['ids'])
+                    print(f"   - 기존 DB에 {len(existing_ids)}개의 데이터가 있습니다.")
+            except Exception:
+                print("   - 기존 DB가 비어있거나 접근할 수 없습니다.")
+            
+            # 중복되지 않는 데이터만 필터링
+            new_embeddings = []
+            new_metadatas = []
+            new_ids = []
+            
+            for i, (emb, meta, id_val) in enumerate(zip(embeddings, metadatas, ids)):
+                if id_val not in existing_ids:
+                    new_embeddings.append(emb)
+                    new_metadatas.append(meta)
+                    new_ids.append(id_val)
+                else:
+                    print(f"   - 중복 ID 건너뛰기: {id_val}")
+            
+            if new_embeddings:
+                collection.add(
+                    embeddings=new_embeddings,
+                    metadatas=new_metadatas,
+                    ids=new_ids
+                )
+                print(f"   - {len(new_embeddings)}개의 새로운 벡터를 DB에 저장했습니다.")
+            else:
+                print("   - 저장할 새로운 데이터가 없습니다.")
+                
         except Exception as e:
             print(f"   - DB 저장 중 오류 발생: {e}")
-            print("   - ID 중복 등의 문제가 있을 수 있습니다.")
+            print("   - 수동으로 DB를 초기화하거나 다른 방법을 시도해보세요.")
 
     else:
         print("오류: DB에 저장할 벡터를 하나도 생성하지 못했습니다.")
@@ -151,7 +202,48 @@ def create_motion_db():
     print("모든 작업이 완료되었습니다. ---")
 
 
+def test_feature_extraction():
+    """
+    특징 추출 기능을 테스트하는 함수
+    """
+    print("--- 특징 추출 테스트 시작 ---")
+    
+    # 모델 로드
+    if not MODEL_PATH.exists():
+        print(f"오류: 모델 파일을 찾을 수 없습니다. 경로: {MODEL_PATH}")
+        return False
+    
+    try:
+        original_model = keras.models.load_model(MODEL_PATH)
+        print("모델 로드 성공")
+        
+        # 특징 추출 모델 생성
+        feature_extractor_model = keras.Model(
+            inputs=original_model.input,
+            outputs=original_model.get_layer(FEATURE_EXTRACTOR_LAYER_NAME).output
+        )
+        print("특징 추출 모델 생성 성공")
+        
+        # 테스트 데이터 생성
+        test_data = np.random.rand(1, cf.SEQUENCE_LENGTH, cf.FEATURE_DIM).astype(np.float32)
+        print(f"테스트 데이터 형태: {test_data.shape}")
+        
+        # 특징 추출 테스트
+        features = feature_extractor_model.predict(test_data, verbose=0)
+        print(f"추출된 특징 형태: {features.shape}")
+        print(f"특징 벡터 차원: {features.flatten().shape}")
+        
+        print("특징 추출 테스트 성공!")
+        return True
+        
+    except Exception as e:
+        print(f"테스트 실패: {e}")
+        return False
+
+
 if __name__ == "__main__":
+    import sys
+    
     # TensorFlow GPU 메모리 관리 설정 (선택 사항)
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
@@ -160,5 +252,11 @@ if __name__ == "__main__":
                 tf.config.experimental.set_memory_growth(gpu, True)
         except RuntimeError as e:
             print(e)
-            
-    create_motion_db()
+    
+    # 명령행 인수 확인
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        print("테스트 모드로 실행합니다.")
+        test_feature_extraction()
+    else:
+        print("DB 생성 모드로 실행합니다.")
+        create_motion_db()

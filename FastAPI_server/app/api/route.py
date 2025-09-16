@@ -1,7 +1,8 @@
 
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import SentenceInput, SentenceResponse, WordInput, WordResponse
-from app.services.media import sign_recognizer
+from app.models.input_models import chatInput, chatOutput
+from app.services.chatbot import start_chat
 from app.services.run_model import classification
 import numpy as np
 
@@ -12,47 +13,54 @@ async def health():
     """서버의 상태를 확인합니다."""
     return "OK"
 
-@router.get("/word-classification")
-async def word_classification(input_data = WordInput):
-    data = input_data
-    user_id = data["user_id"]
-    landmarks = data["landmarks"]
-    result = {
-        "user_id": user_id,
-        "word": classification(landmarks)
-    }
-    
-    return result
-    
-@router.post("/recognize-sentence", response_model=SentenceResponse)
-async def recognize_sentence_endpoint(sentence_input: SentenceInput):
+# 얘는 일단은 챗봇 시작하는 함수만 간단하게 구현해 둠. 나중에 크게 바뀔 예정.
+@router.post("/chat/start", response_model=chatOutput)
+async def chat(input_data: chatInput):
     """
-    분절된 수어 동작들의 리스트를 받아 전체 문장을 인식하고, 문맥에 맞는 챗봇 응답을 반환합니다.
+    챗봇 대화를 시작합니다.
+    
+    Args:
+        input_data: 대화 주제와 난이도 정보
+        
+    Returns:
+        챗봇의 초기 응답 메시지
     """
     try:
-        # 1. 입력 데이터를 Numpy 배열의 리스트로 변환
-        segmented_signs_np = [
-            np.array(sign, dtype=np.float32) for sign in sentence_input.segmented_signs
-        ]
-        
-        if not segmented_signs_np:
-            raise ValueError("입력된 수어 동작 데이터가 없습니다.")
-
-        # 2. 서비스 호출: 문장 인식 및 챗봇 응답 생성
-        recognized_sentence, chatbot_response = sign_recognizer.recognize_sentence(segmented_signs_np)
-        
-        if recognized_sentence is None:
-            raise ValueError(chatbot_response) # 서비스에서 전달된 오류 메시지
-
-        # 3. 최종 결과 반환
-        return SentenceResponse(
-            recognized_sentence=recognized_sentence,
-            chatbot_response=chatbot_response
-        )
-    
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=500, detail=f"서버 설정 오류: {e}")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"입력 데이터 오류: {e}")
+        result = await start_chat(input_data.subject, input_data.level)
+        return chatOutput(result=result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"서버 내부 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"챗봇 응답 생성 중 오류 발생: {str(e)}")
+
+
+# 요거는 노래에서 단어 분류하는 것. 일단 만들고 있는데 user_id가 필요없음?
+# 준오형이 까서 해준다고 함.
+@router.post("/api/v1/game/rhythm/play", response_model=WordResponse)
+async def word_classification(input_data: WordInput):
+    """
+    단일 수어 동작을 분류합니다.
+    
+    Args:
+        input_data: 사용자 ID와 랜드마크 데이터
+        
+    Returns:
+        분류된 단어 결과
+    """
+    try:
+        # WordInput 모델이 dict 타입이므로 직접 접근
+        user_id = input_data.input_data.get("user_id")
+        landmarks = input_data.input_data.get("frames")
+        
+        if not user_id or landmarks is None:
+            raise ValueError("user_id와 landmarks가 필요합니다.")
+        
+        classified_word = classification(landmarks)
+        
+        result = {
+            "user_id": user_id,
+            "word": classified_word
+        }
+        
+        return WordResponse(result=result)
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"단어 분류 중 오류 발생: {str(e)}")

@@ -111,8 +111,8 @@ class SignRecognizer:
 
     def recognize_sign_with_llm(self, landmark_data: np.ndarray):
         processed_data = self._preprocess_input(landmark_data)
-        top_predictions = self.get_top_predictions(processed_data, top_k=5)
-        similar_motions = self.search_similar_motions(processed_data, n_results=5)
+        top_predictions = self.get_top_predictions(processed_data, top_k=3)
+        similar_motions = self.search_similar_motions(processed_data, n_results=3)
         prompt = self._build_llm_verification_prompt(top_predictions, similar_motions)
         response = self.openai_client.chat.completions.create(
             model="gpt-4o", messages=[{"role": "system", "content": "당신은 수어 인식 전문가입니다."}, {"role": "user", "content": prompt}], temperature=0.0

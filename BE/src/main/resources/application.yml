@@ -28,13 +28,13 @@ spring:
   cloud:
     aws:
       credentials:
-        access-key:
-        secret-key:
+        access-key: ${SPRING_CLOUD_AWS_CREDENTIALS_ACCESS_KEY}
+        secret-key: ${SPRING_CLOUD_AWS_CREDENTIALS_SECRET_KEY}
       region:
         static: ${AWS_REGION}
       s3:
-        bucket:
-        cdn-url:
+        bucket: ${SPRING_CLOUD_AWS_S3_BUCKET}
+        cdn-url: ${SPRING_CLOUD_AWS_S3_CDN_URL}
 
   jwt:
     access-token-validity-in-ms: 3600000 #1시간

@@ -39,7 +39,7 @@ spring:
   jwt:
     access-token-validity-in-ms: 3600000 #1시간
     refresh-token-validity-in-ms: 604800000 #7일
-    secret: ${SPRING_JWT_SECRET}
+    secret: tZoHEVBJ7ngO/SVSyCIzrkouoK5u3lrUiVlgQpeQWZM=
 
 cors:
   allowed-origins:

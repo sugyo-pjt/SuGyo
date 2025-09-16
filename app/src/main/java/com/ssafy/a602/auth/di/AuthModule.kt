@@ -4,6 +4,7 @@ import com.ssafy.a602.auth.api.AuthApiService
 import com.ssafy.a602.auth.interceptor.AuthInterceptor
 import com.ssafy.a602.auth.interceptor.TokenAuthenticator
 import com.ssafy.a602.game.api.RetrofitClient
+import com.ssafy.a602.game.api.RhythmApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -58,5 +59,20 @@ object AuthModule {
         
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(AuthApiService::class.java)
+    }
+    
+    /**
+     * RhythmApi 제공
+     * AuthInterceptor와 TokenAuthenticator가 포함된 Retrofit 인스턴스를 사용
+     */
+    @Provides
+    @Singleton
+    fun provideRhythmApi(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator
+    ): RhythmApi {
+        val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
+        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
+        return retrofit.create(RhythmApi::class.java)
     }
 }

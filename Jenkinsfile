@@ -77,10 +77,10 @@ pipeline {
         
             steps {
                 withCredentials([
-                    string(credentialsId: 'db-root-password', variable: 'DB_ROOT_PASSWORD'),
-                    string(credentialsId: 'db-name', variable: 'DB_NAME'),
-                    string(credentialsId: 'db-user', variable: 'DB_USER'),
-                    string(credentialsId: 'db-password', variable: 'DB_PASSWORD'),
+                    string(credentialsId: 'db-root-password', variable: 'MYSQL_ROOT_PASSWORD'),
+                    string(credentialsId: 'db-name', variable: 'MYSQL_DATABASE'),
+                    string(credentialsId: 'db-user', variable: 'MYSQL_USER'),
+                    string(credentialsId: 'db-password', variable: 'MYSQL_PASSWORD'),
                     string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
                     string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
@@ -134,10 +134,10 @@ pipeline {
                         
                         withCredentials([
 
-                        string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD'),
-                        string(credentialsId: 'mysql-database', variable: 'MYSQL_DATABASE'),
-                        string(credentialsId: 'mysql-user', variable: 'MYSQL_USER'),
-                        string(credentialsId: 'mysql-password', variable: 'MYSQL_PASSWORD'),
+                        string(credentialsId: 'db-root-password', variable: 'MYSQL_ROOT_PASSWORD'),
+                        string(credentialsId: 'db-name', variable: 'MYSQL_DATABASE'),
+                        string(credentialsId: 'db-user', variable: 'MYSQL_USER'),
+                        string(credentialsId: 'db-password', variable: 'MYSQL_PASSWORD'),
                         string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
                         string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY'),
                         string(credentialsId: 'aws-region', variable: 'AWS_REGION'),

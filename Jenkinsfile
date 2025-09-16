@@ -36,9 +36,11 @@ pipeline {
 
                 if (trimmedFile.startsWith('BE/')) {
                     env.BUILD_SPRING = 'true'
+                    echo "Build Spring App: ${env.BUILD_SPRING}"
                 }
                 if (trimmedFile.startsWith('AI_server/')) {
                     env.BUILD_FASTAPI = 'true'
+                    echo "Build FastAPI App: ${env.BUILD_FASTAPI}"
                 }
             }
             echo "==========================="

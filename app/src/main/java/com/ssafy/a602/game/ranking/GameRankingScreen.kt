@@ -467,7 +467,7 @@ fun RankRow(
         }
 
         if (showDivider && !item.isMe) {
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier.padding(start = 12.dp, end = 12.dp),
                 color = Color.White.copy(alpha = 0.08f),
                 thickness = 1.dp

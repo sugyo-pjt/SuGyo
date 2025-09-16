@@ -25,6 +25,7 @@ import com.ssafy.a602.learning.LearningMainPage
 import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.learning.DailyDetailStudyScreen
 import com.ssafy.a602.learning.DailyQuizScreen
+import com.ssafy.a602.auth.AuthGuard
 import com.ssafy.a602.login.LoginScreen
 import com.ssafy.a602.signup.SignUpScreen
 
@@ -51,14 +52,19 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,
+        startDestination = Screen.AuthGuard.route,
         modifier = modifier
     ) {
+        /* ---------- Auth Guard ---------- */
+        composable(Screen.AuthGuard.route) {
+            AuthGuard(navController = navController)
+        }
+        
         /* ---------- Login ---------- */
         composable(Screen.Login.route) {
             LoginScreen(
                 onBack = {}, // 시작 화면은 뒤로가기 무시 권장
-                onSubmit = { _, _ ->
+                onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                         launchSingleTop = true
@@ -76,7 +82,7 @@ fun NavGraph(
                 onPickProfile = { /* TODO */ },
                 onOpenTerms = { /* TODO */ },
                 onOpenPrivacy = { /* TODO */ },
-                onSubmit = { _, _, _, _ ->
+                onSignupSuccess = {
                     // 회원가입 완료 → 로그인으로 복귀(스택 정리)
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Signup.route) { inclusive = true }

@@ -45,6 +45,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 
 /* ------------ Design Tokens (목업 고정값) ------------ */
@@ -110,9 +112,21 @@ fun SignUpScreen(
     onPickProfile: () -> Unit = {},
     onOpenTerms: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
-    onSubmit: (email: String, nickname: String, password: String, photo: Uri?) -> Unit = {_,_,_,_ ->},
-    onLogin: () -> Unit = {}
+    onSignupSuccess: () -> Unit = {},
+    onLogin: () -> Unit = {},
+    viewModel: SignupViewModel = hiltViewModel()
 ) {
+    // ViewModel 상태 관찰
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // 회원가입 성공시 콜백 호출
+    LaunchedEffect(uiState.signupSuccess) {
+        if (uiState.signupSuccess) {
+            onSignupSuccess()
+            viewModel.clearSignupSuccess()
+        }
+    }
+    
     // state
     var email by rememberSaveable { mutableStateOf("") }
     var nickname by rememberSaveable { mutableStateOf("") }
@@ -298,10 +312,24 @@ fun SignUpScreen(
 
             Spacer(Modifier.height(6.dp))
 
+            // 에러 메시지 표시
+            uiState.error?.let { error ->
+                Text(
+                    text = error,
+                    color = Color.Red,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             GradientButton(
-                text = "회원가입",
-                enabled = canSubmit,
-                onClick = { onSubmit(email.trim(), nickname.trim(), pw, photoUri) }
+                text = if (uiState.isLoading) "회원가입 중..." else "회원가입",
+                enabled = canSubmit && !uiState.isLoading,
+                onClick = { 
+                    // 자기소개는 현재 빈 문자열로 전달 (필요시 UI에서 입력받도록 수정)
+                    val selfIntroduction = "안녕하세요! ${nickname.trim()}입니다."
+                    viewModel.signup(email.trim(), nickname.trim(), pw, selfIntroduction)
+                }
             )
 
             Spacer(Modifier.height(14.dp))

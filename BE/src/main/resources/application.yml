@@ -18,8 +18,8 @@ spring:
     database: mysql
     database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
-      ddl-auto:
-    show-sql:
+      ddl-auto: none
+    show-sql: true
     properties:
       hibernate:
         format_sql: true

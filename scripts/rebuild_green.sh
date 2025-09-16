@@ -12,7 +12,7 @@ echo "### Rebuilding specific services without cache: $SERVICES_TO_REBUILD ###"
 
 # 1. 지정된 서비스만 캐시 없이 다시 빌드
 echo "--- Step 1: Building specified services without cache ---"
-docker compose build --no-cache $SERVICES_TO_REBUILD
+docker compose build $SERVICES_TO_REBUILD
 
 # 2. 지정된 서비스와 그에 의존하는 서비스들을 다시 생성 및 시작
 echo "--- Step 2: Recreating specified containers ---"

@@ -195,7 +195,7 @@ pipeline {
     post {
         always {
             echo "Cleaning up workspace..."
-            deleteDir()
+            // deleteDir()
         }
         success {
             echo 'Pipeline finished successfully.'

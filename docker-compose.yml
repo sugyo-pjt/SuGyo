@@ -24,7 +24,7 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       - SPRING_DATA_REDIS_HOST=redis-cache
-      - SWAGGER_SERVER_URL=http://spring-app-blue
+      - SWAGGER_SERVER_URL=http://j13a602.p.ssafy.io
     depends_on:
       - mysql-db
       - redis-cache

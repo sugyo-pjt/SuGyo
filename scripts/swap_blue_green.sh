@@ -5,14 +5,14 @@ NGINX_CONF_PATH="./Nginx/conf.d/default.conf"
 
 echo "### Swapping Blue and Green environments... ###"
 
-API_TARGET=$(grep 'location /api/' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//')
-TEST_TARGET=$(grep 'location /test/' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//')
+API_TARGET=$(grep 'location /api/' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//' | tr -d '[:space:]\r')
+TEST_TARGET=$(grep 'location /test/' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//' | tr -d '[:space:]\r')
 
 echo "Current API Target (Blue): $API_TARGET"
 echo "Current Test Target (Green): $TEST_TARGET"
 
 # 두 타겟이 동일하면 오류를 발생시키고 중단 (안전장치)
-if [ "$API_TARGET" == "$TEST_TARGET" ]; then
+if [ "$API_TARGET" = "$TEST_TARGET" ]; then
     echo "Error: API and Test targets are the same. Aborting swap."
     exit 1
 fi

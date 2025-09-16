@@ -18,7 +18,7 @@ class SentenceResponse(BaseModel):
     chatbot_response: str = Field(..., example="오늘 서울의 날씨는 맑고 화창합니다!", description="인식된 문장 전체에 대한 챗봇의 응답")
 
 class WordInput(BaseModel):
-    input_data = dict
+    input_data: dict = Field(..., description="사용자 ID와 랜드마크 데이터를 포함한 딕셔너리")
 
 class WordResponse(BaseModel):
-    result = dict
+    result: dict = Field(..., description="분류 결과를 포함한 딕셔너리")

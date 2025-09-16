@@ -110,7 +110,6 @@ pipeline {
                         echo "Application code change detected. Rebuilding specific services."
                         sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
                     }
-                    sh 'cp build/docs/openapi.json /var/www/html/api-docs/'
                 }
                 }
             }
@@ -168,7 +167,6 @@ pipeline {
                                     echo "[PROD] Application code change detected. Rebuilding target image."
                                     sh "sh ./scripts/rebuild_green.sh ${env.SERVICES_TO_REBUILD}"
                                 }
-                                sh 'cp build/docs/openapi.json /var/www/html/api-docs/'
                             }
                         }
                     }

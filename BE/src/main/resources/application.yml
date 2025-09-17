@@ -48,6 +48,8 @@ cors:
 swagger:
   server-url: ${SWAGGER_SERVER_URL}
 springdoc:
+  api-docs:
+    path: /v3/api-docs
   swagger-ui:
     url: /v3/api-docs
 

@@ -5,7 +5,7 @@ NGINX_CONF_PATH="./Nginx/nginx.conf"
 
 echo "### Swapping Blue and Green environments... ###"
 
-API_TARGET=$(grep 'location /api/' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//' | tr -d '[:space:]\r')
+API_TARGET=$(grep 'location / {' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//' | tr -d '[:space:]\r')
 TEST_TARGET=$(grep 'location /test/' -A 1 $NGINX_CONF_PATH | grep 'proxy_pass' | awk -F'//' '{print $2}' | sed 's/;//' | tr -d '[:space:]\r')
 
 echo "Current API Target (Blue): $API_TARGET"
@@ -22,8 +22,11 @@ fi
 TEMP_CONF=$(mktemp)
 cp $NGINX_CONF_PATH $TEMP_CONF
 
-sed -i "s|proxy_pass http://$API_TARGET;|proxy_pass http://__TEMP_TARGET__;|g" $TEMP_CONF
-sed -i "s|proxy_pass http://$TEST_TARGET;|proxy_pass http://$API_TARGET;|g" $TEMP_CONF
+# 1. / 경로의 프록시를 임시 토큰으로 변경
+sed -i "/location \/ {/,/}/ s|proxy_pass http://$API_TARGET;|proxy_pass http://__TEMP_TARGET__;|g" $TEMP_CONF
+# 2. /test/ 경로의 프록시를 기존 API 타겟으로 변경
+sed -i "/location \/test\//,/}/ s|proxy_pass http://$TEST_TARGET;|proxy_pass http://$API_TARGET;|g" $TEMP_CONF
+# 3. 임시 토큰을 기존 TEST 타겟으로 최종 변경
 sed -i "s|proxy_pass http://__TEMP_TARGET__;|proxy_pass http://$TEST_TARGET;|g" $TEMP_CONF
 
 mv $TEMP_CONF $NGINX_CONF_PATH

@@ -1,5 +1,3 @@
-@file:OptIn(androidx.camera.core.ExperimentalMirrorMode::class)
-
 package com.ssafy.a602.common.navigation
 
 import androidx.camera.core.ExperimentalMirrorMode
@@ -43,6 +41,8 @@ import com.ssafy.a602.search.WordDetailScreen
 import com.ssafy.a602.mypage.MyPageScreen
 import com.ssafy.a602.learning.SongStudyListScreen
 import com.ssafy.a602.learning.SongStudyDetailScreen
+import com.ssafy.a602.chatbot.ChatbotScreen
+
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -200,9 +200,9 @@ fun NavGraph(
 
         /* ---------- Chat ---------- */
         composable(Screen.Chat.route) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "챗봇 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
+            ChatbotScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
 
         /* ---------- Game : 곡 선택 ---------- */

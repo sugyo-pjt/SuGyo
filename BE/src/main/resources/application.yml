@@ -45,6 +45,8 @@ cors:
   allowed-origins:
 
 # SWAGGER CONFIG
+server:
+  forward-headers-strategy: framework
 swagger:
   server-url: ${SWAGGER_SERVER_URL}
 springdoc:

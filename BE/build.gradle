@@ -55,6 +55,9 @@ dependencies {
 
     // detect MIME Type(파서 없음)
     implementation 'org.apache.tika:tika-core:3.2.2'
+
+    // Webclient
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
 }
 
 tasks.named('test') {

@@ -59,4 +59,4 @@ logging:
 #    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: debug  # 배치 쿼리 로그
 #    org.hibernate: info          # 전체 Hibernate 로그 레벨 (기본 INFO)
 
-server.port: 8080
+server.port: ${SERVER_PORT:8080}

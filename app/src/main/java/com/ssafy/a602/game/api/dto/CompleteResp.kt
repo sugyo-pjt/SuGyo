@@ -1,12 +1,14 @@
 package com.ssafy.a602.game.api.dto
 
-import com.google.gson.annotations.SerializedName
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Json
 
 /**
  * 게임 완료 응답 DTO
  * Response: { "musicId": 1, "IsbestRecord": true }
  */
+@JsonClass(generateAdapter = true)
 data class CompleteResp(
     val musicId: Long,
-    @SerializedName("IsbestRecord") val isBestRecord: Boolean
+    @Json(name = "IsbestRecord") val isBestRecord: Boolean
 )

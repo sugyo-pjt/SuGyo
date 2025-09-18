@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +32,7 @@ import com.ssafy.a602.signup.SignUpScreen
 import com.ssafy.a602.game.songs.SongsScreen
 import com.ssafy.a602.game.preparation.GamePreparationScreen
 import com.ssafy.a602.game.play.GamePlayScreen
+import com.ssafy.a602.game.play.GamePlayViewModel
 import com.ssafy.a602.game.result.GameResultScreen
 import com.ssafy.a602.game.ranking.GameRankingScreen
 import com.ssafy.a602.game.result.GameResultUi
@@ -246,6 +248,7 @@ fun NavGraph(
         /* ---------- Game : 플레이 화면 ---------- */
         composable("game_play/{songId}") { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            val gamePlayViewModel = remember { GamePlayViewModel() }
             GamePlayScreen(
                 songId = songId,
                 isPaused = false,
@@ -263,7 +266,8 @@ fun NavGraph(
                     }
                 },
                 onOpenSettings = { openSettings?.invoke() },
-                judgmentResult = null // TODO: ViewModel 연동 시 교체
+                judgmentResult = null, // TODO: ViewModel 연동 시 교체
+                gamePlayViewModel = gamePlayViewModel
             )
         }
 

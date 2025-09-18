@@ -1,6 +1,6 @@
 package com.ssafy.a602.game.api
 
-import com.ssafy.a602.game.api.dto.ChartSegment
+import com.ssafy.a602.game.api.dto.ChartSegmentDto
 import com.ssafy.a602.game.api.dto.CompleteReq
 import com.ssafy.a602.game.api.dto.CompleteResp
 import com.ssafy.a602.game.api.dto.MusicListItem
@@ -39,7 +39,7 @@ interface RhythmApi {
     @GET("/api/v1/game/rhythm/music/{music_id}/chart")
     suspend fun getChart(
         @Path("music_id") musicId: Long
-    ): List<ChartSegment>
+    ): List<ChartSegmentDto>
     
     /**
      * 게임 완료 결과 전송

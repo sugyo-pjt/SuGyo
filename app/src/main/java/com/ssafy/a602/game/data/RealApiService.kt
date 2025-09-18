@@ -9,9 +9,10 @@ import com.ssafy.a602.game.api.ApiErrorHandler
 import com.ssafy.a602.game.api.RhythmApi
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.ssafy.a602.game.api.dto.ChartSegment
+import com.ssafy.a602.game.api.dto.ChartSegmentDto
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
+import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.score.GameResultRequest
 import retrofit2.HttpException
 import java.io.IOException
@@ -36,24 +37,34 @@ class RealApiService @Inject constructor(
     
     override suspend fun getSongs(): List<SongItem> {
         return try {
+            Log.d("RealApiService", "곡 목록 조회 시작")
             val musicList = rhythmApi.getMusicList()
-            musicList.map { musicItem ->
+            Log.d("RealApiService", "API에서 받은 곡 수: ${musicList.size}")
+            
+            val songItems = musicList.map { musicItem ->
+                Log.d("RealApiService", "곡 변환: id=${musicItem.id}, title=${musicItem.title}")
                 SongItem(
                     id = musicItem.id.toString(),
                     title = musicItem.title,
                     artist = musicItem.singer,
                     durationText = musicItem.songTime,
-                    bestScore = if (musicItem.myScore > 0) musicItem.myScore.toInt() else null,
+                    bestScore = if (musicItem.myScore != null && musicItem.myScore > 0) musicItem.myScore.toInt() else null,
                     albumImageUrl = musicItem.albumImageUrl
                 )
             }
+            
+            Log.d("RealApiService", "곡 목록 변환 완료: ${songItems.size}개")
+            songItems
         } catch (e: HttpException) {
+            Log.e("RealApiService", "HTTP 에러로 곡 목록 조회 실패", e)
             handleHttpException(e)
             emptyList()
         } catch (e: IOException) {
+            Log.e("RealApiService", "네트워크 에러로 곡 목록 조회 실패", e)
             handleNetworkException(e)
             emptyList()
         } catch (e: Exception) {
+            Log.e("RealApiService", "일반 에러로 곡 목록 조회 실패", e)
             handleGenericException(e)
             emptyList()
         }
@@ -74,11 +85,29 @@ class RealApiService @Inject constructor(
             val chartSegments = rhythmApi.getChart(songId.toLong())
             Log.d("RealApiService", "API 응답 받음: ${chartSegments.size}개 섹션")
             
-            val songSections = chartSegments.map { segment ->
-                val startTime = parseTimeToSeconds(segment.barStartedAt)
-                val endTime = parseTimeToSeconds(segment.barEndedAt)
+            val songSections = chartSegments.mapIndexed { index, segment ->
+                Log.d("RealApiService", "섹션 ${segment.segment}: '${segment.lyrics}' (${segment.correct.size}개 정답 정보) (barEndedAt: ${segment.barEndedAt})")
                 
-                Log.d("RealApiService", "섹션 ${segment.segment}: '$segment.lyrics' (${segment.correct.size}개 정답 정보)")
+                // correct 정보 상세 로그
+                segment.correct.forEachIndexed { correctIndex, correct ->
+                    Log.d("RealApiService", "  정답[$correctIndex]: 인덱스 ${correct.correctStartedIndex}~${correct.correctEndedIndex}, 액션 ${correct.actionStartedAt}~${correct.actionEndedAt}")
+                }
+                
+                // 서비스에서 직접 변환 (TimeParsing 사용)
+                val startTime = TimeParsing.toSecondsOrZero(segment.barStartedAt)
+                
+                // barEndedAt이 없는 경우 다음 섹션의 시작 시간을 사용하거나 기본값 설정
+                val endTime = if (!segment.barEndedAt.isNullOrEmpty()) {
+                    TimeParsing.toSecondsOrZero(segment.barEndedAt)
+                } else {
+                    // 다음 섹션의 시작 시간을 사용하거나 기본값 (1초 후)
+                    val nextIndex = index + 1
+                    if (nextIndex < chartSegments.size) {
+                        TimeParsing.toSecondsOrZero(chartSegments[nextIndex].barStartedAt)
+                    } else {
+                        startTime + 1.0f // 기본값: 1초 후
+                    }
+                }
                 
                 SongSection(
                     id = segment.segment.toString(),
@@ -86,11 +115,17 @@ class RealApiService @Inject constructor(
                     startTime = startTime,
                     endTime = endTime,
                     text = segment.lyrics,
-                    correctInfo = segment.correct // ChartCorrect 정보 포함
+                    correctInfo = segment.correct
                 )
             }
             
             Log.d("RealApiService", "SongSection 변환 완료: ${songSections.size}개")
+            
+            // 변환된 섹션들의 상세 정보 로그
+            songSections.forEachIndexed { index, section ->
+                Log.d("RealApiService", "섹션[$index]: '${section.text}' (${section.startTime}s~${section.endTime}s, correctInfo: ${section.correctInfo.size}개)")
+            }
+            
             songSections
         } catch (e: HttpException) {
             when (e.code()) {
@@ -227,7 +262,16 @@ class RealApiService @Inject constructor(
     override suspend fun getMusicUrl(songId: String): String {
         return try {
             val musicUrl = rhythmApi.getMusicUrl(songId.toLong())
-            musicUrl.musicUrl ?: ""
+            val url = musicUrl.musicUrl ?: ""
+            
+            // 서버에서 환경변수가 치환되지 않은 경우 처리
+            if (url.contains("\${SPRING_CLOUD_AWS_S3_CDN_URL}")) {
+                Log.w("RealApiService", "서버에서 환경변수가 치환되지 않음. 기본 URL로 대체: $url")
+                // 실제 S3 URL로 대체 (서버 설정에 따라 수정 필요)
+                url.replace("\${SPRING_CLOUD_AWS_S3_CDN_URL}", "https://surocksang.s3.us-east-1.amazonaws.com")
+            } else {
+                url
+            }
         } catch (e: HttpException) {
             handleHttpException(e)
             ""
@@ -242,20 +286,7 @@ class RealApiService @Inject constructor(
     
     // ========== 유틸리티 함수들 ==========
     
-    /**
-     * 시간 문자열을 초로 변환 ("HH:MM:SS.xx" -> Float)
-     */
-    private fun parseTimeToSeconds(timeString: String): Float {
-        return try {
-            val parts = timeString.split(":")
-            val hours = parts[0].toInt()
-            val minutes = parts[1].toInt()
-            val secondsWithMs = parts[2].toFloat()
-            (hours * 3600 + minutes * 60 + secondsWithMs)
-        } catch (e: Exception) {
-            0f
-        }
-    }
+    // 시간 파싱은 TimeParsing.toMillisOrZero() 사용으로 통일됨
     
     
     // ========== 에러 처리 함수들 ==========

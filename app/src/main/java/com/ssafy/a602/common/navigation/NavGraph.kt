@@ -1,48 +1,43 @@
 package com.ssafy.a602.common.navigation
 
-import androidx.camera.core.ExperimentalMirrorMode
-import androidx.camera.core.MirrorMode
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+// ── App Screens ───────────────────────────────────────────────────
+
+// ── Game Screens & Data ───────────────────────────────────────────
+import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-
-// ── App Screens ───────────────────────────────────────────────────
-import com.ssafy.a602.home.HomeScreen
-import com.ssafy.a602.learning.LearningMainPage
-import com.ssafy.a602.learning.Total_RoadMap
-import com.ssafy.a602.learning.DailyDetailStudyScreen
-import com.ssafy.a602.learning.DailyQuizScreen
 import com.ssafy.a602.auth.AuthGuard
-import com.ssafy.a602.login.LoginScreen
-import com.ssafy.a602.signup.SignUpScreen
-
-// ── Game Screens & Data ───────────────────────────────────────────
-import com.ssafy.a602.game.songs.SongsScreen
-import com.ssafy.a602.game.preparation.GamePreparationScreen
+import com.ssafy.a602.chatbot.ChatbotScreen
+import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.play.GamePlayScreen
-import com.ssafy.a602.game.result.GameResultScreen
+import com.ssafy.a602.game.play.GamePlayViewModel
+import com.ssafy.a602.game.preparation.GamePreparationScreen
 import com.ssafy.a602.game.ranking.GameRankingScreen
+import com.ssafy.a602.game.result.GameResultScreen
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.songs.SongItem
-import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.songs.SongsScreen
+import com.ssafy.a602.home.HomeScreen
+import com.ssafy.a602.learning.DailyDetailStudyScreen
+import com.ssafy.a602.learning.DailyQuizScreen
+import com.ssafy.a602.learning.LearningMainPage
+import com.ssafy.a602.learning.SongStudyDetailScreen
+import com.ssafy.a602.learning.SongStudyListScreen
+import com.ssafy.a602.learning.Total_RoadMap
+import com.ssafy.a602.login.LoginScreen
+import com.ssafy.a602.mypage.MyPageScreen
 import com.ssafy.a602.search.SearchScreen
 import com.ssafy.a602.search.WordDetailScreen
-import com.ssafy.a602.mypage.MyPageScreen
-import com.ssafy.a602.learning.SongStudyListScreen
-import com.ssafy.a602.learning.SongStudyDetailScreen
-import com.ssafy.a602.chatbot.ChatbotScreen
+import com.ssafy.a602.signup.SignUpScreen
 
+@ExperimentalGetImage
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -109,7 +104,7 @@ fun NavGraph(
             LearningMainPage(
                 onStartRoadmap = { navController.navigate(Screen.Total_RoadMap.route) },
                 onOpenSongStudy = { navController.navigate(Screen.SongStudyList.route) },
-                progressDay = 5 // TODO: 백엔드 값으로 교체
+//                progressDay = 5 // TODO: 백엔드 값으로 교체
             )
         }
 
@@ -246,6 +241,8 @@ fun NavGraph(
         /* ---------- Game : 플레이 화면 ---------- */
         composable("game_play/{songId}") { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
+            val gamePlayViewModel = remember { GamePlayViewModel() }
+            @OptIn(ExperimentalGetImage::class)
             GamePlayScreen(
                 songId = songId,
                 isPaused = false,
@@ -263,7 +260,8 @@ fun NavGraph(
                     }
                 },
                 onOpenSettings = { openSettings?.invoke() },
-                judgmentResult = null // TODO: ViewModel 연동 시 교체
+                judgmentResult = null, // TODO: ViewModel 연동 시 교체
+                gamePlayViewModel = gamePlayViewModel
             )
         }
 

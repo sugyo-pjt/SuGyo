@@ -44,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     
     // assets 폴더 포함을 위한 설정
@@ -66,7 +67,9 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(platform(libs.androidx.compose.bom))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -91,6 +94,7 @@ dependencies {
 
     // Lifecycle ViewModel Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
 
@@ -106,7 +110,8 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.ui.compose)
+    implementation("androidx.media3:media3-datasource:1.3.1")
+    implementation("androidx.media3:media3-extractor:1.3.1")
 
     // MediaPipe - Vision 모듈만 사용 (16KB 페이지 크기 호환성을 위해 불필요한 모듈 제거)
     implementation(libs.mediapipe.tasks.vision)
@@ -117,8 +122,12 @@ dependencies {
     // Retrofit for API calls
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
+    implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
+
+
 
     // Hilt for dependency injection
     implementation("com.google.dagger:hilt-android:2.48")

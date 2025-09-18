@@ -34,7 +34,7 @@ class AuthInterceptor @Inject constructor(
         
         val newRequest = if (accessToken != null) {
             originalRequest.newBuilder()
-                .addHeader(AUTHORIZATION_HEADER, "$BEARER_PREFIX$accessToken")
+                .header(AUTHORIZATION_HEADER, "$BEARER_PREFIX$accessToken")
                 .build()
         } else {
             originalRequest

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+
+    <!-- 우리 API 서버(http) 허용 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">j13a602.p.ssafy.io</domain>
+    </domain-config>
+
+    <!-- korean.go.kr 하위 모든 서브도메인 http 허용 (sldict, stdict 등) -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">korean.go.kr</domain>
+    </domain-config>
+
+</network-security-config>

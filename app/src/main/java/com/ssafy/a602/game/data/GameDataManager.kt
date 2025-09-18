@@ -311,6 +311,16 @@ object GameDataManager {
     }
     
     /**
+     * 특정 곡의 랭킹 정보 가져오기 (곡 제목 포함)
+     */
+    suspend fun getRankingInfo(songId: String): Pair<String, List<RankingItem>> {
+        val rankings = getCurrentApiService().getRankings(songId)
+        val song = getSongById(songId)
+        val songTitle = song?.title ?: "알 수 없는 곡"
+        return Pair(songTitle, rankings)
+    }
+    
+    /**
      * 특정 곡의 Top 3 순위 가져오기
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem> {

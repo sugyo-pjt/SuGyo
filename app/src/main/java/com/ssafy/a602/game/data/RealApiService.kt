@@ -12,6 +12,9 @@ import javax.inject.Singleton
 import com.ssafy.a602.game.api.dto.ChartSegmentDto
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
+import com.ssafy.a602.game.api.dto.RankingResp
+import com.ssafy.a602.game.api.dto.RankingItemDto
+import com.ssafy.a602.game.api.dto.MyRankingInfoDto
 import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.score.GameResultRequest
 import retrofit2.HttpException
@@ -161,28 +164,116 @@ class RealApiService @Inject constructor(
     }
     
     override suspend fun getRankings(songId: String): List<RankingItem> {
-        // 백엔드에서 구현되지 않은 기능 - 비워둠
-        return emptyList()
+        return try {
+            Log.d("RealApiService", "랭킹 조회 시작: songId=$songId")
+            val musicId = songId.toLongOrNull() ?: throw IllegalArgumentException("Invalid songId: $songId")
+            val response = rhythmApi.getRanking(musicId)
+            
+            val rankingItems = response.ranking.map { item ->
+                RankingItem(
+                    rank = item.rank,
+                    nickname = item.userNickName,
+                    score = item.score,
+                    playedDate = LocalDate.parse(item.recordDate),
+                    avatarUrl = item.userProfileUrl,
+                    userId = item.userId.toString(),
+                    isMe = false
+                )
+            }
+            
+            Log.d("RealApiService", "랭킹 조회 완료: ${rankingItems.size}개")
+            rankingItems
+        } catch (e: HttpException) {
+            Log.e("RealApiService", "HTTP 에러로 랭킹 조회 실패", e)
+            handleHttpException(e)
+            emptyList()
+        } catch (e: IOException) {
+            Log.e("RealApiService", "네트워크 에러로 랭킹 조회 실패", e)
+            handleNetworkException(e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e("RealApiService", "일반 에러로 랭킹 조회 실패", e)
+            handleGenericException(e)
+            emptyList()
+        }
     }
     
     override suspend fun getTop3Rankings(songId: String): List<RankingItem> {
-        // 백엔드에서 구현되지 않은 기능 - 비워둠
-        return emptyList()
+        return try {
+            Log.d("RealApiService", "Top3 랭킹 조회 시작: songId=$songId")
+            val musicId = songId.toLongOrNull() ?: throw IllegalArgumentException("Invalid songId: $songId")
+            val response = rhythmApi.getRanking(musicId)
+            
+            val top3Items = response.ranking.take(3).map { item ->
+                RankingItem(
+                    rank = item.rank,
+                    nickname = item.userNickName,
+                    score = item.score,
+                    playedDate = LocalDate.parse(item.recordDate),
+                    avatarUrl = item.userProfileUrl,
+                    userId = item.userId.toString(),
+                    isMe = false
+                )
+            }
+            
+            Log.d("RealApiService", "Top3 랭킹 조회 완료: ${top3Items.size}개")
+            top3Items
+        } catch (e: HttpException) {
+            Log.e("RealApiService", "HTTP 에러로 Top3 랭킹 조회 실패", e)
+            handleHttpException(e)
+            emptyList()
+        } catch (e: IOException) {
+            Log.e("RealApiService", "네트워크 에러로 Top3 랭킹 조회 실패", e)
+            handleNetworkException(e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e("RealApiService", "일반 에러로 Top3 랭킹 조회 실패", e)
+            handleGenericException(e)
+            emptyList()
+        }
     }
     
     override suspend fun getMyRanking(songId: String): RankingItem? {
-        // 백엔드에서 구현되지 않은 기능 - 비워둠
-        return null
+        return try {
+            Log.d("RealApiService", "내 랭킹 조회 시작: songId=$songId")
+            val musicId = songId.toLongOrNull() ?: throw IllegalArgumentException("Invalid songId: $songId")
+            val response = rhythmApi.getRanking(musicId)
+            
+            val myInfo = response.myInfo
+            if (myInfo != null) {
+                val myRanking = RankingItem(
+                    rank = myInfo.rank,
+                    nickname = "나", // TODO: 실제 사용자 닉네임으로 교체
+                    score = myInfo.score,
+                    playedDate = LocalDate.parse(myInfo.recordDate),
+                    avatarUrl = null, // TODO: 실제 사용자 프로필 이미지로 교체
+                    userId = null, // TODO: 실제 사용자 ID로 교체
+                    isMe = true
+                )
+                Log.d("RealApiService", "내 랭킹 조회 완료: rank=${myInfo.rank}, score=${myInfo.score}")
+                myRanking
+            } else {
+                Log.d("RealApiService", "내 랭킹 정보 없음")
+                null
+            }
+        } catch (e: HttpException) {
+            Log.e("RealApiService", "HTTP 에러로 내 랭킹 조회 실패", e)
+            handleHttpException(e)
+            null
+        } catch (e: IOException) {
+            Log.e("RealApiService", "네트워크 에러로 내 랭킹 조회 실패", e)
+            handleNetworkException(e)
+            null
+        } catch (e: Exception) {
+            Log.e("RealApiService", "일반 에러로 내 랭킹 조회 실패", e)
+            handleGenericException(e)
+            null
+        }
     }
     
     override suspend fun submitRanking(songId: String, score: Int, nickname: String): RankingItem {
-        // 백엔드에서 구현되지 않은 기능 - 기본값 반환
-        return RankingItem(
-            rank = 1,
-            nickname = nickname,
-            score = score,
-            playedDate = java.time.LocalDate.now()
-        )
+        // 더 이상 사용하지 않는 메서드 - 게임 완료 시 자동으로 랭킹에 반영됨
+        throw UnsupportedOperationException("submitRanking은 더 이상 사용되지 않습니다. 게임 완료 시 자동으로 랭킹에 반영됩니다.")
     }
     
     override suspend fun calculateGameResult(

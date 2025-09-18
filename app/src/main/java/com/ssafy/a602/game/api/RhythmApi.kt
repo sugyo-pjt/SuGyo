@@ -5,6 +5,7 @@ import com.ssafy.a602.game.api.dto.CompleteReq
 import com.ssafy.a602.game.api.dto.CompleteResp
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
+import com.ssafy.a602.game.api.dto.RankingResp
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -48,4 +49,13 @@ interface RhythmApi {
     suspend fun complete(
         @Body body: CompleteReq
     ): CompleteResp
+    
+    /**
+     * 게임 랭킹 조회
+     * GET /api/v1/game/rhythm/rank/{music_id}
+     */
+    @GET("/api/v1/game/rhythm/rank/{music_id}")
+    suspend fun getRanking(
+        @Path("music_id") musicId: Long
+    ): RankingResp
 }

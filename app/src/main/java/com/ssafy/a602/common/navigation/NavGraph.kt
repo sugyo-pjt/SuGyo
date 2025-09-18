@@ -1,5 +1,3 @@
-@file:OptIn(androidx.camera.core.ExperimentalMirrorMode::class)
-
 package com.ssafy.a602.common.navigation
 
 import androidx.camera.core.ExperimentalMirrorMode
@@ -40,8 +38,11 @@ import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.search.SearchScreen
 import com.ssafy.a602.search.WordDetailScreen
+import com.ssafy.a602.mypage.MyPageScreen
 import com.ssafy.a602.learning.SongStudyListScreen
 import com.ssafy.a602.learning.SongStudyDetailScreen
+import com.ssafy.a602.chatbot.ChatbotScreen
+
 @Composable
 fun NavGraph(
     navController: NavHostController,
@@ -199,9 +200,9 @@ fun NavGraph(
 
         /* ---------- Chat ---------- */
         composable(Screen.Chat.route) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "챗봇 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
+            ChatbotScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
 
         /* ---------- Game : 곡 선택 ---------- */
@@ -310,9 +311,11 @@ fun NavGraph(
 
         /* ---------- MyPage ---------- */
         composable(Screen.MyPage.route) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "마이페이지 화면", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
+            // 필요하면 여기서 onLogout/onWithdraw 로직을 주입
+            MyPageScreen(
+                onLogout = { /* TODO: 토큰 삭제, 로그인 화면으로 navigate 등 */ },
+                onWithdraw = { /* TODO: 회원탈퇴 처리 */ }
+            )
         }
     }
 }

@@ -122,6 +122,8 @@ dependencies {
     // Retrofit for API calls
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
+    implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
 

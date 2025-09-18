@@ -1,19 +1,16 @@
 package com.ssafy.a602.game.data
 
-import com.ssafy.a602.game.songs.SongItem
-import com.ssafy.a602.game.data.SongSection
-import com.ssafy.a602.game.data.SongProgress
-import com.ssafy.a602.game.result.GameResultUi
-import com.ssafy.a602.game.ranking.RankingItem
-import com.ssafy.a602.game.score.GameResultRequest
 import com.ssafy.a602.game.api.RhythmApi
-import javax.inject.Inject
 import com.ssafy.a602.game.api.dto.CompleteReq
 import com.ssafy.a602.game.api.dto.CompleteResp
+import com.ssafy.a602.game.ranking.RankingItem
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.score.GameResultRequest
+import com.ssafy.a602.game.songs.SongItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.CancellationException
 
 /**
  * 게임 데이터를 중앙에서 관리하는 매니저

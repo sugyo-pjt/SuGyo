@@ -1,6 +1,6 @@
 package com.ssafy.a602.game.play
 
-import androidx.camera.core.ExperimentalMirrorMode
+import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import kotlin.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,16 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.ssafy.a602.game.play.JudgmentResult
-import com.ssafy.a602.game.songs.SongItem
-import com.ssafy.a602.game.play.GamePlayScreen
 import androidx.compose.ui.unit.sp
-import com.ssafy.a602.game.data.GameDataManager
-import com.ssafy.a602.game.play.JudgmentType
 
 /* ========== Preview ========== */
 
-@OptIn(ExperimentalMirrorMode::class)
+@ExperimentalGetImage
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -52,7 +45,7 @@ fun GamePlayScreenPreview() {
     )
 }
 
-@OptIn(ExperimentalMirrorMode::class)
+@ExperimentalGetImage
 @Preview(
     showBackground = true,
     widthDp = 360,
@@ -79,7 +72,7 @@ fun GamePlayScreenPerfectPreview() {
     )
 }
 
-@OptIn(ExperimentalMirrorMode::class)
+@ExperimentalGetImage
 @Preview(
     showBackground = true,
     widthDp = 360,

@@ -136,4 +136,9 @@ dependencies {
 
     // JWT for token decoding
     implementation("com.auth0.android:jwtdecode:2.0.2")
+
+    // AppCompat 라이브러리 추가
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    // 코틀린 확장 기능 (KTX) 라이브러리도 함께 추가하는 것이 좋습니다.
+    implementation("androidx.core:core-ktx:1.10.1")
 }

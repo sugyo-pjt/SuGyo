@@ -2,11 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 카메라가 있으면 쓰되, 없어도 설치 허용 -->
+    <!-- 선택 권한: 네가 기존에 쓰던 카메라/네트워크 그대로 유지 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
-    
-    <!-- 인터넷을 위한 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -21,17 +19,24 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.S13P21A602"
         android:usesCleartextTraffic="true">
+
+        <!-- ✅ 앱 실행 시 곧바로 3D WebView가 뜨도록 런처 지정 -->
+        <activity
+            android:name=".WebView.ThreeDWebActivity"
+            android:exported="true"
+            android:hardwareAccelerated="true"
+            android:theme="@style/Theme.S13P21A602">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 🔹 기존 메인 액티비티는 유지(런처 제거) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.S13P21A602">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.S13P21A602" />
     </application>
-
 </manifest>

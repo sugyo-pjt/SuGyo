@@ -124,7 +124,13 @@ fun GamePlayScreen(
     // MediaPipe
     val buffer = remember { DynamicLandmarkBuffer() }
     val resultHandler = remember { LandmarkResultHandler(buffer) }
-    val uploader = remember { WordWindowUploader(buffer, endpoint = "https://your.api/landmarks/upload") }
+    val uploader = remember { 
+        WordWindowUploader(
+            buffer, 
+            endpoint = "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play",
+            tokenManager = null // TODO: TokenManager 주입 필요
+        ) 
+    }
     val mediaPipeCamera = remember { GamePlayCamera(resultHandler, uploader) }
 
     LaunchedEffect(Unit) {

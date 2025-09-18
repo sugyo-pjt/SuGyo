@@ -18,46 +18,6 @@ import java.util.List;
 
 @Configuration
 public class SwaggerConfig {
-
-    //    @Value("${swagger.server-url}")
-//    private String swaggerServerUrl;
-//
-//    @Bean
-//    public OpenAPI openAPI() {
-//        return new OpenAPI()
-//                .info(apiInfo())
-//                .servers(List.of(
-//                        new Server().url(swaggerServerUrl).description("sugyo")
-//                ))
-//                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
-//                .components(new Components()
-//                        .addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()));
-//    }
-//
-//    private Info apiInfo() {
-//        return new Info()
-//                .title("Sugyo API")
-//                .description("수어지교 백엔드 API 문서")
-//                .version("1.0.0")
-//                .contact(new Contact()
-//                        .name("SSAFY A602")
-//                        .email("contact@ssafy.com"))
-//                .license(new License()
-//                        .name("MIT License")
-//                        .url("https://opensource.org/licenses/MIT"));
-//    }
-//
-//    private SecurityScheme createAPIKeyScheme() {
-//        return new SecurityScheme()
-//                .type(SecurityScheme.Type.HTTP)
-//                .bearerFormat("JWT")
-//                .scheme("bearer");
-//    }
-//
-//    @Bean
-//    public ForwardedHeaderFilter forwardedHeaderFilter() {
-//        return new ForwardedHeaderFilter();
-//    }
     private final String jwtSchemaName = "bearerAuth";
 
     @Bean

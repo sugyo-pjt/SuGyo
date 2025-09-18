@@ -5,10 +5,13 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import com.ssafy.a602.auth.TokenManager
+import javax.inject.Inject
 
 class WordWindowUploader(
     private val buffer: DynamicLandmarkBuffer,
-    private val endpoint: String
+    private val endpoint: String,
+    private val tokenManager: TokenManager? = null
 ) {
     @Volatile private var pendingActionStart: Long? = null
     @Volatile private var pendingActionEnd: Long? = null
@@ -120,10 +123,26 @@ class WordWindowUploader(
     private fun upload(p: UploadPayload) {
         val body = json.encodeToString(UploadPayload.serializer(), p)
             .toRequestBody("application/json".toMediaType())
-        val req = Request.Builder().url(endpoint).post(body).build()
+        
+        val requestBuilder = Request.Builder()
+            .url(endpoint)
+            .post(body)
+        
+        // 인증 토큰이 있으면 Authorization 헤더 추가
+        val accessToken = tokenManager?.getAccessToken()
+        if (!accessToken.isNullOrBlank()) {
+            requestBuilder.addHeader("Authorization", "Bearer $accessToken")
+        }
+        
+        val req = requestBuilder.build()
         http.newCall(req).enqueue(object: Callback {
-            override fun onFailure(call: Call, e: IOException) { android.util.Log.e("UPLOAD","fail",e) }
-            override fun onResponse(call: Call, r: Response) { r.close(); android.util.Log.d("UPLOAD","ok") }
+            override fun onFailure(call: Call, e: IOException) { 
+                android.util.Log.e("UPLOAD","fail",e) 
+            }
+            override fun onResponse(call: Call, r: Response) { 
+                android.util.Log.d("UPLOAD","ok - status: ${r.code}")
+                r.close()
+            }
         })
     }
 }

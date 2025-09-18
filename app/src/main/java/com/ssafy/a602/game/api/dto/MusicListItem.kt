@@ -1,27 +1,17 @@
 package com.ssafy.a602.game.api.dto
 
-import com.google.gson.annotations.SerializedName
+import com.squareup.moshi.JsonClass
 
 /**
  * 노래 목록 조회 API 응답 DTO
  * GET /api/v1/game/rhythm/music/list
  */
+@JsonClass(generateAdapter = true)
 data class MusicListItem(
-    @SerializedName("id")
     val id: Long,
-    
-    @SerializedName("title")
     val title: String,
-    
-    @SerializedName("singer")
     val singer: String,
-    
-    @SerializedName("songTime")
     val songTime: String, // "HH:MM:SS" 형식
-    
-    @SerializedName("albumImageUrl")
     val albumImageUrl: String,
-    
-    @SerializedName("myScore")
-    val myScore: Long
+    val myScore: Long? // null 허용
 )

@@ -5,6 +5,7 @@ import com.ssafy.a602.auth.interceptor.AuthInterceptor
 import com.ssafy.a602.auth.interceptor.TokenAuthenticator
 import com.ssafy.a602.game.api.RetrofitClient
 import com.ssafy.a602.game.api.RhythmApi
+import com.ssafy.a602.learning.api.StudyApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,18 +17,11 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
-/**
- * 인증 관련 의존성 주입 모듈
- * AuthApiService, AuthInterceptor, TokenAuthenticator 등을 제공
- */
 @Module
 @InstallIn(SingletonComponent::class)
 object AuthModule {
 
-    /**
-     * AuthApiService 제공
-     * AuthInterceptor와 TokenAuthenticator가 포함된 Retrofit 인스턴스를 사용
-     */
+    // === 기존 제공자들 (그대로) =========================================
     @Provides
     @Singleton
     fun provideAuthApiService(
@@ -38,33 +32,25 @@ object AuthModule {
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(AuthApiService::class.java)
     }
-    
-    /**
-     * 토큰 재발행용 AuthApiService 제공
-     * 순환 참조를 방지하기 위해 인터셉터가 없는 별도 인스턴스
-     */
+
     @Provides
     @Singleton
     @Named("TokenRefresh")
     fun provideTokenRefreshApiService(): AuthApiService {
-        // 토큰 재발행용 별도 OkHttpClient (인터셉터 없음)
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
-            })
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        val ok = OkHttpClient.Builder()
+            .addInterceptor(logging)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
-        
-        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
+
+        val retrofit = RetrofitClient.createRetrofit(ok)
         return retrofit.create(AuthApiService::class.java)
     }
-    
-    /**
-     * RhythmApi 제공
-     * AuthInterceptor와 TokenAuthenticator가 포함된 Retrofit 인스턴스를 사용
-     */
+
     @Provides
     @Singleton
     fun provideRhythmApi(
@@ -74,5 +60,18 @@ object AuthModule {
         val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(RhythmApi::class.java)
+    }
+
+    // === 디버그 전용: StudyApiService는 "강제 토큰 1개만" 붙여 호출 =========
+    // → 다른 인터셉터/Authenticator 미사용 (헤더 충돌 방지)
+    @Provides
+    @Singleton
+    fun provideStudyApiService(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator
+    ): StudyApiService {
+        val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
+        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
+        return retrofit.create(StudyApiService::class.java)
     }
 }

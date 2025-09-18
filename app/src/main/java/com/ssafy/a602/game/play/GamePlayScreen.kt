@@ -580,8 +580,10 @@ fun GamePlayScreen(
                                     if (correctInfo.isNotEmpty()) {
                                         val first = correctInfo.first()
                                         val startIndex = first.correctStartedIndex
-                                        val endIndex = first.correctEndedIndex
-                                        Log.d("GamePlayScreen", "하이라이트 범위: $startIndex~$endIndex (텍스트 길이: ${text.length})")
+                                        val originalEndIndex = first.correctEndedIndex
+                                        // 정답 단어 뒤에 한 글자 더 포함
+                                        val endIndex = minOf(originalEndIndex + 1, text.length)
+                                        Log.d("GamePlayScreen", "하이라이트 범위: $startIndex~$endIndex (원본: $startIndex~$originalEndIndex, 텍스트 길이: ${text.length})")
                                         
                                         if (startIndex in 0..text.length && endIndex in 0..text.length && startIndex < endIndex) {
                                             if (startIndex > 0) {
@@ -597,7 +599,7 @@ fun GamePlayScreen(
                                                     append(text.substring(endIndex))
                                                 }
                                             }
-                                            Log.d("GamePlayScreen", "하이라이트 적용 완료: '${text.substring(startIndex, endIndex)}'")
+                                            Log.d("GamePlayScreen", "하이라이트 적용 완료: '${text.substring(startIndex, endIndex)}' (원본: '${text.substring(startIndex, originalEndIndex)}')")
                                         } else {
                                             Log.w("GamePlayScreen", "하이라이트 범위 오류: startIndex=$startIndex, endIndex=$endIndex, textLength=${text.length}")
                                             withStyle(SpanStyle(color = Color(0xFFE7ECF3))) { append(text) }

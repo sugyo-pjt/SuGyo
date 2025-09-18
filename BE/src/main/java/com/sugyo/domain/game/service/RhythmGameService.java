@@ -23,7 +23,9 @@ import com.sugyo.domain.user.domain.User;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,6 +41,7 @@ public class RhythmGameService {
     private final ObjectStorageRepository objectStorageRepository;
     private final RankRepository rankRepository;
     private final UserRepository userRepository;
+    private final WebClient webClient;
 
 //    @Transactional
 //    public List<MusicListResponseDto> getAllMusic() {
@@ -217,7 +220,13 @@ public class RhythmGameService {
         if (userId == null) {
             throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
         }
+        String response = webClient.get()
+                .retrieve()
+                .bodyToMono(String.class)
+                .subscribe()
+                .toString();
 
+        System.out.println("AI 서버 응답: " + response);
     }
 
 }

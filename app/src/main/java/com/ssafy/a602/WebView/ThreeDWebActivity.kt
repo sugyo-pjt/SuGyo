@@ -40,6 +40,9 @@ class ThreeDWebActivity : AppCompatActivity() {
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
 
+        wv.settings.javaScriptEnabled = true
+        wv.settings.allowFileAccessFromFileURLs = true
+        wv.settings.allowUniversalAccessFromFileURLs = true
         wv.loadUrl("file:///android_asset/www/index.html")
     }
 }

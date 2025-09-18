@@ -20,63 +20,39 @@
     import { OrbitControls } from './lib/OrbitControls.js';
     import { GLTFLoader } from './lib/GLTFLoader.js';
 
-    // Scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xc8c8c8);
-
-    // Camera
-    const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
-    camera.position.set(0, 1.2, 2.5);
-
-    // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(devicePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
+    document.body.style.margin = 0;
     document.body.appendChild(renderer.domElement);
 
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1.0, 0);
-    controls.enableDamping = true;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
+    camera.position.set(2,1.5,3);
 
-    // Lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-    hemi.position.set(0, 1, 0);
-    scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-    dir.position.set(2, 4, 2);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+    const dir = new THREE.DirectionalLight(0xffffff, 1);
+    dir.position.set(5,10,7);
     scene.add(dir);
 
-    // Loading UI
-    const loading = document.getElementById('loading');
-    const manager = new THREE.LoadingManager();
-    manager.onLoad = () => (loading.style.display = 'none');
-
-    // GLB Load (index.html 기준 상대경로)
-    const loader = new GLTFLoader(manager);
-    loader.load(
-      '../models/avatar.glb',
-      (gltf) => {
-        const model = gltf.scene;
-        model.position.set(0, 0, 0);
-        model.scale.set(1, 1, 1);
-        scene.add(model);
-      },
-      undefined,
-      (err) => console.error('GLB load error:', err)
-    );
-
-    // Resize
-    addEventListener('resize', () => {
-      camera.aspect = innerWidth/innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
+    const loader = new GLTFLoader();
+    loader.load('../models/avatar.glb', (gltf) => {
+      scene.add(gltf.scene);
+      document.getElementById('loading').style.display = 'none';
+    }, undefined, (e) => {
+      console.error('GLB 로드 실패:', e);
     });
 
-    // Loop
+    function resize(){
+      renderer.setSize(innerWidth, innerHeight);
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    addEventListener('resize', resize);
+    resize();
+
+    new OrbitControls(camera, renderer.domElement);
+
     (function animate(){
       requestAnimationFrame(animate);
-      controls.update();
       renderer.render(scene, camera);
     })();
 </script>

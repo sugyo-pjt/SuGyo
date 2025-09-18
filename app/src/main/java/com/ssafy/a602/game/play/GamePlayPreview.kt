@@ -41,20 +41,6 @@ fun GamePlayScreenPreview() {
     var paused by remember { mutableStateOf(false) }
     var judgment by remember { mutableStateOf<JudgmentResult?>(null) }
     
-    // Preview용 더미 데이터 설정
-    LaunchedEffect(Unit) {
-        val sampleSong = SongItem(
-            id = "way_back_home",
-            title = "WAY BACK HOME",
-            artist = "SHAUN",
-            durationText = "3:14",
-            bestScore = 89650,
-            albumImageUrl = "https://example.com/album/way_back_home.jpg"
-        )
-        GameDataManager.selectSong(sampleSong)
-        GameDataManager.startGame()
-    }
-    
     GamePlayScreen(
         songId = "way_back_home",
         isPaused = paused,
@@ -75,19 +61,6 @@ fun GamePlayScreenPreview() {
 )
 @Composable
 fun GamePlayScreenPerfectPreview() {
-    // Preview용 더미 데이터 설정
-    LaunchedEffect(Unit) {
-        val sampleSong = SongItem(
-            id = "way_back_home",
-            title = "WAY BACK HOME",
-            artist = "SHAUN",
-            durationText = "3:14",
-            bestScore = 89650,
-            albumImageUrl = "https://example.com/album/way_back_home.jpg"
-        )
-        GameDataManager.selectSong(sampleSong)
-        GameDataManager.startGame()
-    }
     
     GamePlayScreen(
         songId = "way_back_home",
@@ -115,19 +88,6 @@ fun GamePlayScreenPerfectPreview() {
 )
 @Composable
 fun GamePlayScreenMissPreview() {
-    // Preview용 더미 데이터 설정
-    LaunchedEffect(Unit) {
-        val sampleSong = SongItem(
-            id = "way_back_home",
-            title = "WAY BACK HOME",
-            artist = "SHAUN",
-            durationText = "3:14",
-            bestScore = 89650,
-            albumImageUrl = "https://example.com/album/way_back_home.jpg"
-        )
-        GameDataManager.selectSong(sampleSong)
-        GameDataManager.startGame()
-    }
     
     GamePlayScreen(
         songId = "way_back_home",

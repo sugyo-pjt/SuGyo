@@ -44,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     
     // assets 폴더 포함을 위한 설정

@@ -9,41 +9,39 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import com.ssafy.a602.BuildConfig
 
-/**
- * Retrofit 클라이언트 설정
- * API 호출을 위한 Retrofit 인스턴스 생성
- */
+
 object RetrofitClient {
 
-    private const val BASE_URL =
-            "http://70.12.246.177:8080/"
-    
+    // ✅ Postman과 동일 호스트 + 끝에 / 유지
+    private const val BASE_URL = "http://j13a602.p.ssafy.io/"
+
     private val gson: Gson by lazy {
-        GsonBuilder()
-            .setLenient()
-            .create()
+        GsonBuilder().setLenient().create()
     }
-    
-    // AuthInterceptor와 TokenAuthenticator를 주입받기 위해 함수로 변경
+
     fun createOkHttpClient(
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: TokenAuthenticator
     ): OkHttpClient {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG)
+                HttpLoggingInterceptor.Level.BODY
+            else
+                HttpLoggingInterceptor.Level.NONE
         }
-        
+
         return OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)  // 인증 토큰 자동 주입
-            .authenticator(tokenAuthenticator)  // 401 응답시 자동 토큰 재발행
-            .addInterceptor(loggingInterceptor)
+            .addInterceptor(authInterceptor)      // ✅ 저장된 앱 토큰 자동 부착
+            .authenticator(tokenAuthenticator)    // ✅ 401 시 토큰 재발급 시도
+            .addInterceptor(logging)              // ✅ 디버그 로깅
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
-    
+
     fun createRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .baseUrl(BASE_URL)
@@ -51,21 +49,20 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
-    
-    // 기존 호환성을 위한 레거시 메서드 (AuthInterceptor 없이)
+
+    // (레거시) 게임용 기본 클라
     private val okHttpClient: OkHttpClient by lazy {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
+        val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-        
         OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
+            .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
-    
+
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
@@ -73,7 +70,7 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }
-    
+
     val rhythmApi: RhythmApi by lazy {
         retrofit.create(RhythmApi::class.java)
     }

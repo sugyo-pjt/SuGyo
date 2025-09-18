@@ -20,14 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-/**
- * 학습 메인 화면 (백엔드 progress 연동 버전)
- * - ViewModel에서 progressDay를 가져와 표시합니다.
- */
 @Composable
 fun LearningMainPage(
     onStartRoadmap: () -> Unit = {},
     onOpenSongStudy: () -> Unit,
+    onRequireLogin: () -> Unit = {},            // ✅ 로그인 이동 콜백 추가
     viewModel: LearningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -69,6 +66,30 @@ fun LearningMainPage(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
             }
+        }
+
+        // ✅ 디버그/운영 공통: 로그인 요구 시 안내
+        if (uiState.error == "로그인 필요") {
+            ElevatedCard(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFFFF3CD))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("로그인이 필요합니다.", fontWeight = FontWeight.Bold, color = Color(0xFF856404))
+                    Button(
+                        onClick = onRequireLogin,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("로그인 하러 가기") }
+                }
+            }
+            // 로그인 전에는 나머지 UI를 노출하지 않고 return
+            return
         }
 
         // 섹션 타이틀
@@ -195,7 +216,6 @@ fun LearningMainPage(
                     }
                 }
 
-                // "로드맵 시작하기" 버튼
                 Button(
                     onClick = onStartRoadmap,
                     shape = RoundedCornerShape(14.dp),

@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.media3.common.util.UnstableApi::class   // ⬅ 추가
+)
+
 package com.ssafy.a602.learning
 
 import androidx.compose.foundation.background
@@ -20,72 +25,51 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.common.util.Util
+import androidx.media3.common.PlaybackException
+import android.util.Log
 
-/* ───────────────── 모델/상태(이 파일 안에서만 사용) ───────────────── */
-private data class DailyStudyItem(
-    val word: String,
-    val videoUrl: String? = null
-)
+/* ──────────────────────────────────────────────────────────────────────────
+ * 상단 탭 전환용 간단 enum (학습/퀴즈)
+ *  - 퀴즈로 바꿀 때 onStartQuiz(day) 콜백을 호출하여 상위 내비게이션 처리
+ * ────────────────────────────────────────────────────────────────────────── */
 private enum class StudyMode { LEARN, QUIZ }
-private sealed interface DailyStudyUiState  {
-    data object Loading : DailyStudyUiState
-    data class Success(val items: List<DailyStudyItem>) : DailyStudyUiState
-    data class Error(val throwable: Throwable) : DailyStudyUiState
-}
 
-/* ─────── 가짜 백엔드(실제 API로 교체 예정) : day별 더미 데이터 반환 ─────── */
-private suspend fun fetchDailyStudyFromServer(day: Int): List<DailyStudyItem> {
-    delay(150) // 네트워크 지연 흉내
-    // day 값에 따라 다른 데이터 내려주는 척
-    return when (day) {
-        1 -> listOf(
-            DailyStudyItem("안녕하세요", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"),
-            DailyStudyItem("나", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"),
-            DailyStudyItem("사과"), DailyStudyItem("바나나"), DailyStudyItem("포도")
-        )
-        2 -> listOf(DailyStudyItem("좋아한다"), DailyStudyItem("싫어한다"), DailyStudyItem("나는 사과를 좋아한다"))
-        else -> listOf(DailyStudyItem("샘플 A"), DailyStudyItem("샘플 B"))
-    }
-}
-
-/* ───────────────────────── 메인 화면 ───────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * 메인 화면 Composable
+ *  - 진입 시/파라미터 변경 시 ViewModel.load(day) → 서버에서 데이터 수신
+ *  - uiState(로딩/성공/에러)에 따라 분기 렌더링
+ * ────────────────────────────────────────────────────────────────────────── */
 @Composable
 fun DailyDetailStudyScreen(
     day: Int,
     onBack: () -> Unit = {},
-    onStartQuiz: (day: Int) -> Unit = {}
+    onStartQuiz: (day: Int) -> Unit = {},
+    viewModel: DailyDetailStudyViewModel = hiltViewModel()
 ) {
+    // 배경 그라데이션
     val bg = Brush.verticalGradient(listOf(Color(0xFFEFFAF2), Color.White))
 
-    var uiState by remember { mutableStateOf<DailyStudyUiState >(DailyStudyUiState .Loading) }
-    var mode by remember { mutableStateOf(StudyMode.LEARN) }
+    // ViewModel의 상태 스트림을 Compose에서 구독
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // 리스트 스크롤/코루틴 스코프 준비 (선택 단어로 스크롤 맞출 때 사용)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // ✅ 화면 진입/Day 변경 시: 서버에서 목록 로드 → UI 상태 반영 + 캐시에 저장
-    LaunchedEffect(day) {
-        uiState = DailyStudyUiState.Loading
-        try {
-            val items = fetchDailyStudyFromServer(day)
-
-            // ▼ 학습 단어 목록을 메모리 캐시에 저장(MVP)
-            LearningMemCache.save(
-                day = day,
-                items = items.map { LearningMemCache.Item(word = it.word, videoUrl = it.videoUrl) }
-            )
-
-            uiState = DailyStudyUiState.Success(items)
-            if (items.isNotEmpty()) listState.scrollToItem(0) // 첫 단어 보이기
-        } catch (t: Throwable) {
-            uiState = DailyStudyUiState.Error(t)
-        }
-    }
+    // 화면 진입/Day 변경 시 데이터 로드 트리거
+    LaunchedEffect(day) { viewModel.load(day) }
 
     Box(
         modifier = Modifier
@@ -95,60 +79,60 @@ fun DailyDetailStudyScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
 
-            /* ── 상단바(뒤로가기 + Day + 모드 토글) ── */
+            /* ── 상단바 (뒤로가기 + Day + 모드 토글) ── */
             TopBarWithMode(
                 day = day,
-                mode = mode,
-                onModeChange = {
-                    mode = it
-                    if (it == StudyMode.QUIZ) {
-                        // ⚠️ 이미 LaunchedEffect에서 캐시에 저장됨.
-                        //    (혹시 모를 빈 케이스 대비하여 체크하고 경고 다이얼로그를 띄워도 됨)
-                        onStartQuiz(day)
-                    }
+                mode = StudyMode.LEARN, // 기본은 학습 모드
+                onModeChange = { mode ->
+                    // 사용자가 "퀴즈 모드" 탭을 누르면 상위에서 화면 전환
+                    if (mode == StudyMode.QUIZ) onStartQuiz(day)
                 },
                 onBack = onBack
             )
 
-
             Spacer(Modifier.height(12.dp))
 
+            /* ── 상태에 따라 본문 렌더 ── */
             when (val s = uiState) {
-                DailyStudyUiState .Loading -> {
+                DailyDetailUiState.Loading -> {
+                    // 로딩 인디케이터 중앙 표시
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
-                is DailyStudyUiState .Error -> {
+
+                is DailyDetailUiState.Error -> {
+                    // 오류 메시지 + 다시 시도
                     Column(
                         Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text("불러오기에 실패했어요.", color = MaterialTheme.colorScheme.error)
+                        Text(s.message, color = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = {
-                            scope.launch {
-                                uiState = DailyStudyUiState.Loading
-                                try {
-                                    uiState = DailyStudyUiState.Success(fetchDailyStudyFromServer(day))
-                                } catch (t: Throwable) { uiState = DailyStudyUiState.Error(t) }
-                            }
-                        }) { Text("다시 시도") }
+                        Button(onClick = { viewModel.load(day) }) { Text("다시 시도") }
                     }
                 }
-                is DailyStudyUiState.Success -> {
+
+                is DailyDetailUiState.Success -> {
+                    // 서버에서 내려준 당일 단어/영상 목록
                     val items = s.items
-                    // 선택 인덱스: 목록이 로드되면 0으로 시작(첫 단어 자동 렌더링)
+
+                    // 선택된 인덱스(현재 보여줄 단어). 목록이 바뀌면 0으로 초기화
                     var selectedIndex by remember(items) { mutableStateOf(0) }
 
                     if (items.isNotEmpty()) {
                         val current = items[selectedIndex]
 
+                        /* ── 현재 단어 카드 ── */
                         CurrentWordCard(word = current.word)
                         Spacer(Modifier.height(12.dp))
 
-                        // ▶ 자동재생 금지: 사용자가 플레이 영역을 눌러야 재생 시작
+                        /* ── 영상 섹션
+                         *  - 자동재생 금지(사용자가 재생 버튼 클릭해야 시작)
+                         *  - 이전/다음 버튼으로 선택 인덱스 변경
+                         *  - 리스트도 해당 아이템 위치로 스크롤 맞춤
+                         * ──────────────────────────────────────────────── */
                         VideoSection(
                             videoUrl = current.videoUrl,
                             page = selectedIndex + 1,
@@ -169,12 +153,16 @@ fun DailyDetailStudyScreen(
 
                         Spacer(Modifier.height(16.dp))
 
+                        /* ── 학습 목록(좌측 리스트)
+                         *  - 항목을 탭하면 해당 단어로 전환(자동재생 X)
+                         *  - 선택 항목은 색상과 두께로 강조
+                         * ──────────────────────────────────────────────── */
                         StudyListSection(
                             day = day,
                             items = items,
                             selectedIndex = selectedIndex,
                             onSelect = { idx ->
-                                selectedIndex = idx  // 단어만 변경(자동재생 X)
+                                selectedIndex = idx
                                 scope.launch { listState.centerOnItem(idx) }
                             },
                             listState = listState
@@ -190,7 +178,11 @@ fun DailyDetailStudyScreen(
     }
 }
 
-/* ───────── 상단바 + 모드 토글 ───────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * 상단바 + 모드 토글
+ *  - 좌측 ← : 뒤로가기
+ *  - 우측 토글 : 학습/퀴즈 전환(퀴즈 선택 시 onModeChange 호출)
+ * ────────────────────────────────────────────────────────────────────────── */
 @Composable
 private fun TopBarWithMode(
     day: Int,
@@ -204,6 +196,7 @@ private fun TopBarWithMode(
             .fillMaxWidth()
             .padding(top = 12.dp)
     ) {
+        // 간단한 텍스트 ← 버튼 (아이콘으로 교체 가능)
         Text(
             text = "←",
             fontSize = 20.sp,
@@ -222,6 +215,7 @@ private fun TopBarWithMode(
 
         Spacer(Modifier.weight(1f))
 
+        // 좌/우 2분할 토글
         SegmentedTwoToggle(
             left = "학습 모드",
             right = "퀴즈 모드",
@@ -231,6 +225,9 @@ private fun TopBarWithMode(
     }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * 2분할 토글 버튼 (왼쪽=학습, 오른쪽=퀴즈)
+ * ────────────────────────────────────────────────────────────────────────── */
 @Composable
 private fun SegmentedTwoToggle(
     left: String,
@@ -274,7 +271,9 @@ private fun SegmentedTwoToggle(
     }
 }
 
-/* ───────── 현재 단어 카드 ───────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * 현재 단어 카드 (큰 글씨 + 보조문구)
+ * ────────────────────────────────────────────────────────────────────────── */
 @Composable
 private fun CurrentWordCard(word: String) {
     val green = Color(0xFF16A34A)
@@ -308,7 +307,12 @@ private fun CurrentWordCard(word: String) {
     }
 }
 
-/* ───────── 영상 섹션(수동 재생) ───────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * 영상 섹션
+ *  - videoUrl == null/blank 이면 "영상 없음" 대체 박스
+ *  - Player는 자동재생 금지 (사용자 클릭 시 play)
+ *  - 페이지 표기 + 이전/다음 네비게이션
+ * ────────────────────────────────────────────────────────────────────────── */
 @Composable
 private fun VideoSection(
     videoUrl: String?,
@@ -361,23 +365,55 @@ private fun VideoSection(
     }
 }
 
-/* ───────── ExoPlayer (오버레이 클릭 시에만 재생) ───────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * ExoPlayer: 오버레이 클릭 시에만 재생
+ *  - playWhenReady=false로 자동재생 차단
+ *  - PlayerView는 controller/버퍼링 표시 세팅
+ *  - remember(url)로 URL 변경 시 새로운 플레이어 생성
+ *  - onDispose에서 release (메모리/리소스 누수 방지)
+ * ────────────────────────────────────────────────────────────────────────── */
+@OptIn(UnstableApi::class) // ProgressiveMediaSource 등 일부 API가 Unstable로 표시됩니다.
 @Composable
 private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
+    // 1) HTTP DataSource 커스터마이즈: Redirect 허용 + UA + 타임아웃
+    val httpFactory = remember(url) {
+        DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)   // ★ 핵심: http→https 등 허용
+            .setUserAgent(Util.getUserAgent(context, "A602")) // UA 지정(선택)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(30_000)
+    }
+
+    // 2) DataSource/MediaSource 구성
+    val dataSourceFactory = remember(url) {
+        DefaultDataSource.Factory(context, httpFactory)
+    }
+    val mediaSource = remember(url) {
+        ProgressiveMediaSource.Factory(dataSourceFactory)
+            .createMediaSource(MediaItem.fromUri(url))
+    }
+
+    // 3) Player 생성
     val exoplayer = remember(url) {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
+            setMediaSource(mediaSource)
             prepare()
             playWhenReady = false // 자동재생 금지
         }
     }
 
     var isPlaying by remember { mutableStateOf(false) }
+    var playbackState by remember { mutableStateOf(Player.STATE_IDLE) }
+
     DisposableEffect(exoplayer) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+            override fun onPlaybackStateChanged(state: Int) { playbackState = state } // ★ 추가
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("Player", "playback error: ${error.errorCodeName}", error)
+            }
         }
         exoplayer.addListener(listener)
         onDispose {
@@ -396,23 +432,26 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
-                    player = exoplayer                // ✅ 그대로
-                    useController = true              // ✅ 그대로
-                    setControllerShowTimeoutMs(2000)  // ✅ 속성 X, setter 메서드 사용
-                    setShowBuffering(
-                        PlayerView.SHOW_BUFFERING_WHEN_PLAYING  // ✅ 상수도 PlayerView 소속
-                    )
+                    player = exoplayer
+                    useController = true
+                    setControllerShowTimeoutMs(2000)
+                    // 버퍼링 인디케이터 켜기 (필드 접근 말고 setter/속성 쓰기)
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                 }
             },
-            update = { view -> view.player = exoplayer },      // ✅ 재결합 안전
+            update = { it.player = exoplayer },
             modifier = Modifier.matchParentSize()
         )
 
+        // ▶/↻ 오버레이
+        val ended = playbackState == Player.STATE_ENDED
         if (!isPlaying) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable { exoplayer.play() }, // ✅ 사용자가 눌러야 재생
+                    .clickable { if (ended) exoplayer.seekTo(0)
+                        exoplayer.playWhenReady = true
+                        exoplayer.play() },
                 contentAlignment = Alignment.Center
             ) {
                 Box(
@@ -429,7 +468,11 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
     }
 }
 
-/* ───────── 학습 목록 ───────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * 좌측 학습 목록 리스트
+ *  - 선택 항목은 배경/테두리로 강조
+ *  - 항목 탭 시 onSelect(index)로 현재 단어 전환 (자동재생은 하지 않음)
+ * ────────────────────────────────────────────────────────────────────────── */
 @Composable
 private fun StudyListSection(
     day: Int,
@@ -439,6 +482,7 @@ private fun StudyListSection(
     listState: LazyListState
 ) {
     val blue = Color(0xFF1D4ED8)
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF)),
@@ -469,7 +513,7 @@ private fun StudyListSection(
                             .clip(RoundedCornerShape(12.dp))
                             .background(bg)
                             .border(2.dp, borderColor, RoundedCornerShape(12.dp))
-                            .clickable { onSelect(index) } // 선택만(자동재생 X)
+                            .clickable { onSelect(index) } // 선택만, 자동재생 X
                             .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
                         Text(
@@ -486,7 +530,9 @@ private fun StudyListSection(
     }
 }
 
-/* ───────── 유틸: 스크롤 위치 맞추기 ───────── */
+/* ──────────────────────────────────────────────────────────────────────────
+ * 유틸: 특정 아이템을 화면 중앙 근처로 부드럽게 스크롤
+ * ────────────────────────────────────────────────────────────────────────── */
 private suspend fun LazyListState.centerOnItem(index: Int) {
-    animateScrollToItem(index, scrollOffset = 0) // Compose 버전별 파라미터명 주의
+    animateScrollToItem(index, scrollOffset = 0)
 }

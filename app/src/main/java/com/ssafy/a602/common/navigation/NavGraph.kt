@@ -104,7 +104,7 @@ fun NavGraph(
             LearningMainPage(
                 onStartRoadmap = { navController.navigate(Screen.Total_RoadMap.route) },
                 onOpenSongStudy = { navController.navigate(Screen.SongStudyList.route) },
-                progressDay = 5 // TODO: 백엔드 값으로 교체
+//                progressDay = 5 // TODO: 백엔드 값으로 교체
             )
         }
 

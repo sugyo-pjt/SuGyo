@@ -42,6 +42,7 @@ public class RhythmGameService {
     private final RankRepository rankRepository;
     private final UserRepository userRepository;
     private final WebClient webClient;
+    private final RankingCacheService rankingCacheService;
 
 //    @Transactional
 //    public List<MusicListResponseDto> getAllMusic() {
@@ -129,27 +130,15 @@ public class RhythmGameService {
         if(userId == null){
             throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
         }
+
         // 음악 존재 확인
         Music music = musicRepository.findById(musicId)
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
-        // 상위 5명 랭킹 조회
-        List<RhythmGameRank> topRanks = rankRepository.findTop5ByMusicIdOrderByScoreDesc(musicId);
-        
-        AtomicInteger rank = new AtomicInteger(1);
-        List<RankingUserDto> ranking = topRanks.stream()
-                .limit(5)
-                .map(rhythmGameRank -> RankingUserDto.builder()
-                        .rank(rank.getAndIncrement())
-                        .userId(rhythmGameRank.getUser().getId())
-                        .userNickName(rhythmGameRank.getUser().getNickname())
-                        .userProfileUrl(rhythmGameRank.getUser().getProfileImageUrl())
-                        .score(rhythmGameRank.getScore())
-                        .recordDate(rhythmGameRank.getRecordTime())
-                        .build())
-                .toList();
+        // 상위 5명 랭킹 조회 (Read-Through: 캐시 우선, 캐시 미스 시 DB 조회)
+        List<RankingUserDto> cachedRanking = rankingCacheService.getCachedTop5Ranking(musicId);
 
-        // 내 정보 조회
+        // 내 랭킹 정보는 매번 DB에서 실시간 조회
         MyRankInfoDto myInfo = null;
         Optional<RhythmGameRank> myBestScore = rankRepository.findTopByMusicIdAndUserIdOrderByScoreDesc(musicId, userId);
         if (myBestScore.isPresent()) {
@@ -165,7 +154,7 @@ public class RhythmGameService {
         return MusicRankingResponseDto.builder()
                 .musicId(music.getId())
                 .musicTitle(music.getTitle())
-                .ranking(ranking)
+                .ranking(cachedRanking)
                 .myInfo(myInfo)
                 .build();
     }
@@ -198,6 +187,9 @@ public class RhythmGameService {
                 currentRank.setRecordTime(LocalDateTime.now());
                 rankRepository.save(currentRank);
                 isBestRecord = true;
+
+                // Write-Through: DB 업데이트 후 Top 5 진입 시에만 캐시 업데이트
+                updateRankingCacheIfNeeded(request.getMusicId(), request.getScore());
             }
         } else {
             // 기존 기록이 없는 경우 - 새로운 기록 생성
@@ -208,6 +200,9 @@ public class RhythmGameService {
                     .build();
             rankRepository.save(newRank);
             isBestRecord = true;
+
+            // Write-Through: DB 업데이트 후 Top 5 진입 시에만 캐시 업데이트
+            updateRankingCacheIfNeeded(request.getMusicId(), request.getScore());
         }
 
         return GameResultResponseDto.builder()
@@ -227,6 +222,23 @@ public class RhythmGameService {
                 .toString();
 
         System.out.println("AI 서버 응답: " + response);
+    }
+
+    private void updateRankingCacheIfNeeded(Long musicId, Integer newScore) {
+        // 현재 Top 5 랭킹 조회
+        List<RhythmGameRank> currentTop5 = rankRepository.findTop5ByMusicIdOrderByScoreDesc(musicId);
+
+        // Top 5가 5개 미만이거나, 새 점수가 5위보다 높으면 캐시 업데이트
+        boolean shouldUpdateCache = currentTop5.size() < 5 ||
+                                   currentTop5.get(currentTop5.size() - 1).getScore() < newScore;
+
+        if (shouldUpdateCache) {
+            // Write-Through: 캐시 업데이트
+            rankingCacheService.updateTop5RankingCache(musicId, currentTop5);
+            log.info("Updated ranking cache for musicId: {} (new score: {} entered Top 5)", musicId, newScore);
+        } else {
+            log.info("Skipped ranking cache update for musicId: {} (new score: {} not in Top 5)", musicId, newScore);
+        }
     }
 
 }

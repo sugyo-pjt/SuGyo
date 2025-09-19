@@ -1,0 +1,101 @@
+services:
+  nginx:
+    build: ./Nginx
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+    depends_on:
+      - spring-app-blue
+      - spring-app-green
+    networks:
+      - sugyo-network
+
+  # 2. Spring Boot Backend
+  spring-app-blue:
+    build: ./BE
+    container_name: spring-app-blue
+    expose:
+      - "8081"
+    env_file:
+      - ./.env
+    environment:
+      - SERVER_PORT=8081
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      - SPRING_DATA_REDIS_HOST=redis-cache
+      - SWAGGER_SERVER_URL=https://j13a602.p.ssafy.io
+      - AI_SERVER_URL=http://fastapi-app:8000
+    depends_on:
+      - mysql-db
+      - redis-cache
+    networks:
+      - sugyo-network
+
+  spring-app-green:
+    build: ./BE
+    container_name: spring-app-green
+    expose:
+      - "8082"
+    env_file:
+      - ./.env
+    environment:
+      - SERVER_PORT=8082
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      - SPRING_DATA_REDIS_HOST=redis-cache
+      - SWAGGER_SERVER_URL=https://j13a602.p.ssafy.io
+    depends_on:
+      - mysql-db
+      - redis-cache
+    networks:
+      - sugyo-network
+
+  # 3. FastAPI Backend
+  fastapi-app:
+    build: ./AI_server
+    container_name: fastapi-app
+    expose:
+      - "8000"
+    networks:
+      - sugyo-network
+
+  # 5. MySQL Database
+  mysql-db:
+    build: ./MYSQL
+    container_name: mysql-db
+    env_file:
+      - ./.env
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u ${MYSQL_USER} -p${MYSQL_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sugyo-network
+
+  # 6. Redis (Cache)
+  redis-cache:
+    image: redis:latest
+    container_name: redis-cache
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sugyo-network
+
+# 데이터 영속성을 위한 볼륨 정의
+volumes:
+  mysql_data:
+
+    # 컨테이너 간 통신을 위한 네트워크 정의
+networks:
+  sugyo-network:
+    driver: bridge

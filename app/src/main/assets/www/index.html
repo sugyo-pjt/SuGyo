@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>3D Viewer (WebView)</title>
     <style>
-        html,body{height:100%;margin:0;background:#c8c8c8;overflow:hidden}
+        html,body{height:100%;margin:0;background:#111;overflow:hidden}
         #loading{position:absolute;inset:0;margin:auto;width:60px;height:60px;
           border:8px solid #f3f3f3;border-top:8px solid #0CAEC2;border-radius:50%;
           animation:spin 1s linear infinite}
@@ -20,26 +20,23 @@
     import { OrbitControls } from './lib/OrbitControls.js';
     import { GLTFLoader } from './lib/GLTFLoader.js';
 
+    // ---------- Renderer / Scene / Camera ----------
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    document.body.style.margin = 0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     document.body.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-    camera.position.set(2,1.5,3);
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+    camera.position.set(2, 1.5, 3);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+    scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 1);
-    dir.position.set(5,10,7);
+    dir.position.set(5, 10, 7);
     scene.add(dir);
 
-    const loader = new GLTFLoader();
-    loader.load('../models/avatar.glb', (gltf) => {
-      scene.add(gltf.scene);
-      document.getElementById('loading').style.display = 'none';
-    }, undefined, (e) => {
-      console.error('GLB 로드 실패:', e);
-    });
+    const controls = new OrbitControls(camera, renderer.domElement);
 
     function resize(){
       renderer.setSize(innerWidth, innerHeight);
@@ -49,12 +46,175 @@
     addEventListener('resize', resize);
     resize();
 
-    new OrbitControls(camera, renderer.domElement);
+    // ---------- Helpers ----------
+    const V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3();
+    const M3 = new THREE.Matrix3();
+    function worldDirToLocal(bone, dirW){
+      // 방향벡터는 translation 제외하고 월드→로컬 변환
+      const inv = bone.matrixWorld.clone().invert();
+      M3.setFromMatrix4(inv);
+      return dirW.clone().applyMatrix3(M3).normalize();
+    }
+    function localRestDirection(bone, childBone){
+      // child의 월드 위치를 bone 로컬로 투영 → bone이 기본자세에서 바라보는 로컬방향
+      childBone.getWorldPosition(V1);
+      bone.worldToLocal(V1);
+      return V1.normalize();
+    }
 
-    (function animate(){
+    // ---------- Load Avatar ----------
+    const loader = new GLTFLoader();
+    let bones = {};              // name -> Bone
+    let restQuat = {};           // name -> Quaternion(초기값)
+    let restDir  = {};           // name -> Vector3 (로컬 기준 방향)
+    let modelRoot;
+
+    // 우리가 쓸 본 이름(상지 위주)
+    const map = {
+      L_UPPER: 'mixamorigLeftArm',
+      L_LOWER: 'mixamorigLeftForeArm',
+      L_HAND : 'mixamorigLeftHand',
+      R_UPPER: 'mixamorigRightArm',
+      R_LOWER: 'mixamorigRightForeArm',
+      R_HAND : 'mixamorigRightHand'
+    };
+
+    loader.load('./models/avatar.glb', (gltf) => {
+      modelRoot = gltf.scene;
+
+      // 1) 모델 중심/바닥 정렬
+      const box = new THREE.Box3().setFromObject(modelRoot);
+      const center = box.getCenter(new THREE.Vector3());
+      modelRoot.position.sub(center);
+      box.setFromObject(modelRoot);
+      modelRoot.position.y += -box.min.y;
+      scene.add(modelRoot);
+
+      // 2) 컨트롤 타깃
+      const size = box.getSize(new THREE.Vector3());
+      controls.target.set(0, size.y * 0.5, 0);
+      controls.update();
+
+      // 3) 본 수집 + 초기 상태 기록
+      modelRoot.traverse(o=>{
+        if(o.isBone){ bones[o.name] = o; restQuat[o.name] = o.quaternion.clone(); }
+      });
+
+      // 4) 로컬 기준 방향(REST) 자동 산출
+      // 상박: Arm → ForeArm, 하박: ForeArm → Hand, 손: Hand → (엄지1이나 인덱스1 쪽)
+      restDir[map.L_UPPER] = localRestDirection(bones[map.L_UPPER], bones[map.L_LOWER]);
+      restDir[map.R_UPPER] = localRestDirection(bones[map.R_UPPER], bones[map.R_LOWER]);
+      restDir[map.L_LOWER] = localRestDirection(bones[map.L_LOWER], bones[map.L_HAND]);
+      restDir[map.R_LOWER] = localRestDirection(bones[map.R_LOWER], bones[map.R_HAND]);
+      // 손은 집게손가락 첫 관절 기준 (없으면 Hand의 첫 child를 사용)
+      const LIndex1 = bones['mixamorigLeftHandIndex1'] || bones[map.L_HAND].children[0];
+      const RIndex1 = bones['mixamorigRightHandIndex1'] || bones[map.R_HAND].children[0];
+      restDir[map.L_HAND]  = localRestDirection(bones[map.L_HAND],  LIndex1);
+      restDir[map.R_HAND]  = localRestDirection(bones[map.R_HAND],  RIndex1);
+
+      // 5) 콘솔에 스켈레톤 출력(확인용)
+      modelRoot.traverse((obj) => {
+        if (obj.isSkinnedMesh && obj.skeleton) {
+          console.log('SkinnedMesh:', obj.name);
+          obj.skeleton.bones.forEach((b,i)=>console.log(i, b.name));
+        }
+      });
+
+      document.getElementById('loading').style.display = 'none';
+    }, undefined, (err) => {
+      console.error('GLB 로드 실패:', err);
+      document.getElementById('loading').style.display = 'none';
+    });
+
+    // ---------- Retarget Core ----------
+    function rotateToward(boneName, targetDirWorld, slerp=0.35){
+      const bone = bones[boneName];
+      if(!bone) return;
+
+      // 타겟 방향을 bone 로컬로 변환
+      const targetLocal = worldDirToLocal(bone, targetDirWorld);
+      const from = restDir[boneName];     // 로컬 기준 방향
+      if(!from) return;
+
+      // REST → TARGET 로컬 회전
+      const delta = new THREE.Quaternion().setFromUnitVectors(from, targetLocal);
+
+      // 목표 쿼터니언 = 초기쎄팅 * 델타
+      const qTarget = restQuat[boneName].clone().multiply(delta);
+
+      // 부드럽게 수렴
+      bone.quaternion.slerp(qTarget, slerp);
+    }
+
+    // ---------- Demo: 팔만 사인파로 올렸다 내리기 ----------
+    // 미디어파이프 연결 전까지 임시로 동작 확인 용도
+    let t0 = performance.now();
+    function demoUpdate(){
+      if(!modelRoot) return;
+
+      const t = (performance.now() - t0) * 0.002; // 느린 사인
+      const amp = 0.9; // 최대 각도 ~ (라디안이 아니라 여기선 벡터 방향으로 제어)
+
+      // 월드 기준 어깨 포지션 얻고, 그로부터 목표 방향 벡터 만들기
+      const Ls = bones['mixamorigLeftShoulder']?.getWorldPosition(V1.clone()) ?? modelRoot.getWorldPosition(V1.clone());
+      const Rs = bones['mixamorigRightShoulder']?.getWorldPosition(V2.clone()) ?? modelRoot.getWorldPosition(V2.clone());
+
+      // 타겟 방향(월드): y축으로 들어 올리기 + 약간 전방
+      const lElev = Math.sin(t) * amp;   // -amp~amp
+      const rElev = Math.sin(t + Math.PI) * amp;
+
+      // 기준 전방(+Z)와 좌우(+/-X)를 섞어 팔 방향 벡터 생성
+      const lDirW = new THREE.Vector3( 0.6, 0.4 + 0.6*lElev,  0.2).normalize();
+      const rDirW = new THREE.Vector3(-0.6, 0.4 + 0.6*rElev,  0.2).normalize();
+
+      // 하박은 상박 방향과 거의 같은 평면으로(간단화)
+      const lForeW = lDirW.clone().add(new THREE.Vector3(0, 0.15, 0)).normalize();
+      const rForeW = rDirW.clone().add(new THREE.Vector3(0, 0.15, 0)).normalize();
+
+      rotateToward(map.L_UPPER, lDirW, 0.25);
+      rotateToward(map.R_UPPER, rDirW, 0.25);
+      rotateToward(map.L_LOWER, lForeW, 0.25);
+      rotateToward(map.R_LOWER, rForeW, 0.25);
+      // 손목은 살짝 전방
+      rotateToward(map.L_HAND,  new THREE.Vector3(0.3, 0.1 + 0.3*lElev, 0.7).normalize(), 0.2);
+      rotateToward(map.R_HAND,  new THREE.Vector3(-0.3,0.1 + 0.3*rElev, 0.7).normalize(), 0.2);
+    }
+
+    // ---------- MediaPipe 연결을 위한 API (추후 그대로 쓰면 됨) ----------
+    // pose: {left_shoulder:{x,y,z}, left_elbow:{...}, left_wrist:{...}, right_* 동일}
+    // 좌표계는 카메라 정규화(0~1)여도 상관없고, 깊이 z가 없으면 0으로.
+    window.applyUpperFromPose = function(pose){
+      if(!modelRoot) return;
+
+      // 카메라 평면 정규화 → 임의 월드 스케일로 변환(원하는대로 칼리브레이션)
+      const toWorld = (p)=> new THREE.Vector3((p.x-0.5), (0.6-p.y), p.z??0).multiplyScalar(2.0);
+
+      const Ls = toWorld(pose.left_shoulder);
+      const Le = toWorld(pose.left_elbow);
+      const Lw = toWorld(pose.left_wrist);
+      const Rs = toWorld(pose.right_shoulder);
+      const Re = toWorld(pose.right_elbow);
+      const Rw = toWorld(pose.right_wrist);
+
+      const L_upper = Le.clone().sub(Ls).normalize();
+      const L_lower = Lw.clone().sub(Le).normalize();
+      const R_upper = Re.clone().sub(Rs).normalize();
+      const R_lower = Rw.clone().sub(Re).normalize();
+
+      rotateToward(map.L_UPPER, L_upper, 0.35);
+      rotateToward(map.L_LOWER, L_lower, 0.35);
+      rotateToward(map.R_UPPER, R_upper, 0.35);
+      rotateToward(map.R_LOWER, R_lower, 0.35);
+    }
+
+    // ---------- Render Loop ----------
+    function animate(){
       requestAnimationFrame(animate);
+      demoUpdate(); // MediaPipe 붙이면 이 줄을 지우고 window.applyUpperFromPose(...) 호출
       renderer.render(scene, camera);
-    })();
+    }
+    animate();
+
 </script>
 </body>
 </html>

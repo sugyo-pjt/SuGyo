@@ -35,7 +35,6 @@ with open(LABEL_ENCODER_PATH, "rb") as f:
 data = np.load(file_path)
 print("!!!!!!!!!!!!!!!!keys:", data.files)
 
-
 X = data["x"]        # (90, 195)
 y = data["label"]
 
@@ -53,6 +52,7 @@ top3_idx = np.argsort(probs)[-3:][::-1]
 top3_words = label_encoder.inverse_transform(top3_idx)
 top3_probs = probs[top3_idx]
 
+print('X 형태', X.shape)
 print("실제 라벨:", y)
 print("Top-3 예측:")
 for word, p in zip(top3_words, top3_probs):

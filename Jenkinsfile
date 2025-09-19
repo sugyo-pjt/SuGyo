@@ -119,7 +119,7 @@ pipeline {
         // =================================================================
         stage('Deploy to Production') {
             when {
-                branch 'inf/S13P21A602-170'
+                branch 'master'
                 // 빌드할 앱 코드가 있거나, 인프라 변경이 있을 때 실행
                 anyOf {
                     expression { env.SERVICES_TO_REBUILD != null && !env.SERVICES_TO_REBUILD.isEmpty() }

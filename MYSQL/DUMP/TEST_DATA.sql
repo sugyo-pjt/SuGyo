@@ -13,7 +13,7 @@ CREATE TABLE users
 CREATE TABLE term
 (
     id			BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    title		VARCHAR(30) NOT NULL,
+    title		VARCHAR(255) NOT NULL,
     content		TEXT NOT NULL,
     mandatory	TINYINT NOT NULL,
     created_at	TIMESTAMP NOT NULL,

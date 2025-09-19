@@ -15,7 +15,7 @@ import com.ssafy.a602.BuildConfig
 object RetrofitClient {
 
     // ✅ Postman과 동일 호스트 + 끝에 / 유지
-    private const val BASE_URL = "http://j13a602.p.ssafy.io/"
+    private const val BASE_URL = "https://j13a602.p.ssafy.io/"
 
     private val gson: Gson by lazy {
         GsonBuilder().setLenient().create()

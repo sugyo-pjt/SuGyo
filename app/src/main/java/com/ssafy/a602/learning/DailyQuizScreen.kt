@@ -1,6 +1,8 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
 
 package com.ssafy.a602.learning
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,47 +19,67 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
-import androidx.compose.runtime.rememberCoroutineScope   // ⬅️ 추가
-import kotlinx.coroutines.launch                         // ⬅️ 추가
+import kotlinx.coroutines.launch
 
-/* ───────────────────────── 내부 전용 모델 ───────────────────────── */
-// 캐시 아이템 → 퀴즈 문제로 변환해 쓸 로컬 모델
-private data class Question(
-    val videoUrl: String?,      // 문제 영상(없으면 텍스트 플레이스홀더)
-    val correct: String,        // 정답 단어(텍스트)
-    val options: List<String>   // 보기 텍스트(셔플 완료)
+/* ───────────────────────── 내부 전용 유틸/모델 ───────────────────────── */
+
+// "안녕하세요,안녕하십니까" -> "안녕하세요"
+private fun primaryLabel(raw: String): String =
+    raw.split(',', '·', '/', ';').firstOrNull()?.trim().orEmpty()
+
+private data class QuizQuestion(
+    val videoUrl: String?,
+    val correct: String,
+    val options: List<String>
 )
 
-/* ─────────── 캐시 목록 → Question 리스트 생성 ─────────── */
+/** 캐시 목록 → 퀴즈 문항 생성 (그날 학습 개수만큼 / 기본 4지선다) */
 private fun buildQuestionsFromCache(
     cache: List<LearningMemCache.Item>,
-    count: Int = 10,            // 만들 문제 수(캐시 크기보다 크면 캐시 크기로 제한)
-    optionsPerQuestion: Int = 4 // 보기 수(기본 4지선다)
-): List<Question> {
+    count: Int = cache.size,
+    optionsPerQuestion: Int = 4
+): List<QuizQuestion> {
     if (cache.isEmpty()) return emptyList()
 
-    val base = cache.shuffled()
-    val qCount = minOf(count, base.size)
+    // 대표어 기준 중복 제거 (동의어 묶음 처리)
+    val unique = LinkedHashMap<String, LearningMemCache.Item>() // key = 대표어
+    cache.forEach { item ->
+        val key = primaryLabel(item.word)
+        if (key.isNotBlank() && !unique.containsKey(key)) {
+            unique[key] = item.copy(word = key) // 캐시도 대표어로 정규화
+        }
+    }
+    val items = unique.values.toList()
+    if (items.size < 2) return emptyList() // 보기 최소 2개 필요
 
+    val qCount = minOf(count, items.size)
+    val optCount = optionsPerQuestion.coerceIn(2, items.size)
+
+    val pool = items.shuffled()
     return (0 until qCount).map { idx ->
-        val correct = base[idx]
-        val otherWords = cache
+        val correct = pool[idx]
+        val distractors = items
             .filter { it.word != correct.word }
             .shuffled()
-            .take(optionsPerQuestion - 1)
+            .take(optCount - 1)
             .map { it.word }
 
-        val options = (otherWords + correct.word).shuffled()
-        Question(
+        val options = (distractors + correct.word).distinct().shuffled()
+        QuizQuestion(
             videoUrl = correct.videoUrl,
             correct = correct.word,
             options = options
@@ -66,6 +88,7 @@ private fun buildQuestionsFromCache(
 }
 
 /* ───────────────────────── 메인 퀴즈 화면 ───────────────────────── */
+
 @Composable
 fun DailyQuizScreen(
     day: Int,
@@ -74,17 +97,17 @@ fun DailyQuizScreen(
     onGoRoadmap: () -> Unit = {}
 ) {
     val bg = Brush.verticalGradient(listOf(Color(0xFFEFFAF2), Color.White))
-
-    // ⬇️ 추가: 이벤트(버튼/다이얼로그)에서 비동기 호출할 때 쓰는 UI 스코프
     val scope = rememberCoroutineScope()
 
-    // ✅ 학습 화면에서 저장해둔 캐시를 가져온다
+    // 학습 화면에서 저장해둔 캐시 읽기
     val cached = remember(day) { LearningMemCache.get(day) }
 
-    // 캐시가 없으면 안내(학습 화면에서 다시 시도 유도)
     if (cached.isNullOrEmpty()) {
         Box(
-            modifier = Modifier.fillMaxSize().background(bg).padding(24.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bg)
+                .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -96,8 +119,10 @@ fun DailyQuizScreen(
         return
     }
 
-    // ── 퀴즈 진행 상태 ───────────────────────────────────────────────
-    val questions = remember(cached) { buildQuestionsFromCache(cached, count = 10, optionsPerQuestion = 4) }
+    // 퀴즈 상태
+    val questions = remember(cached) {
+        buildQuestionsFromCache(cached, count = cached.size, optionsPerQuestion = 4)
+    }
     var index by remember { mutableStateOf(0) }
     var selected by remember { mutableStateOf<String?>(null) }
     var showResult by remember { mutableStateOf(false) }
@@ -105,7 +130,7 @@ fun DailyQuizScreen(
     var score by remember { mutableStateOf(0) }
     var finished by remember { mutableStateOf(false) }
 
-    // 점수 저장 진행 상태(MVP; 실제 Retrofit 자리)
+    // 점수 저장 상태(데모)
     var submitInProgress by remember { mutableStateOf(false) }
     var submitOk by remember { mutableStateOf<Boolean?>(null) }
 
@@ -118,18 +143,28 @@ fun DailyQuizScreen(
             .padding(horizontal = 16.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            // ── 상단 바 ─────────────────────────────────────────────
+            // 상단바
             Row(
-                Modifier.fillMaxWidth().padding(top = 12.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("←",
+                Text(
+                    "←",
                     fontSize = 20.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { onBack() }.padding(4.dp))
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onBack() }
+                        .padding(4.dp)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("Day $day", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text(
+                    "Day $day",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
                 Spacer(Modifier.weight(1f))
-                SegmentedTwoToggle(
+                SegmentedTwoToggleQuiz(
                     left = "학습 모드",
                     right = "퀴즈 모드",
                     selectedLeft = false,
@@ -138,12 +173,14 @@ fun DailyQuizScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-            Text("${minOf(index + 1, questions.size)}/${questions.size}",
+            Text(
+                "${minOf(index + 1, questions.size)}/${questions.size}",
                 color = Color(0xFF6B7280),
-                modifier = Modifier.align(Alignment.CenterHorizontally))
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
             Spacer(Modifier.height(8.dp))
 
-            // ── 본문 카드 ──────────────────────────────────────────
+            // 본문 카드
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xF2FFFFFF)),
                 shape = RoundedCornerShape(18.dp),
@@ -151,17 +188,22 @@ fun DailyQuizScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Day $day 퀴즈", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        "Day $day 퀴즈",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
                     Spacer(Modifier.height(6.dp))
                     Text("다음 수어가 나타내는 단어를 선택하세요", color = Color(0xFF6B7280))
                     Spacer(Modifier.height(12.dp))
 
                     // 문제(영상/플레이스홀더)
                     if (current?.videoUrl != null) {
-                        VideoPlayerManualPlay(url = current.videoUrl)
+                        VideoPlayerManualPlayQuiz(url = current.videoUrl)
                     } else {
                         Box(
-                            Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(Color(0xFFE5F4EA)),
                             contentAlignment = Alignment.Center
@@ -185,7 +227,7 @@ fun DailyQuizScreen(
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(bgOpt)
                                     .border(2.dp, border, RoundedCornerShape(12.dp))
-                                    .clickable { selected = opt }  // 선택만, 채점은 제출 때
+                                    .clickable { selected = opt }
                                     .padding(horizontal = 16.dp, vertical = 14.dp)
                             ) {
                                 Text(
@@ -212,13 +254,15 @@ fun DailyQuizScreen(
                         },
                         enabled = selected != null,
                         shape = RoundedCornerShape(999.dp),
-                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
                     ) { Text("제출하기") }
                 }
             }
         }
 
-        // ── 정답/오답 다이얼로그 ────────────────────────────────────
+        // 정답/오답 다이얼로그
         if (showResult && !finished && current != null) {
             AnswerDialog(
                 correct = resultCorrect,
@@ -229,12 +273,9 @@ fun DailyQuizScreen(
                     if (index + 1 < questions.size) {
                         index += 1
                     } else {
-                        // 마지막 문제 → 완료 플래그 올리고 점수 저장
                         finished = true
-                        // ▼ 서버 저장 (dayId + score) — 실패해도 UI는 완료로 유지
                         submitInProgress = true
                         submitOk = null
-                        // 실제론 ViewModel/CoroutineScope로 보내도 OK(여긴 간단히)
                         scope.launch {
                             val ok = try {
                                 submitClientScore(day, score, total = questions.size)
@@ -249,13 +290,13 @@ fun DailyQuizScreen(
             )
         }
 
-        // ── 완료 다이얼로그 ─────────────────────────────────────────
+        // 완료 다이얼로그
         if (finished) {
             FinishDialog(
                 day = day,
                 score = score,
                 total = questions.size,
-                onRetry = { // 다시 풀기
+                onRetry = {
                     index = 0
                     selected = null
                     showResult = false
@@ -268,10 +309,12 @@ fun DailyQuizScreen(
                 onGoRoadmap = onGoRoadmap
             )
 
-            // 저장 상태 보조 표시
             if (submitInProgress) {
-                Text("결과 저장 중…", color = Color(0xFF6B7280),
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp))
+                Text(
+                    "결과 저장 중…",
+                    color = Color(0xFF6B7280),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
+                )
             } else {
                 submitOk?.let { ok ->
                     Text(
@@ -285,8 +328,7 @@ fun DailyQuizScreen(
     }
 }
 
-/* ───────── 정답/오답/완료 다이얼로그 & 토글/플레이어 (기존과 동일) ───────── */
-// (아래 컴포넌트들은 네 기존 코드와 동일하므로 그대로 둬도 됩니다)
+/* ───────── 다이얼로그/토글 UI ───────── */
 
 @Composable
 private fun AnswerDialog(
@@ -297,7 +339,7 @@ private fun AnswerDialog(
     val bg = if (correct) Color(0xFFE8FFF1) else Color(0xFFFFF1F2)
     val iconBg = if (correct) Color(0xFF16A34A) else Color(0xFFEF4444)
     val title = if (correct) "정답입니다!" else "오답입니다!"
-    val sub   = if (correct) "잘했습니다" else "정답: $correctWord"
+    val sub = if (correct) "잘했습니다" else "정답: $correctWord"
 
     AlertDialog(
         onDismissRequest = onNext,
@@ -321,12 +363,7 @@ private fun AnswerDialog(
                         .background(iconBg),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        if (correct) "✓" else "✕",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(if (correct) "✓" else "✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -337,7 +374,6 @@ private fun AnswerDialog(
         containerColor = Color.Transparent
     )
 }
-
 
 @Composable
 private fun FinishDialog(
@@ -380,18 +416,13 @@ private fun FinishDialog(
                 Text("정답 개수를 확인해보세요", color = Color(0xFF6B7280))
 
                 Spacer(Modifier.height(14.dp))
-                Button(
-                    onClick = onRetry,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("퀴즈 다시하기") }
-
+                Button(onClick = onRetry, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text("퀴즈 다시하기")
+                }
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onGoRoadmap,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("로드맵으로 돌아가기") }
+                OutlinedButton(onClick = onGoRoadmap, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text("로드맵으로 돌아가기")
+                }
             }
         },
         confirmButton = {},
@@ -399,9 +430,8 @@ private fun FinishDialog(
     )
 }
 
-
 @Composable
-private fun SegmentedTwoToggle(
+private fun SegmentedTwoToggleQuiz(
     left: String,
     right: String,
     selectedLeft: Boolean,
@@ -442,24 +472,47 @@ private fun SegmentedTwoToggle(
     }
 }
 
+/* ───────────────────── 퀴즈용 ExoPlayer (학습 화면과 같은 HTTP 설정) ───────────────────── */
 
 @Composable
-private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
+private fun VideoPlayerManualPlayQuiz(url: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+
+    // HTTP DataSource: 리다이렉트/UA/타임아웃 설정 (sldict의 http/redirect 대응)
+    val httpFactory = remember(url) {
+        DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)
+            .setUserAgent(Util.getUserAgent(context, "A602"))
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(30_000)
+    }
+    val dataSourceFactory = remember(url) { DefaultDataSource.Factory(context, httpFactory) }
+    val mediaSource = remember(url) {
+        ProgressiveMediaSource.Factory(dataSourceFactory)
+            .createMediaSource(MediaItem.fromUri(url))
+    }
+
     val player = remember(url) {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
+            setMediaSource(mediaSource)
             prepare()
-            playWhenReady = false
+            playWhenReady = false // 자동재생 X
         }
     }
+
     var isPlaying by remember { mutableStateOf(false) }
+    var playbackState by remember { mutableStateOf(Player.STATE_IDLE) }
+
     DisposableEffect(player) {
-        val listener = object : Player.Listener {
+        val l = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+            override fun onPlaybackStateChanged(state: Int) { playbackState = state }
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("QuizPlayer", "playback error: ${error.errorCodeName}", error)
+            }
         }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener); player.release() }
+        player.addListener(l)
+        onDispose { player.removeListener(l); player.release() }
     }
 
     Box(
@@ -470,34 +523,48 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
             .background(Color.Black)
     ) {
         AndroidView(
-            factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } },
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    this.player = player
+                    useController = true
+                    setControllerShowTimeoutMs(2000)
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                }
+            },
+            update = { it.player = player },
             modifier = Modifier.matchParentSize()
         )
+
+        val ended = playbackState == Player.STATE_ENDED
         if (!isPlaying) {
             Box(
-                Modifier.matchParentSize().clickable { player.play() },
+                Modifier
+                    .matchParentSize()
+                    .clickable {
+                        if (ended) player.seekTo(0)
+                        player.playWhenReady = true
+                        player.play()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     Modifier.size(64.dp).clip(CircleShape).background(Color.White),
                     contentAlignment = Alignment.Center
-                ) { Text("▶", color = Color(0xFF22C55E), fontSize = 24.sp, fontWeight = FontWeight.Bold) }
+                ) {
+                    Text("▶", color = Color(0xFF22C55E), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
 }
 
-
-/* ───────── 서버 전송 (MVP: 더미) ───────── */
-// 실제 Retrofit/ktor로 교체하면 됨.
-// Body 예시: { "dayId": day, "score": score }
-// 서버에서 total도 원하면 함께 보내기: { "dayId": day, "score": score, "total": total }
+/* ───────── 서버 전송 (Demo) ───────── */
 private suspend fun submitClientScore(
     day: Int,
     score: Int,
     total: Int
 ): Boolean {
-    // TODO: Retrofit으로 POST /learning/days/{day}/submissions 교체
-    delay(400) // 네트워크 지연 흉내
-    return true // 성공했다고 가정
+    // TODO: Retrofit/ktor로 교체
+    delay(400)
+    return true
 }

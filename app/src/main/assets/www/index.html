@@ -1,220 +1,497 @@
 <!doctype html>
 <html>
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>3D Avatar Debug (Rest-relative Fingers)</title>
-    <style>
-        html,body{height:100%;margin:0;background:#0b0b0b;overflow:hidden}
-        #loading{position:absolute;inset:0;margin:auto;width:60px;height:60px;
-          border:8px solid #f3f3f3;border-top:8px solid #0CAEC2;border-radius:50%;
-          animation:spin 1s linear infinite}
-        @keyframes spin{to{transform:rotate(360deg)}}
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>3D Avatar (Dummy / API Switch)</title>
+  <style>
+    html,body{height:100%;margin:0;background:#0b0b0b;overflow:hidden}
+    #loading{position:absolute;inset:0;margin:auto;width:60px;height:60px;
+      border:8px solid #f3f3f3;border-top:8px solid #0CAEC2;border-radius:50%;
+      animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #hud{position:fixed;left:12px;bottom:12px;color:#d8dee9;font:12px/1.6 ui-monospace,monospace;opacity:.9}
+    #hud b{color:#0CAEC2}
+    #hud button{margin-left:6px}
+  </style>
 </head>
 <body>
 <div id="loading"></div>
+<div id="hud">
+  <div>Mode: <b id="mode">DUMMY</b> | Queue: <b id="qsz">0</b> | FPS: <b id="fps">30</b></div>
+  <div>
+    <button id="play">Play</button>
+    <button id="pause">Pause</button>
+    <button id="speed24">24fps</button>
+    <button id="speed30">30fps</button>
+    <button id="openL">Open L</button>
+    <button id="openR">Open R</button>
+    <button id="fistL">Fist L</button>
+    <button id="fistR">Fist R</button>
+  </div>
+</div>
 
 <script type="module">
-    /************* Imports *************/
-    import * as THREE from './lib/three.module.js';
-    import { OrbitControls } from './lib/OrbitControls.js';
-    import { GLTFLoader } from './lib/GLTFLoader.js';
+  /* ======================================================
+   * 0) 설정: 더미/API 전환
+   * ==================================================== */
+  // true → 더미데이터 재생 / false → API 폴링
+  const USE_DUMMY = true;
 
-    /************* Scene *************/
-    const renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
-    document.body.appendChild(renderer.domElement);
+  // API 모드일 때 엔드포인트 (배치 프레임 반환)
+  const API_URL = '<<PUT_YOUR_ENDPOINT_HERE>>'; // 예: https://api.example.com/sign/frames
+  const API_LIMIT = 12;   // 한 번에 가져올 프레임 수
+  const API_POLL_MS = 150;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-    camera.position.set(2,1.5,3);
+  /* (선택) 더미 FPS */
+  const DUMMY_FPS = 30;
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
-    const dir = new THREE.DirectionalLight(0xffffff, 1);
-    dir.position.set(5,10,7); scene.add(dir);
+  /* ======================================================
+   * 1) Imports
+   * ==================================================== */
+  import * as THREE from './lib/three.module.js';
+  import { OrbitControls } from './lib/OrbitControls.js';
+  import { GLTFLoader } from './lib/GLTFLoader.js';
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    function resize(){ renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); }
-    addEventListener('resize', resize); resize();
+  /* ======================================================
+   * 2) Scene / Camera / Lights
+   * ==================================================== */
+  const renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  document.body.appendChild(renderer.domElement);
 
-    /************* Skeleton State *************/
-    const loader = new GLTFLoader();
-    let avatar=null, skinned=null, skeleton=null;
-    const bones={}, restQuat={};
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
+  camera.position.set(2,1.5,3);
 
-    // Mixamo hand bones
-    const FINGERS = {
-      L: {
-        thumb:  ['mixamorigLeftHandThumb1','mixamorigLeftHandThumb2','mixamorigLeftHandThumb3'],
-        index:  ['mixamorigLeftHandIndex1','mixamorigLeftHandIndex2','mixamorigLeftHandIndex3'],
-        middle: ['mixamorigLeftHandMiddle1','mixamorigLeftHandMiddle2','mixamorigLeftHandMiddle3'],
-        ring:   ['mixamorigLeftHandRing1','mixamorigLeftHandRing2','mixamorigLeftHandRing3'],
-        pinky:  ['mixamorigLeftHandPinky1','mixamorigLeftHandPinky2','mixamorigLeftHandPinky3'],
-        wrist:  'mixamorigLeftHand'
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+  const dir = new THREE.DirectionalLight(0xffffff, 1);
+  dir.position.set(5,10,7);
+  scene.add(dir);
+
+  new OrbitControls(camera, renderer.domElement);
+  function resize(){ renderer.setSize(innerWidth, innerHeight); camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); }
+  addEventListener('resize', resize); resize();
+
+  /* ======================================================
+   * 3) Avatar / Skeleton
+   * ==================================================== */
+  const loader = new GLTFLoader();
+  let avatar=null, skinned=null, skeleton=null;
+  const bones = {};      // boneName -> Bone
+  const restQuat = {};   // boneName -> REST local quaternion
+
+  const FINGERS = {
+    L: {
+      thumb:  ['mixamorigLeftHandThumb1','mixamorigLeftHandThumb2','mixamorigLeftHandThumb3'],
+      index:  ['mixamorigLeftHandIndex1','mixamorigLeftHandIndex2','mixamorigLeftHandIndex3'],
+      middle: ['mixamorigLeftHandMiddle1','mixamorigLeftHandMiddle2','mixamorigLeftHandMiddle3'],
+      ring:   ['mixamorigLeftHandRing1','mixamorigLeftHandRing2','mixamorigLeftHandRing3'],
+      pinky:  ['mixamorigLeftHandPinky1','mixamorigLeftHandPinky2','mixamorigLeftHandPinky3'],
+      wrist:  'mixamorigLeftHand'
+    },
+    R: {
+      thumb:  ['mixamorigRightHandThumb1','mixamorigRightHandThumb2','mixamorigRightHandThumb3'],
+      index:  ['mixamorigRightHandIndex1','mixamorigRightHandIndex2','mixamorigRightHandIndex3'],
+      middle: ['mixamorigRightHandMiddle1','mixamorigRightHandMiddle2','mixamorigRightHandMiddle3'],
+      ring:   ['mixamorigRightHandRing1','mixamorigRightHandRing2','mixamorigRightHandRing3'],
+      pinky:  ['mixamorigRightHandPinky1','mixamorigRightHandPinky2','mixamorigRightHandPinky3'],
+      wrist:  'mixamorigRightHand'
+    }
+  };
+
+  // 축/부호/클램프 (REST-relative)
+  const FINGER_TUNING = {
+    L: {
+      thumb:  { axis:'z', sign:-1, clamp:[-2.0, 2.0] },
+      index:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+      middle: { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+      ring:   { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+      pinky:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+    },
+    R: {
+      thumb:  { axis:'z', sign:+1, clamp:[-2.0, 2.0] }, // 오른손 엄지 보정
+      index:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+      middle: { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+      ring:   { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+      pinky:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+    }
+  };
+
+  loader.load('./models/avatar.glb', (gltf)=>{
+    avatar = gltf.scene;
+
+    // 중앙/바닥 정렬(선택)
+    const box = new THREE.Box3().setFromObject(avatar);
+    const center = box.getCenter(new THREE.Vector3());
+    avatar.position.sub(center);
+    box.setFromObject(avatar);
+    avatar.position.y += -box.min.y;
+
+    scene.add(avatar);
+
+    avatar.traverse(o=>{
+      if(o.isSkinnedMesh){ skinned=o; skeleton=o.skeleton; }
+      if(o.isBone){ bones[o.name]=o; restQuat[o.name]=o.quaternion.clone(); }
+    });
+
+    if(skeleton){
+      console.log('SkinnedMesh:', skinned?.name || '(unknown)');
+      skeleton.bones.forEach((b,i)=>console.log(i,b.name));
+    }
+    document.getElementById('loading').style.display='none';
+  }, undefined, (e)=>console.error('GLB 로드 실패:', e));
+
+  /* ======================================================
+   * 4) Finger helpers
+   * ==================================================== */
+  const AXIS_V = {
+    x:new THREE.Vector3(1,0,0),
+    y:new THREE.Vector3(0,1,0),
+    z:new THREE.Vector3(0,0,1),
+  };
+
+  function setFingerJointRelative(boneName, angleRad, axis='x', sign=+1, clamp=[-1.5,1.5], slerp=0.35){
+    const b=bones[boneName]; if(!b) return;
+    const rq=restQuat[boneName]; if(!rq) return;
+
+    const a=THREE.MathUtils.clamp(sign*angleRad, clamp[0], clamp[1]);
+    const qDelta=new THREE.Quaternion().setFromAxisAngle(AXIS_V[axis], a);
+    const qTarget=rq.clone().multiply(qDelta);
+    b.quaternion.slerp(qTarget, slerp);
+  }
+
+  function applyFingerAngles(side, finger, a1,a2,a3){
+    const cfg=FINGER_TUNING[side][finger];
+    const names=FINGERS[side][finger];
+    setFingerJointRelative(names[0], a1, cfg.axis, cfg.sign, cfg.clamp);
+    setFingerJointRelative(names[1], a2, cfg.axis, cfg.sign, cfg.clamp);
+    setFingerJointRelative(names[2], a3, cfg.axis, cfg.sign, cfg.clamp);
+  }
+
+  // Thumb1: 손별 내부 부호 처리
+  function setThumb1Across(side,
+                           flexRad=THREE.MathUtils.degToRad(45),   // z 굴곡
+                           acrossRad=THREE.MathUtils.degToRad(58), // y 옆으로 모으기
+                           flexAxis='z', abductAxis='y',
+                           slerp=0.35){
+    const name=FINGERS[side].thumb[0];
+    const b=bones[name], rq=restQuat[name];
+    if(!b||!rq) return;
+
+    const flexSign   = (side==='R') ? +1 : -1;
+    const abductSign = (side==='R') ? -1 : +1;
+
+    const qAbd = new THREE.Quaternion().setFromAxisAngle(AXIS_V[abductAxis], abductSign*acrossRad);
+    const qFlex= new THREE.Quaternion().setFromAxisAngle(AXIS_V[flexAxis],  flexSign  *flexRad);
+    const qTarget=rq.clone().multiply(qAbd).multiply(qFlex);
+    b.quaternion.slerp(qTarget, slerp);
+  }
+
+  /* ======================================================
+   * 5) Debug API (수동 테스트)
+   * ==================================================== */
+  const deg = THREE.MathUtils.degToRad;
+  window.debug = {
+    skeleton(on=true){
+      if(!skinned) return;
+      if(!scene.__skel){ scene.__skel=new THREE.SkeletonHelper(skinned); scene.add(scene.__skel); }
+      scene.__skel.visible=!!on;
+    },
+    finger(side, which, d1=40, d2=60, d3=40, axis, sign){
+      if(axis) FINGER_TUNING[side][which].axis = axis;
+      if(sign!=null) FINGER_TUNING[side][which].sign = sign;
+      applyFingerAngles(side, which, deg(d1), deg(d2), deg(d3));
+    },
+    handPose:{
+      fist(side='R', tight=1.0){
+        const base={
+          index:[ 95,115,130 ],
+          middle:[100,120,135 ],
+          ring:[ 95,115,130 ],
+          pinky:[ 95,120,140 ],
+        };
+        Object.entries(base).forEach(([f,arr])=>{
+          const [mcp,pip,dip]=arr.map(v=>v*tight);
+          window.debug.finger(side, f, mcp, pip, dip);
+        });
+        setThumb1Across(side, deg(45*tight), deg(58*tight));
+        const cfg=FINGER_TUNING[side].thumb;
+        setFingerJointRelative(FINGERS[side].thumb[1], deg(58*tight), cfg.axis, cfg.sign, cfg.clamp);
+        setFingerJointRelative(FINGERS[side].thumb[2], deg(48*tight), cfg.axis, cfg.sign, cfg.clamp);
+        setFingerJointRelative(FINGERS[side].wrist, deg(10*tight), 'x', +1, [-0.6,0.6], 0.3);
       },
-      R: {
-        thumb:  ['mixamorigRightHandThumb1','mixamorigRightHandThumb2','mixamorigRightHandThumb3'],
-        index:  ['mixamorigRightHandIndex1','mixamorigRightHandIndex2','mixamorigRightHandIndex3'],
-        middle: ['mixamorigRightHandMiddle1','mixamorigRightHandMiddle2','mixamorigRightHandMiddle3'],
-        ring:   ['mixamorigRightHandRing1','mixamorigRightHandRing2','mixamorigRightHandRing3'],
-        pinky:  ['mixamorigRightHandPinky1','mixamorigRightHandPinky2','mixamorigRightHandPinky3'],
-        wrist:  'mixamorigRightHand'
+      open(side='R'){
+        ['thumb','index','middle','ring','pinky'].forEach(f=> window.debug.finger(side,f,0,0,0));
+        const w=FINGERS[side].wrist; if(w) bones[w]?.quaternion.copy(restQuat[w]);
       }
-    };
+    },
+    bend(boneName, degVal, axis='x', sign=+1){ setFingerJointRelative(boneName, deg(degVal), axis, sign); },
+    resetPose(){ Object.keys(bones).forEach(n=>{ const b=bones[n], rq=restQuat[n]; if(b&&rq) b.quaternion.copy(rq); }); },
+    getConfig(){ return JSON.parse(JSON.stringify(FINGER_TUNING)); },
+    setConfig(side,finger,patch){ Object.assign(FINGER_TUNING[side][finger], patch); }
+  };
 
-    /* 손가락 튜닝(축/부호/클램프)
-       - 왼손 엄지: sign:-1
-       - 오른손 엄지: sign:+1  (Thumb2/3도 동일 부호 사용)
-       - 네 손가락: 축 x / sign +1 (현재 모델 기준 정상) */
-    const FINGER_TUNING = {
-      L: {
-        thumb:  { axis:'z', sign:-1, clamp:[-2.0, 2.0] },
-        index:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-        middle: { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-        ring:   { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-        pinky:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-      },
-      R: {
-        thumb:  { axis:'z', sign:+1, clamp:[-2.0, 2.0] },  // ← 오른손 엄지 반전
-        index:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-        middle: { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-        ring:   { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-        pinky:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
+  /* ======================================================
+   * 6) 재생/큐/EMA
+   * ==================================================== */
+  const $mode = document.getElementById('mode');
+  const $qsz  = document.getElementById('qsz');
+  const $fps  = document.getElementById('fps');
+  document.getElementById('play').onclick  = ()=>{ playing=true; lastAdvance=performance.now(); };
+  document.getElementById('pause').onclick = ()=>{ playing=false; };
+  document.getElementById('speed24').onclick= ()=>{ playbackFps=24; $fps.textContent='24'; };
+  document.getElementById('speed30').onclick= ()=>{ playbackFps=30; $fps.textContent='30'; };
+  document.getElementById('openL').onclick = ()=> window.debug.handPose.open('L');
+  document.getElementById('openR').onclick = ()=> window.debug.handPose.open('R');
+  document.getElementById('fistL').onclick = ()=> window.debug.handPose.fist('L', 1.1);
+  document.getElementById('fistR').onclick = ()=> window.debug.handPose.fist('R', 1.1);
+
+  let playQueue = [];     // 서버/더미 프레임 큐
+  let nextSince = 0;      // 페이징 포인터
+  let playing   = true;   // 재생 토글
+  let playbackFps = 30;   // 기본 재생 FPS
+  let lastAdvance = performance.now();
+
+  const ema = {
+    L: { landmarks: null, alpha: 0.6 }, // 0.4~0.7 사이에서 조정
+    R: { landmarks: null, alpha: 0.6 },
+  };
+
+  function toVecArray(hand){ return hand.map(p => new THREE.Vector3(p.x, p.y, p.z)); }
+
+  function retargetHand(side, handArr21){
+    // 입력: [{x,y,z,w}, ... 21]
+    const current = toVecArray(handArr21);
+    const conf    = handArr21.map(p => (p.w ?? 1));
+
+    // 필요하면 좌표계 보정 (예: y 플립)
+    // for (const v of current) { v.y = 1 - v.y; }
+
+    // EMA 스무딩 (신뢰도 가중)
+    const state = ema[side];
+    if (!state.landmarks) {
+      state.landmarks = current.map(v => v.clone());
+    } else {
+      for (let i=0;i<current.length;i++){
+        const a = state.alpha * (0.5 + 0.5 * conf[i]); // w 높을수록 반영↑
+        state.landmarks[i].lerp(current[i], a);
       }
-    };
-
-    /************* Load GLB *************/
-    loader.load('./models/avatar.glb', (gltf)=>{
-      avatar = gltf.scene;
-
-      // (선택) 중앙/바닥 정렬
-      const box = new THREE.Box3().setFromObject(avatar);
-      const center = box.getCenter(new THREE.Vector3());
-      avatar.position.sub(center);
-      box.setFromObject(avatar);
-      avatar.position.y += -box.min.y;
-
-      scene.add(avatar);
-
-      avatar.traverse(o=>{
-        if(o.isSkinnedMesh){ skinned=o; skeleton=o.skeleton; }
-        if(o.isBone){ bones[o.name]=o; restQuat[o.name]=o.quaternion.clone(); }
-      });
-
-      if(skeleton){
-        console.log('SkinnedMesh:', skinned?.name || '(unknown)');
-        skeleton.bones.forEach((b,i)=>console.log(i,b.name));
-      }
-      document.getElementById('loading').style.display='none';
-    }, undefined, (e)=>console.error('GLB 로드 실패:', e));
-
-    /************* Finger helpers (REST-relative) *************/
-    const AXIS_V = {
-      x:new THREE.Vector3(1,0,0),
-      y:new THREE.Vector3(0,1,0),
-      z:new THREE.Vector3(0,0,1),
-    };
-
-    // REST * Δ(축,각) → target quaternion (slerp)
-    function setFingerJointRelative(boneName, angleRad, axis='x', sign=+1, clamp=[-1.5,1.5], slerp=0.35){
-      const b=bones[boneName]; if(!b) return;
-      const rq=restQuat[boneName]; if(!rq) return;
-
-      const a=THREE.MathUtils.clamp(sign*angleRad, clamp[0], clamp[1]);
-      const qDelta=new THREE.Quaternion().setFromAxisAngle(AXIS_V[axis], a);
-      const qTarget=rq.clone().multiply(qDelta);
-      b.quaternion.slerp(qTarget, slerp);
     }
 
-    function applyFingerAngles(side, finger, a1,a2,a3){
-      const cfg=FINGER_TUNING[side][finger];
-      const names=FINGERS[side][finger];
-      setFingerJointRelative(names[0], a1, cfg.axis, cfg.sign, cfg.clamp);
-      setFingerJointRelative(names[1], a2, cfg.axis, cfg.sign, cfg.clamp);
-      setFingerJointRelative(names[2], a3, cfg.axis, cfg.sign, cfg.clamp);
+    const L = state.landmarks;
+    // 1) 손바닥 좌표계 → 손목 회전
+    const basis = palmBasisFromHand(L);
+    applyWrist(side, basis);
+
+    // 2) 관절 각도 계산 → 손가락 적용
+    const A = computeHandAngles(L);
+    applyFingersFromAngles(side, A);
+  }
+
+  function advancePlayback(now){
+    if (!playing) return;
+    const dt = now - lastAdvance;
+    const frameDur = 1000 / playbackFps;
+    if (dt < frameDur) return;
+    lastAdvance = now;
+
+    const frame = playQueue.shift();
+    $qsz.textContent = String(playQueue.length);
+    if (!frame) return;
+
+    if (Array.isArray(frame.left)  && frame.left.length  >= 21) retargetHand('L', frame.left);
+    if (Array.isArray(frame.right) && frame.right.length >= 21) retargetHand('R', frame.right);
+    // frame.pose를 전신에 쓸 계획이면 여기서 retargetPose(frame.pose)
+  }
+
+  /* ======================================================
+   * 7) 손바닥 좌표계 & 각도 계산
+   * ==================================================== */
+  function palmBasisFromHand(L){
+    // MediaPipe 인덱스 가정: 0(wrist), 5(index MCP), 9(middle MCP), 17(pinky MCP)
+    const wrist = L[0], idxMCP = L[5], midMCP = L[9], pkyMCP = L[17];
+    const x = idxMCP.clone().sub(pkyMCP).normalize();    // 손바닥 가로
+    const y = midMCP.clone().sub(wrist).normalize();     // 손끝 방향
+    const z = new THREE.Vector3().crossVectors(x, y).normalize();   // 노멀
+    const y2= new THREE.Vector3().crossVectors(z, x).normalize();   // 보정된 세로
+    const m = new THREE.Matrix4().makeBasis(x, y2, z);
+    return m;
+  }
+
+  function angleAt(B, A, C){ // ∠ABC in rad
+    const BA = B.clone().sub(A).normalize();
+    const CA = C.clone().sub(A).normalize();
+    return Math.acos(THREE.MathUtils.clamp(BA.dot(CA), -1, 1));
+  }
+
+  function computeHandAngles(L){
+    const rad = (b,a,c)=> angleAt(L[b], L[a], L[c]);
+    const d = {};
+    // 4손가락
+    d.index  = [ rad(0,5,6),   rad(5,6,7),   rad(6,7,8) ];
+    d.middle = [ rad(0,9,10),  rad(9,10,11), rad(10,11,12) ];
+    d.ring   = [ rad(0,13,14), rad(13,14,15),rad(14,15,16) ];
+    d.pinky  = [ rad(0,17,18), rad(17,18,19),rad(18,19,20) ];
+    // 엄지: flex는 2관절 합성, across는 palm 기준 부호각
+    const flex = rad(1,2,3) + 0.6 * rad(2,3,4);
+    const basis = palmBasisFromHand(L);
+    const xPalm = new THREE.Vector3().setFromMatrixColumn(basis, 0);
+    const yPalm = new THREE.Vector3().setFromMatrixColumn(basis, 1);
+    const zPalm = new THREE.Vector3().setFromMatrixColumn(basis, 2);
+    const thumbVec = L[3].clone().sub(L[2]); // MCP(2)->IP(3)
+    const proj = thumbVec.clone().sub(zPalm.clone().multiplyScalar(thumbVec.dot(zPalm))).normalize();
+    const across = Math.atan2(proj.dot(yPalm), proj.dot(xPalm)); // -π~π
+    d.thumb = { flex, across };
+    return d;
+  }
+
+  function applyWrist(side, basis){
+    const wristName = FINGERS[side].wrist;
+    const rq = restQuat[wristName], b = bones[wristName];
+    if(!rq||!b) return;
+    const qPalm = new THREE.Quaternion().setFromRotationMatrix(basis);
+    const qTarget = rq.clone().multiply(qPalm);
+    b.quaternion.slerp(qTarget, 0.35);
+  }
+
+  function applyFingersFromAngles(side, A){
+    const r2d = (r)=> THREE.MathUtils.radToDeg(r);
+    for(const f of ['index','middle','ring','pinky']){
+      const [mcp,pip,dip] = A[f].map(r2d);
+      window.debug.finger(side, f, mcp, pip, dip);
     }
+    // 엄지
+    setThumb1Across(side, A.thumb.flex, A.thumb.across, 'z','y'); // 내부 부호 처리
+    const cfg = FINGER_TUNING[side].thumb;
+    setFingerJointRelative(FINGERS[side].thumb[1], A.thumb.flex*0.9, cfg.axis, cfg.sign, cfg.clamp);
+    setFingerJointRelative(FINGERS[side].thumb[2], A.thumb.flex*0.7, cfg.axis, cfg.sign, cfg.clamp);
+  }
 
-    /* 엄지 Thumb1: 손별 부호를 내부에서 자동 적용
-       - 왼손:  flex:-1, abduct:+1
-       - 오른손: flex:+1, abduct:-1  (문제 해결 포인트) */
-    function setThumb1Across(side,
-                             flexRad=THREE.MathUtils.degToRad(45),   // z 굴곡
-                             acrossRad=THREE.MathUtils.degToRad(55), // y 옆으로 모으기
-                             flexAxis='z', abductAxis='y',
-                             slerp=0.35){
-      const name=FINGERS[side].thumb[0];
-      const b=bones[name], rq=restQuat[name];
-      if(!b||!rq) return;
+  /* ======================================================
+   * 8) 메인 루프
+   * ==================================================== */
+  (function animate(){
+    requestAnimationFrame(animate);
+    advancePlayback(performance.now());
+    renderer.render(scene, camera);
+  })();
 
-      const flexSign   = (side==='R') ? +1 : -1;   // ★ 오른손 반전
-      const abductSign = (side==='R') ? -1 : +1;   // ★ 오른손 반전
+  /* ======================================================
+   * 9) 입력 소스: 더미 or API
+   * ==================================================== */
+  const DUMMY_JSON = {
+    "frames": [
+      {
+        "pose": [ {"x": 0.5, "y": 0.4, "z": 0.0, "w": 0.95} ],
+        "left": [ {"x": 0.4, "y": 0.6, "z": 0.1, "w": 0.9} ],
+        "right": [
+          {"x": 0.6, "y": 0.6, "z": 0.08, "w": 0.9},
+          {"x": 0.61,"y": 0.61,"z": 0.08,"w": 0.9},
+          {"x": 0.62,"y": 0.62,"z": 0.08,"w": 0.9},
+          {"x": 0.63,"y": 0.63,"z": 0.08,"w": 0.9}
+        ]
+      },
+      {
+        "pose": [ {"x": 0.5, "y": 0.4, "z": 0.0, "w": 0.95} ],
+        "left": [ {"x": 0.4, "y": 0.6, "z": 0.1, "w": 0.9} ],
+        "right": [
+          {"x": 0.58,"y": 0.62,"z": 0.07,"w": 0.9},
+          {"x": 0.59,"y": 0.63,"z": 0.07,"w": 0.9},
+          {"x": 0.60,"y": 0.64,"z": 0.07,"w": 0.9},
+          {"x": 0.61,"y": 0.65,"z": 0.07,"w": 0.9}
+        ]
+      },
+      {
+        "pose": [ {"x": 0.5, "y": 0.4, "z": 0.0, "w": 0.95} ],
+        "left": [ {"x": 0.4, "y": 0.6, "z": 0.1, "w": 0.9} ],
+        "right": [
+          {"x": 0.56,"y": 0.60,"z": 0.06,"w": 0.9},
+          {"x": 0.57,"y": 0.61,"z": 0.06,"w": 0.9},
+          {"x": 0.58,"y": 0.62,"z": 0.06,"w": 0.9},
+          {"x": 0.59,"y": 0.63,"z": 0.06,"w": 0.9}
+        ]
+      },
+      {
+        "pose": [ {"x": 0.5, "y": 0.4, "z": 0.0, "w": 0.95} ],
+        "left": [ {"x": 0.4, "y": 0.6, "z": 0.1, "w": 0.9} ],
+        "right": [
+          {"x": 0.58,"y": 0.58,"z": 0.07,"w": 0.9},
+          {"x": 0.59,"y": 0.59,"z": 0.07,"w": 0.9},
+          {"x": 0.60,"y": 0.60,"z": 0.07,"w": 0.9},
+          {"x": 0.61,"y": 0.61,"z": 0.07,"w": 0.9}
+        ]
+      }
+    ]
+  };
 
-      const qAbd = new THREE.Quaternion().setFromAxisAngle(AXIS_V[abductAxis], abductSign*acrossRad);
-      const qFlex= new THREE.Quaternion().setFromAxisAngle(AXIS_V[flexAxis],  flexSign  *flexRad);
-      const qTarget=rq.clone().multiply(qAbd).multiply(qFlex);
-      b.quaternion.slerp(qTarget, slerp);
+  // 길이 패딩(손=21, 포즈=23)
+  function padLandmarks(arr, targetCount){
+    const out = [];
+    const n = Array.isArray(arr) ? arr.length : 0;
+    if (n === 0) {
+      for (let i=0;i<targetCount;i++) out.push({x:0,y:0,z:0,w:0});
+      return out;
     }
+    for (let i=0;i<targetCount;i++){
+      if (i < n) out.push(arr[i]);
+      else out.push({ ...arr[n-1] }); // 마지막 값 복제
+    }
+    return out;
+  }
 
-    /************* DEBUG API *************/
-    const deg = THREE.MathUtils.degToRad;
-    window.debug = {
-      skeleton(on=true){
-        if(!skinned) return;
-        if(!scene.__skel){ scene.__skel=new THREE.SkeletonHelper(skinned); scene.add(scene.__skel); }
-        scene.__skel.visible=!!on;
-      },
+  function loadDummyFrames(json){
+    const frames = json?.frames ?? [];
+    for (const f of frames){
+      const pose  = padLandmarks(f.pose  ?? [], 23);
+      const left  = padLandmarks(f.left  ?? [], 21);
+      const right = padLandmarks(f.right ?? [], 21);
+      playQueue.push({ pose, left, right });
+    }
+    playbackFps = DUMMY_FPS;
+    $fps.textContent = String(playbackFps);
+    $qsz.textContent = String(playQueue.length);
+  }
 
-      // 개별 손가락(도수). axis/sign을 넘기면 그 손가락 튜닝을 즉시 덮어씀
-      finger(side, which, d1=40, d2=60, d3=40, axis, sign){
-        if(axis) FINGER_TUNING[side][which].axis = axis;
-        if(sign!=null) FINGER_TUNING[side][which].sign = sign;
-        applyFingerAngles(side, which, deg(d1), deg(d2), deg(d3));
-      },
+  /* API 폴링 */
+  async function fetchBatch() {
+    if (!API_URL || API_URL.startsWith('<<')) return; // 엔드포인트 미지정 시 스킵
+    const url = `${API_URL}?since=${encodeURIComponent(nextSince)}&limit=${API_LIMIT}`;
+    const res = await fetch(url, { headers: { /* Authorization: 'Bearer …' */ } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-      handPose:{
-        // tight: 1.0 ~ 1.3 (강하게)
-        fist(side='R', tight=1.0){
-          // 4손가락: DIP > PIP > MCP 로 강하게 말기
-          const base={
-            index:[ 95,115,130 ],
-            middle:[100,120,135 ],
-            ring:[ 95,115,130 ],
-            pinky:[ 95,120,140 ],
-          };
-          Object.entries(base).forEach(([f,arr])=>{
-            const [mcp,pip,dip]=arr.map(v=>v*tight);
-            debug.finger(side, f, mcp, pip, dip);
-          });
+    if (Array.isArray(data.frames)) {
+      for (const f of data.frames) playQueue.push(f);
+    } else if (data.frames) {
+      playQueue.push(data.frames);
+    }
+    nextSince = data.nextSince ?? (nextSince + (data.frames?.length || 0));
+    $qsz.textContent = String(playQueue.length);
+  }
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
-          // 엄지: 손별 부호를 내부에서 자동 적용
-          setThumb1Across(side, deg(45*tight), deg(58*tight)); // across를 약간 키워 덮이게
-
-          // 엄지 2/3 관절: 손별 sign (R:+1, L:-1) 자동 적용
-          const cfg=FINGER_TUNING[side].thumb;
-          setFingerJointRelative(FINGERS[side].thumb[1], deg(58*tight), cfg.axis, cfg.sign, cfg.clamp);
-          setFingerJointRelative(FINGERS[side].thumb[2], deg(48*tight), cfg.axis, cfg.sign, cfg.clamp);
-
-          // (선택) 손목 약간 굴곡
-          setFingerJointRelative(FINGERS[side].wrist, deg(10*tight), 'x', +1, [-0.6,0.6], 0.3);
-        },
-
-        open(side='R'){
-          ['thumb','index','middle','ring','pinky'].forEach(f=> debug.finger(side,f,0,0,0));
-          const w=FINGERS[side].wrist; if(w) bones[w]?.quaternion.copy(restQuat[w]);
+  async function pollLoop(){
+    while (true) {
+      try {
+        if (!USE_DUMMY && playQueue.length < 24) { // API 모드에서만
+          await fetchBatch();
         }
-      },
+        await sleep(API_POLL_MS);
+      } catch (e) {
+        console.warn('poll error', e);
+        await sleep(600); // 백오프
+      }
+    }
+  }
 
-      bend(boneName, degVal, axis='x', sign=+1){ setFingerJointRelative(boneName, deg(degVal), axis, sign); },
-      resetPose(){ Object.keys(bones).forEach(n=>{ const b=bones[n], rq=restQuat[n]; if(b&&rq) b.quaternion.copy(rq); }); },
-      getConfig(){ return JSON.parse(JSON.stringify(FINGER_TUNING)); },
-      setConfig(side,finger,patch){ Object.assign(FINGER_TUNING[side][finger], patch); }
-    };
-
-    /************* Render *************/
-    function animate(){ requestAnimationFrame(animate); renderer.render(scene,camera); }
-    animate();
+  // 모드에 따른 초기화
+  (function initSource(){
+    $mode.textContent = USE_DUMMY ? 'DUMMY' : 'API';
+    if (USE_DUMMY) loadDummyFrames(DUMMY_JSON);
+    pollLoop();  // DUMMY이면 fetchBatch는 내부에서 스킵됨
+  })();
 </script>
 </body>
 </html>

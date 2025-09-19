@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ssafy.a602.web.ThreeDHandCanvas
 
 /* ───────────────────────── 메인 화면 ───────────────────────── */
 
@@ -109,16 +110,15 @@ fun ChatbotScreen(
                 Spacer(Modifier.height(8.dp))
             }
 
-            /* ── 손 좌표 렌더(2D) ── */
-            HandCanvas(
-                frame = vm.currentFrame.value,
+            /* ── 손 좌표 렌더(3D) ── */
+            ThreeDHandCanvas(
+                frame = vm.currentFrame.value?.toHandFrame3D(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(260.dp)
+                    .fillMaxHeight(0.68f) // 화면 높이의 68% 사용 (1.7배 크기: 0.4 * 1.7 = 0.68)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
+                    .background(Color.Transparent)
                     .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp))
-                    .padding(8.dp)
             )
 
             Spacer(Modifier.height(10.dp))
@@ -242,47 +242,3 @@ private fun StatusPill(text: String) {
     ) { Text(text, color = Color(0xFF6B7280)) }
 }
 
-/** 손 21포인트를 캔버스에 라인 + 포인트로 그리는 간단한 2D 렌더러 */
-@Composable
-private fun HandCanvas(
-    frame: HandFrame?,
-    modifier: Modifier = Modifier
-) {
-    val edges = remember {
-        // 대략적인 손 연결 (Mediapipe 스타일)
-        listOf(
-            0 to 5, 5 to 9, 9 to 13, 13 to 17, 17 to 0,          // 손바닥
-            1 to 2, 2 to 3, 3 to 4,                              // 엄지
-            5 to 6, 6 to 7, 7 to 8,                              // 검지
-            9 to 10, 10 to 11, 11 to 12,                         // 중지
-            13 to 14, 14 to 15, 15 to 16,                        // 약지
-            17 to 18, 18 to 19, 19 to 20                         // 새끼
-        )
-    }
-    Canvas(modifier = modifier) {
-        val lm = frame?.landmarks ?: return@Canvas
-        fun map(p: Pt) = Offset(p.x * size.width, p.y * size.height)
-
-        // 라인
-        edges.forEach { (a, b) ->
-            if (a in lm.indices && b in lm.indices) {
-                drawLine(
-                    color = Color(0xFF2563EB),
-                    start = map(lm[a]),
-                    end   = map(lm[b]),
-                    strokeWidth = 6f,
-                    cap = StrokeCap.Round
-                )
-            }
-        }
-        // 포인트
-        lm.forEach { p ->
-            drawCircle(
-                color = Color(0xFF10B981),
-                radius = 6f,
-                center = map(p),
-                style  = Stroke(width = 6f)
-            )
-        }
-    }
-}

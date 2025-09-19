@@ -32,11 +32,5 @@
             </intent-filter>
         </activity>
 
-        <!-- 3D WebView 액티비티 -->
-        <activity
-            android:name=".WebView.ThreeDWebActivity"
-            android:exported="true"
-            android:hardwareAccelerated="true"
-            android:theme="@style/Theme.S13P21A602" />
     </application>
 </manifest>

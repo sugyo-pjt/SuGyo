@@ -12,6 +12,16 @@
 #   public *;
 #}
 
+# WebView JavaScript Interface 규칙
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# ThreeDHandCanvas WebView 관련 클래스 보호
+-keep class com.ssafy.a602.web.** { *; }
+-keep class com.ssafy.a602.chatbot.HandFrame3D { *; }
+-keep class com.ssafy.a602.chatbot.Pt3D { *; }
+
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable

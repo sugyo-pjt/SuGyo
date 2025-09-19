@@ -35,6 +35,26 @@ data class ChatMessage(
 data class Pt(val x: Float, val y: Float)            // 0..1 정규화 좌표
 data class HandFrame(val landmarks: List<Pt>)        // 21 포인트 가정
 
+// 3D 웹뷰용 확장 데이터 구조
+data class Pt3D(val x: Float, val y: Float, val z: Float, val w: Float = 1f)
+data class HandFrame3D(val left: List<Pt3D>?, val right: List<Pt3D>?, val timestamp: Long = System.currentTimeMillis())
+
+// HandFrame을 3D 웹뷰용으로 변환하는 확장 함수
+fun HandFrame.toHandFrame3D(): HandFrame3D {
+    // 2D 좌표를 3D로 변환 (z=0으로 설정, w=1로 설정)
+    val landmarks3D = this.landmarks.map { pt -> 
+        Pt3D(pt.x, pt.y, 0f, 1f) 
+    }
+    
+    // 현재는 단일 손만 지원하므로 right hand로 설정
+    // 향후 양손 지원 시 left/right 분리 로직 추가 필요
+    return HandFrame3D(
+        left = null,
+        right = landmarks3D,
+        timestamp = System.currentTimeMillis()
+    )
+}
+
 data class SessionInfo(val sessionId: String)
 data class BotTurn(
     val botText: String,

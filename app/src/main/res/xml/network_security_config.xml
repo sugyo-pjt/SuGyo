@@ -11,4 +11,11 @@
         <domain includeSubdomains="true">korean.go.kr</domain>
     </domain-config>
 
+    <!-- WebView에서 file:// URL 접근 허용 -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
 </network-security-config>

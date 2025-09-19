@@ -86,6 +86,9 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+    
+    // WebView AssetLoader for file:// URL support
+    implementation("androidx.webkit:webkit:1.8.0")
 
     // Compose Navigation
     implementation(libs.androidx.navigation.compose)

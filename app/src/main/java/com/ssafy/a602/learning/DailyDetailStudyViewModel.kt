@@ -56,9 +56,11 @@ class DailyDetailStudyViewModel @Inject constructor(
                 if (res.isSuccessful && res.body() != null) {
                     // 성공 → DTO를 화면용 모델로 변환
                     val body: DayItemsResponse = res.body()!!
+                    val delim = Regex("[,，、/|]") // 콤마·중국어 콤마·일본어 ‘、’·슬래시·파이프
                     val items = body.items.map { dto ->
+                        val firstWord = dto.word.split(delim, limit = 2).first().trim()
                         DailyStudyItem(
-                            word = dto.word,
+                            word = firstWord,
                             videoUrl = dto.videoUrl
                         )
                     }

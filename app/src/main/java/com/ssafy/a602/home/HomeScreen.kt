@@ -45,7 +45,7 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "오늘도 수락상과 함께 성장해요",
+            text = "오늘도 수어지교와 함께 성장해요",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             textAlign = TextAlign.Center
@@ -82,7 +82,7 @@ private fun BrandBanner() {
             Spacer(Modifier.width(10.dp))
             Column {
                 Text(
-                    text = "수락상",
+                    text = "수어지교",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(

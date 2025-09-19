@@ -20,6 +20,7 @@ import com.ssafy.a602.game.score.GameResultRequest
 import retrofit2.HttpException
 import java.io.IOException
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 
 /**
  * 실제 API 연동을 위한 서비스 구현체
@@ -68,6 +69,11 @@ class RealApiService @Inject constructor(
             emptyList()
         } catch (e: Exception) {
             Log.e("RealApiService", "일반 에러로 곡 목록 조회 실패", e)
+            // 코루틴이 취소된 경우는 정상적인 상황이므로 빈 리스트 반환
+            if (e is CancellationException) {
+                Log.d("RealApiService", "코루틴이 취소됨 - 정상적인 상황")
+                return emptyList()
+            }
             handleGenericException(e)
             emptyList()
         }
@@ -147,6 +153,12 @@ class RealApiService @Inject constructor(
             emptyList()
         } catch (e: Exception) {
             Log.e("RealApiService", "예상치 못한 오류: ${e.message}")
+            // 코루틴이 취소된 경우는 정상적인 상황이므로 빈 리스트 반환
+            if (e is CancellationException) {
+                Log.d("RealApiService", "코루틴이 취소됨 - 정상적인 상황")
+                return emptyList()
+            }
+            // 다른 예외의 경우에만 RuntimeException 던지기
             handleGenericException(e)
             emptyList()
         }
@@ -193,6 +205,11 @@ class RealApiService @Inject constructor(
             emptyList()
         } catch (e: Exception) {
             Log.e("RealApiService", "일반 에러로 랭킹 조회 실패", e)
+            // 코루틴이 취소된 경우는 정상적인 상황이므로 빈 리스트 반환
+            if (e is CancellationException) {
+                Log.d("RealApiService", "코루틴이 취소됨 - 정상적인 상황")
+                return emptyList()
+            }
             handleGenericException(e)
             emptyList()
         }
@@ -228,6 +245,11 @@ class RealApiService @Inject constructor(
             emptyList()
         } catch (e: Exception) {
             Log.e("RealApiService", "일반 에러로 Top3 랭킹 조회 실패", e)
+            // 코루틴이 취소된 경우는 정상적인 상황이므로 빈 리스트 반환
+            if (e is CancellationException) {
+                Log.d("RealApiService", "코루틴이 취소됨 - 정상적인 상황")
+                return emptyList()
+            }
             handleGenericException(e)
             emptyList()
         }
@@ -266,6 +288,11 @@ class RealApiService @Inject constructor(
             null
         } catch (e: Exception) {
             Log.e("RealApiService", "일반 에러로 내 랭킹 조회 실패", e)
+            // 코루틴이 취소된 경우는 정상적인 상황이므로 null 반환
+            if (e is CancellationException) {
+                Log.d("RealApiService", "코루틴이 취소됨 - 정상적인 상황")
+                return null
+            }
             handleGenericException(e)
             null
         }
@@ -370,6 +397,11 @@ class RealApiService @Inject constructor(
             handleNetworkException(e)
             ""
         } catch (e: Exception) {
+            // 코루틴이 취소된 경우는 정상적인 상황이므로 빈 문자열 반환
+            if (e is CancellationException) {
+                Log.d("RealApiService", "코루틴이 취소됨 - 정상적인 상황")
+                return ""
+            }
             handleGenericException(e)
             ""
         }

@@ -23,7 +23,7 @@ class HiltApplication : Application() {
             tokenManager.clearTokens()
         }
 
-        // (기존 게임 데이터 주입 그대로 유지)
+        // 실제 API 서비스들을 GameDataManager에 주입
         GameDataManager.injectServices(realApiService, rhythmApi)
     }
 }

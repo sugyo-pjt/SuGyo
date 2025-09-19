@@ -17,12 +17,12 @@ import kotlinx.coroutines.flow.asStateFlow
  * 나중에 API 연동 시 이 클래스만 수정하면 됨
  */
 object GameDataManager {
-    
+
     // DI를 통해 주입받을 서비스들 (나중에 Hilt로 주입)
     private var realApiService: GameApiService? = null
     private var rhythmApi: RhythmApi? = null
-    
-    
+
+
     /**
      * DI로 서비스들을 주입받는 메서드 (Hilt에서 호출)
      */
@@ -30,32 +30,32 @@ object GameDataManager {
         this.realApiService = realApiService
         this.rhythmApi = rhythmApi
     }
-    
-    
+
+
     /**
      * 현재 활성화된 API 서비스 반환
      */
     private fun getCurrentApiService(): GameApiService {
         return realApiService ?: throw IllegalStateException("RealApiService가 주입되지 않았습니다. injectServices()를 먼저 호출하세요.")
     }
-    
-    
+
+
     // 현재 선택된 곡
     private val _currentSong = MutableStateFlow<SongItem?>(null)
     val currentSong: StateFlow<SongItem?> = _currentSong.asStateFlow()
-    
+
     // 현재 게임 진행 상태
     private val _gameProgress = MutableStateFlow<SongProgress?>(null)
     val gameProgress: StateFlow<SongProgress?> = _gameProgress.asStateFlow()
-    
+
     // 게임 상태
     private val _isGameActive = MutableStateFlow(false)
     val isGameActive: StateFlow<Boolean> = _isGameActive.asStateFlow()
-    
+
     // 최근 게임 결과
     private val _lastGameResult = MutableStateFlow<GameResultUi?>(null)
     val lastGameResult: StateFlow<GameResultUi?> = _lastGameResult.asStateFlow()
-    
+
     /**
      * 곡 선택
      */
@@ -64,7 +64,7 @@ object GameDataManager {
         _isGameActive.value = false
         _gameProgress.value = null
     }
-    
+
     /**
      * 게임 시작
      */
@@ -75,7 +75,7 @@ object GameDataManager {
         android.util.Log.d("GameDataManager", "게임 진행 상태 생성: ${progress?.sections?.size ?: 0}개 섹션")
         _gameProgress.value = progress
     }
-    
+
     /**
      * 게임 종료
      */
@@ -83,34 +83,34 @@ object GameDataManager {
         _isGameActive.value = false
         _gameProgress.value = null
     }
-    
+
     /**
      * 게임 결과 저장
      */
     fun saveGameResult(result: GameResultUi) {
         _lastGameResult.value = result
     }
-    
+
     /**
      * 게임 진행 상태 업데이트
      */
     fun updateGameProgress(currentTime: Float) {
         _gameProgress.value?.let { currentProgress ->
             val currentSectionIndex = findCurrentSectionIndex(currentProgress.sections, currentTime)
-            
+
             // 섹션 인덱스가 변경되었을 때만 로그 출력
             if (currentSectionIndex != currentProgress.currentSectionIndex) {
                 val newSection = currentProgress.sections.getOrNull(currentSectionIndex)
                 android.util.Log.d("GameDataManager", "섹션 변경: ${currentProgress.currentSectionIndex} -> $currentSectionIndex (시간: ${currentTime}s, 섹션: '${newSection?.text}')")
             }
-            
+
             _gameProgress.value = currentProgress.copy(
                 currentTime = currentTime,
                 currentSectionIndex = currentSectionIndex
             )
         }
     }
-    
+
     /**
      * 현재 시간에 해당하는 섹션 인덱스 찾기
      */
@@ -119,13 +119,13 @@ object GameDataManager {
         if (sections.isEmpty() || currentTime < sections[0].startTime) {
             return 0
         }
-        
+
         // 현재 시간이 마지막 섹션의 종료 시간보다 크면 마지막 인덱스 반환
         val lastSection = sections.last()
         if (currentTime >= lastSection.endTime) {
             return sections.size - 1
         }
-        
+
         // 현재 시간이 포함되는 섹션 찾기
         for (i in sections.indices) {
             val section = sections[i]
@@ -133,28 +133,28 @@ object GameDataManager {
                 return i
             }
         }
-        
+
         // 위 조건에 맞지 않으면 가장 가까운 다음 섹션의 이전 인덱스 반환
         for (i in sections.indices) {
             if (currentTime < sections[i].startTime) {
                 return maxOf(0, i - 1)
             }
         }
-        
+
         return sections.size - 1
     }
-    
+
     /**
      * 초기 게임 진행 상태 생성
      */
     private suspend fun createInitialProgress(): SongProgress? {
         val song = _currentSong.value ?: return null
-        
+
         // API에서 소절 정보 가져오기
         val sections = createSections(song)
-        
+
         android.util.Log.d("GameDataManager", "초기 게임 진행 상태 생성: songId=${song.id}, 섹션 수=${sections.size}")
-        
+
         return SongProgress(
             songId = song.id,
             currentTime = 0f,
@@ -163,14 +163,14 @@ object GameDataManager {
             sections = sections
         )
     }
-    
+
     /**
      * 소절 데이터 생성 (API 서비스 사용)
      */
     private suspend fun createSections(song: SongItem): List<SongSection> {
         return getCurrentApiService().getSongSections(song.id)
     }
-    
+
     /**
      * 시간 문자열을 초로 변환 ("3:14" -> 194, "00:03:14" -> 194)
      */
@@ -197,7 +197,7 @@ object GameDataManager {
             180f // 기본값
         }
     }
-    
+
     /**
      * 현재 곡의 소절 정보 가져오기
      */
@@ -206,21 +206,21 @@ object GameDataManager {
         android.util.Log.d("GameDataManager", "getSongSections 호출: songId=$songId, 섹션 수=${sections.size}")
         return sections
     }
-    
+
     /**
      * 곡 목록 가져오기
      */
     suspend fun getSongs(): List<SongItem> {
         return getCurrentApiService().getSongs()
     }
-    
+
     /**
      * 곡 검색
      */
     suspend fun searchSongs(query: String): List<SongItem> {
         return getCurrentApiService().searchSongs(query)
     }
-    
+
     /**
      * 음악 URL 가져오기 (ExoPlayer용)
      */
@@ -231,7 +231,7 @@ object GameDataManager {
             null
         }
     }
-    
+
     /**
      * 곡 ID로 곡 찾기
      */
@@ -243,14 +243,14 @@ object GameDataManager {
         android.util.Log.d("GameDataManager", "곡 찾기 결과: ${foundSong?.title ?: "null"}")
         return foundSong
     }
-    
+
     /**
      * 현재 선택된 곡이 주어진 ID와 일치하는지 확인
      */
     fun isCurrentSong(songId: String): Boolean {
         return _currentSong.value?.id == songId
     }
-    
+
     /**
      * 게임 결과 생성 (백엔드에서 계산된 결과 사용)
      * TODO: API 연동 시 백엔드에서 계산된 결과를 받아와서 사용
@@ -264,11 +264,11 @@ object GameDataManager {
         missWords: List<String>
     ): GameResultUi {
         val song = getSongById(songId) ?: throw IllegalArgumentException("Song not found: $songId")
-        
+
         // 백엔드에서 계산된 결과를 받아와서 사용
         return getCurrentApiService().calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
     }
-    
+
     /**
      * 콤보 배율 계산
      */
@@ -281,7 +281,7 @@ object GameDataManager {
             else -> 1.0
         }
     }
-    
+
     /**
      * 등급 계산
      */
@@ -294,7 +294,7 @@ object GameDataManager {
             else -> "F"
         }
     }
-    
+
     /**
      * 신기록 여부 확인
      */
@@ -302,14 +302,14 @@ object GameDataManager {
         val bestScore = getCurrentApiService().getUserBestScore(songId)
         return bestScore == null || score > bestScore
     }
-    
+
     /**
      * 특정 곡의 순위 목록 가져오기
      */
     suspend fun getRankings(songId: String): List<RankingItem> {
         return getCurrentApiService().getRankings(songId)
     }
-    
+
     /**
      * 특정 곡의 랭킹 정보 가져오기 (곡 제목 포함)
      */
@@ -319,21 +319,21 @@ object GameDataManager {
         val songTitle = song?.title ?: "알 수 없는 곡"
         return Pair(songTitle, rankings)
     }
-    
+
     /**
      * 특정 곡의 Top 3 순위 가져오기
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem> {
         return getCurrentApiService().getTop3Rankings(songId)
     }
-    
+
     /**
      * 내 순위 가져오기
      */
     suspend fun getMyRanking(songId: String): RankingItem? {
         return getCurrentApiService().getMyRanking(songId)
     }
-    
+
     /**
      * 게임 결과 전송 (프론트에서 계산된 결과)
      */
@@ -344,7 +344,7 @@ object GameDataManager {
     } catch (t: Throwable) {
         Result.failure(t)
     }
-    
+
     /**
      * 게임 완료 결과 전송 (새로운 API)
      */
@@ -359,5 +359,5 @@ object GameDataManager {
     } catch (t: Throwable) {
         Result.failure(t)
     }
-    
+
 }

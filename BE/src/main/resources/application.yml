@@ -59,11 +59,5 @@ logging:
   level:
     root: INFO
     com.sugyo: DEBUG
-#    org.springframework.web.cors: DEBUG  # CORS 로그 활성화
-#    org.hibernate.SQL: debug       # 실행되는 SQL 문 출력
-#    org.hibernate.type.descriptor.sql.BasicBinder: trace  # 바인딩되는 값 출력
-#    org.hibernate.orm.jdbc.bind: trace                    # Hibernate 6.x 이상에서 바인딩 출력
-#    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: debug  # 배치 쿼리 로그
-#    org.hibernate: info          # 전체 Hibernate 로그 레벨 (기본 INFO)
 
 server.port: ${SERVER_PORT:8080}

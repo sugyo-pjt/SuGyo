@@ -8,8 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface DailyRepository extends JpaRepository<Daily, Long> {
-    
-    Optional<Daily> findByDay(Integer day);
-    
-    boolean existsByDay(Integer day);
+
 }

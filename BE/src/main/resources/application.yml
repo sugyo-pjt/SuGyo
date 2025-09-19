@@ -61,3 +61,6 @@ logging:
     com.sugyo: DEBUG
 
 server.port: ${SERVER_PORT:8080}
+
+fastapi:
+  server-url: ${AI_SERVER_URL}

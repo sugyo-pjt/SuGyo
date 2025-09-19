@@ -12,44 +12,41 @@ import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.filter.ForwardedHeaderFilter;
 
 import java.util.List;
 
 @Configuration
 public class SwaggerConfig {
-
-    @Value("${swagger.server-url:http://localhost:8080}")
-    private String swaggerServerUrl;
+    private final String jwtSchemaName = "bearerAuth";
 
     @Bean
-    public OpenAPI openAPI() {
+    OpenAPI openAPI() {
         return new OpenAPI()
-                .info(apiInfo())
-                .servers(List.of(
-                        new Server().url(swaggerServerUrl).description("sugyo")
-                ))
-                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
-                .components(new Components()
-                        .addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()));
+                .info(createApiInfo())
+                .addSecurityItem(createSecurityRequirement())
+                .components(createComponents());
     }
 
-    private Info apiInfo() {
+    private Info createApiInfo() {
         return new Info()
-                .title("Sugyo API")
-                .description("수어지교 백엔드 API 문서")
-                .version("1.0.0")
-                .contact(new Contact()
-                        .name("SSAFY A602")
-                        .email("contact@ssafy.com"))
-                .license(new License()
-                        .name("MIT License")
-                        .url("https://opensource.org/licenses/MIT"));
+                .title("SuGyo API")
+                .description("SuGyo API 문서입니다.")
+                .version("1.0.0");
     }
 
-    private SecurityScheme createAPIKeyScheme() {
-        return new SecurityScheme()
+    private SecurityRequirement createSecurityRequirement() {
+        return new SecurityRequirement()
+                .addList(jwtSchemaName);
+    }
+
+    private Components createComponents() {
+        return new Components().addSecuritySchemes(jwtSchemaName, new SecurityScheme()
+                .name(jwtSchemaName)
                 .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
                 .bearerFormat("JWT")
-                .scheme("bearer");
+                .in(SecurityScheme.In.HEADER)
+                .name("Authorization"));
     }
 }

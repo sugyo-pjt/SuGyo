@@ -8,9 +8,9 @@ spring:
 
   # Database Configuration
   datasource:
-    url:
-    username:
-    password:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   # JPA Configuration
@@ -18,8 +18,8 @@ spring:
     database: mysql
     database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
-      ddl-auto:
-    show-sql:
+      ddl-auto: none
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
@@ -28,25 +28,32 @@ spring:
   cloud:
     aws:
       credentials:
-        access-key:
-        secret-key:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
       region:
-        static:
+        static: ${AWS_REGION}
       s3:
-        bucket:
-        cdn-url:
+        bucket: ${SPRING_CLOUD_AWS_S3_BUCKET}
+        cdn-url: ${SPRING_CLOUD_AWS_S3_CDN_URL}
 
   jwt:
     access-token-validity-in-ms: 3600000 #1시간
     refresh-token-validity-in-ms: 604800000 #7일
-    secret:
+    secret: ${SPRING_JWT_SECRET}
 
 cors:
   allowed-origins:
 
 # SWAGGER CONFIG
+server:
+  forward-headers-strategy: framework
 swagger:
-  server-url:
+  server-url: ${SWAGGER_SERVER_URL}
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    url: /v3/api-docs
 
 logging:
   level:
@@ -59,4 +66,4 @@ logging:
 #    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: debug  # 배치 쿼리 로그
 #    org.hibernate: info          # 전체 Hibernate 로그 레벨 (기본 INFO)
 
-server.port: 8080
+server.port: ${SERVER_PORT:8080}

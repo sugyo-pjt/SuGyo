@@ -1,6 +1,3 @@
-DROP DATABASE IF EXISTS sugyo;
-create database sugyo;
-use sugyo;
 CREATE TABLE users
 (
 	id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -82,10 +79,10 @@ CREATE TABLE `daily` (
 );
 
 CREATE TABLE `vocabulary` (
-	`id`	BIGINT	NOT NULL AUTO_INCREMENT PRIMARY KEY,
-	`word`	VARCHAR(50)	NOT NULL,
-	`description`	TEXT	NOT NULL,
-	`video_url`	VARCHAR(255)	NOT NULL
+                              `id`	BIGINT	NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                              `word`	VARCHAR(255)	NOT NULL,
+                              `description`	TEXT	NOT NULL,
+                              `video_url`	VARCHAR(255)	NOT NULL
 );
 
 CREATE TABLE `user_daily_vocabulary` (

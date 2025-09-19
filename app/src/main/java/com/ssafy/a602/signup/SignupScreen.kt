@@ -195,7 +195,7 @@ fun SignUpScreen(
                 textAlign = TextAlign.Center
             )
             Text(
-                "수어배움에서 새로운 언어를 배워보세요",
+                "수어지교에서 새로운 언어를 배워보세요",
                 color = Subtle, 
                 fontSize = 13.sp,
                 modifier = Modifier.fillMaxWidth(),

@@ -24,15 +24,11 @@ class GameRankingViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
             try {
-                // 곡 정보 가져오기
-                val song = GameDataManager.getSongById(songId)
-                val songTitle = song?.title ?: "알 수 없는 곡"
+                // 랭킹 정보 가져오기 (곡 제목과 전체 순위)
+                val (songTitle, allRankings) = GameDataManager.getRankingInfo(songId)
                 
                 // Top 3 순위 가져오기
                 val top3Rankings = GameDataManager.getTop3Rankings(songId)
-                
-                // 전체 순위 가져오기
-                val allRankings = GameDataManager.getRankings(songId)
                 
                 // 내 순위 가져오기
                 val myRanking = GameDataManager.getMyRanking(songId)

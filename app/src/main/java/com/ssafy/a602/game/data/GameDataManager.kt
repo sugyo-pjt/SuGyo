@@ -1,19 +1,16 @@
 package com.ssafy.a602.game.data
 
-import com.ssafy.a602.game.songs.SongItem
-import com.ssafy.a602.game.data.SongSection
-import com.ssafy.a602.game.data.SongProgress
-import com.ssafy.a602.game.result.GameResultUi
-import com.ssafy.a602.game.ranking.RankingItem
-import com.ssafy.a602.game.score.GameResultRequest
 import com.ssafy.a602.game.api.RhythmApi
-import javax.inject.Inject
 import com.ssafy.a602.game.api.dto.CompleteReq
 import com.ssafy.a602.game.api.dto.CompleteResp
+import com.ssafy.a602.game.ranking.RankingItem
+import com.ssafy.a602.game.result.GameResultUi
+import com.ssafy.a602.game.score.GameResultRequest
+import com.ssafy.a602.game.songs.SongItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.CancellationException
 
 /**
  * 게임 데이터를 중앙에서 관리하는 매니저
@@ -25,8 +22,6 @@ object GameDataManager {
     private var realApiService: GameApiService? = null
     private var rhythmApi: RhythmApi? = null
     
-    // 더미 API 서비스 (개발/테스트용)
-    private val dummyApiService: GameApiService = DummyApiService()
     
     /**
      * DI로 서비스들을 주입받는 메서드 (Hilt에서 호출)
@@ -36,32 +31,14 @@ object GameDataManager {
         this.rhythmApi = rhythmApi
     }
     
-    // 더미 모드 활성화 여부 (개발/테스트용)
-    private var isDummyMode = false // 기본값을 실제 API로 설정
     
     /**
      * 현재 활성화된 API 서비스 반환
      */
     private fun getCurrentApiService(): GameApiService {
-        return if (isDummyMode) {
-            dummyApiService
-        } else {
-            realApiService ?: throw IllegalStateException("RealApiService가 주입되지 않았습니다. injectServices()를 먼저 호출하세요.")
-        }
+        return realApiService ?: throw IllegalStateException("RealApiService가 주입되지 않았습니다. injectServices()를 먼저 호출하세요.")
     }
     
-    /**
-     * 더미 모드 전환 (개발/테스트용)
-     */
-    fun setDummyMode(enabled: Boolean) {
-        isDummyMode = enabled
-        android.util.Log.d("GameDataManager", "API 모드: ${if (enabled) "더미 모드" else "실제 API 모드"}")
-    }
-    
-    /**
-     * 현재 더미 모드 상태 확인
-     */
-    fun isDummyModeEnabled(): Boolean = isDummyMode
     
     // 현재 선택된 곡
     private val _currentSong = MutableStateFlow<SongItem?>(null)
@@ -92,8 +69,11 @@ object GameDataManager {
      * 게임 시작
      */
     suspend fun startGame() {
+        android.util.Log.d("GameDataManager", "게임 시작")
         _isGameActive.value = true
-        _gameProgress.value = createInitialProgress()
+        val progress = createInitialProgress()
+        android.util.Log.d("GameDataManager", "게임 진행 상태 생성: ${progress?.sections?.size ?: 0}개 섹션")
+        _gameProgress.value = progress
     }
     
     /**
@@ -117,6 +97,13 @@ object GameDataManager {
     fun updateGameProgress(currentTime: Float) {
         _gameProgress.value?.let { currentProgress ->
             val currentSectionIndex = findCurrentSectionIndex(currentProgress.sections, currentTime)
+            
+            // 섹션 인덱스가 변경되었을 때만 로그 출력
+            if (currentSectionIndex != currentProgress.currentSectionIndex) {
+                val newSection = currentProgress.sections.getOrNull(currentSectionIndex)
+                android.util.Log.d("GameDataManager", "섹션 변경: ${currentProgress.currentSectionIndex} -> $currentSectionIndex (시간: ${currentTime}s, 섹션: '${newSection?.text}')")
+            }
+            
             _gameProgress.value = currentProgress.copy(
                 currentTime = currentTime,
                 currentSectionIndex = currentSectionIndex
@@ -128,12 +115,33 @@ object GameDataManager {
      * 현재 시간에 해당하는 섹션 인덱스 찾기
      */
     private fun findCurrentSectionIndex(sections: List<SongSection>, currentTime: Float): Int {
-        for (i in sections.indices.reversed()) {
-            if (currentTime >= sections[i].startTime) {
+        // 현재 시간이 첫 번째 섹션 시작 시간보다 작으면 0 반환
+        if (sections.isEmpty() || currentTime < sections[0].startTime) {
+            return 0
+        }
+        
+        // 현재 시간이 마지막 섹션의 종료 시간보다 크면 마지막 인덱스 반환
+        val lastSection = sections.last()
+        if (currentTime >= lastSection.endTime) {
+            return sections.size - 1
+        }
+        
+        // 현재 시간이 포함되는 섹션 찾기
+        for (i in sections.indices) {
+            val section = sections[i]
+            if (currentTime >= section.startTime && currentTime < section.endTime) {
                 return i
             }
         }
-        return 0
+        
+        // 위 조건에 맞지 않으면 가장 가까운 다음 섹션의 이전 인덱스 반환
+        for (i in sections.indices) {
+            if (currentTime < sections[i].startTime) {
+                return maxOf(0, i - 1)
+            }
+        }
+        
+        return sections.size - 1
     }
     
     /**
@@ -144,6 +152,8 @@ object GameDataManager {
         
         // API에서 소절 정보 가져오기
         val sections = createSections(song)
+        
+        android.util.Log.d("GameDataManager", "초기 게임 진행 상태 생성: songId=${song.id}, 섹션 수=${sections.size}")
         
         return SongProgress(
             songId = song.id,
@@ -192,7 +202,9 @@ object GameDataManager {
      * 현재 곡의 소절 정보 가져오기
      */
     suspend fun getSongSections(songId: String): List<SongSection> {
-        return getCurrentApiService().getSongSections(songId)
+        val sections = getCurrentApiService().getSongSections(songId)
+        android.util.Log.d("GameDataManager", "getSongSections 호출: songId=$songId, 섹션 수=${sections.size}")
+        return sections
     }
     
     /**
@@ -224,8 +236,12 @@ object GameDataManager {
      * 곡 ID로 곡 찾기
      */
     suspend fun getSongById(songId: String): SongItem? {
+        android.util.Log.d("GameDataManager", "getSongById 호출: songId=$songId")
         val songs = getSongs()
-        return songs.find { it.id == songId }
+        android.util.Log.d("GameDataManager", "전체 곡 수: ${songs.size}")
+        val foundSong = songs.find { it.id == songId }
+        android.util.Log.d("GameDataManager", "곡 찾기 결과: ${foundSong?.title ?: "null"}")
+        return foundSong
     }
     
     /**
@@ -295,6 +311,16 @@ object GameDataManager {
     }
     
     /**
+     * 특정 곡의 랭킹 정보 가져오기 (곡 제목 포함)
+     */
+    suspend fun getRankingInfo(songId: String): Pair<String, List<RankingItem>> {
+        val rankings = getCurrentApiService().getRankings(songId)
+        val song = getSongById(songId)
+        val songTitle = song?.title ?: "알 수 없는 곡"
+        return Pair(songTitle, rankings)
+    }
+    
+    /**
      * 특정 곡의 Top 3 순위 가져오기
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem> {
@@ -334,32 +360,4 @@ object GameDataManager {
         Result.failure(t)
     }
     
-    /**
-     * 개발/테스트용 유틸리티 함수들
-     */
-    object DevUtils {
-        /**
-         * 더미 모드로 전환 (개발/테스트용)
-         */
-        fun enableDummyMode() {
-            setDummyMode(true)
-            android.util.Log.d("GameDataManager", "🔧 개발 모드: 더미 데이터 사용")
-        }
-        
-        /**
-         * 실제 API 모드로 전환 (운영용)
-         */
-        fun enableRealApiMode() {
-            setDummyMode(false)
-            android.util.Log.d("GameDataManager", "🚀 운영 모드: 실제 API 사용")
-        }
-        
-        /**
-         * 현재 모드 상태 출력
-         */
-        fun printCurrentMode() {
-            val mode = if (isDummyModeEnabled()) "더미 모드" else "실제 API 모드"
-            android.util.Log.d("GameDataManager", "현재 모드: $mode")
-        }
-    }
 }

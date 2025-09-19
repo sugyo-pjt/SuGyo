@@ -27,7 +27,7 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       - SPRING_DATA_REDIS_HOST=redis-cache
-      - SWAGGER_SERVER_URL=http://j13a602.p.ssafy.io
+      - SWAGGER_SERVER_URL=https://j13a602.p.ssafy.io
     depends_on:
       - mysql-db
       - redis-cache
@@ -46,7 +46,7 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       - SPRING_DATA_REDIS_HOST=redis-cache
-      - SWAGGER_SERVER_URL=http://j13a602.p.ssafy.io
+      - SWAGGER_SERVER_URL=https://j13a602.p.ssafy.io
     depends_on:
       - mysql-db
       - redis-cache
@@ -70,9 +70,6 @@ services:
       - ./.env
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      # 로컬에서 DB 직접 접속을 위해 포트 개방
-      - "3306:3306"
     healthcheck:
       test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u ${MYSQL_USER} -p${MYSQL_PASSWORD}" ]
       interval: 10s
@@ -90,8 +87,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    ports:
-      - "6379:6379"
     networks:
       - sugyo-network
 

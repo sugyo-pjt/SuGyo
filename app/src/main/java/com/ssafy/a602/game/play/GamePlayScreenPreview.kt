@@ -653,3 +653,75 @@ fun GamePlayScreenPreviewMiss() {
         )
     )
 }
+
+@Preview(
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 800,
+    backgroundColor = 0xFF0B0E13
+)
+@Composable
+fun GamePlayScreenPreviewJudgmentDemo() {
+    var currentJudgment by remember { mutableStateOf(0) }
+    val judgments = listOf(
+        JudgmentType.PERFECT,
+        JudgmentType.GREAT,
+        JudgmentType.GOOD,
+        JudgmentType.MISS
+    )
+    
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(2000) // 2초마다 판정 변경
+            currentJudgment = (currentJudgment + 1) % judgments.size
+        }
+    }
+    
+    val currentJudgmentType = judgments[currentJudgment]
+    val judgmentResult = JudgmentResult(
+        type = currentJudgmentType,
+        accuracy = when (currentJudgmentType) {
+            JudgmentType.PERFECT -> 0.98f
+            JudgmentType.GREAT -> 0.85f
+            JudgmentType.GOOD -> 0.70f
+            JudgmentType.MISS -> 0.0f
+            else -> 0.0f
+        },
+        score = when (currentJudgmentType) {
+            JudgmentType.PERFECT -> 1000
+            JudgmentType.GREAT -> 800
+            JudgmentType.GOOD -> 500
+            JudgmentType.MISS -> 0
+            else -> 0
+        },
+        combo = when (currentJudgmentType) {
+            JudgmentType.PERFECT -> 50
+            JudgmentType.GREAT -> 30
+            JudgmentType.GOOD -> 15
+            JudgmentType.MISS -> 0
+            else -> 0
+        },
+        timestamp = System.currentTimeMillis()
+    )
+    
+    GamePlayScreenPreviewContent(
+        songTitle = "판정 애니메이션 데모",
+        currentTime = 60.0f,
+        totalTime = 180.0f,
+        score = 25000,
+        combo = judgmentResult.combo,
+        maxCombo = 100,
+        grade = when (currentJudgmentType) {
+            JudgmentType.PERFECT -> "S"
+            JudgmentType.GREAT -> "A"
+            JudgmentType.GOOD -> "B"
+            JudgmentType.MISS -> "C"
+            else -> "A"
+        },
+        previousLyric = "이전 가사",
+        currentLyric = "${currentJudgmentType.name} 판정",
+        nextLyric = "다음 가사",
+        lyricProgress = 0.5f,
+        judgmentResult = judgmentResult
+    )
+}

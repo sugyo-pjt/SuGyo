@@ -166,13 +166,25 @@ class DynamicLandmarkBuffer {
                 // 첫 번째 프레임의 샘플 랜드마크 출력
                 if (index == 0) {
                     frame.pose.take(3).forEachIndexed { i, lm ->
-                        Log.d("DynamicLandmarkBuffer", "    포즈[$i]: (${String.format("%.3f", lm.x)}, ${String.format("%.3f", lm.y)}, ${String.format("%.3f", lm.z ?: 0f)})")
+                        if (lm != null) {
+                            Log.d("DynamicLandmarkBuffer", "    포즈[$i]: (${String.format("%.3f", lm.x)}, ${String.format("%.3f", lm.y)}, ${String.format("%.3f", lm.z ?: 0f)})")
+                        } else {
+                            Log.d("DynamicLandmarkBuffer", "    포즈[$i]: null")
+                        }
                     }
                     frame.left.take(3).forEachIndexed { i, lm ->
-                        Log.d("DynamicLandmarkBuffer", "    왼손[$i]: (${String.format("%.3f", lm.x)}, ${String.format("%.3f", lm.y)}, ${String.format("%.3f", lm.z ?: 0f)})")
+                        if (lm != null) {
+                            Log.d("DynamicLandmarkBuffer", "    왼손[$i]: (${String.format("%.3f", lm.x)}, ${String.format("%.3f", lm.y)}, ${String.format("%.3f", lm.z ?: 0f)})")
+                        } else {
+                            Log.d("DynamicLandmarkBuffer", "    왼손[$i]: null")
+                        }
                     }
                     frame.right.take(3).forEachIndexed { i, lm ->
-                        Log.d("DynamicLandmarkBuffer", "    오른손[$i]: (${String.format("%.3f", lm.x)}, ${String.format("%.3f", lm.y)}, ${String.format("%.3f", lm.z ?: 0f)})")
+                        if (lm != null) {
+                            Log.d("DynamicLandmarkBuffer", "    오른손[$i]: (${String.format("%.3f", lm.x)}, ${String.format("%.3f", lm.y)}, ${String.format("%.3f", lm.z ?: 0f)})")
+                        } else {
+                            Log.d("DynamicLandmarkBuffer", "    오른손[$i]: null")
+                        }
                     }
                 }
             }
@@ -189,19 +201,31 @@ class DynamicLandmarkBuffer {
         // 포즈 랜드마크 (23개)
         Log.d("MediaPipeCoordinates", "포즈 랜드마크 (${framePack.pose.size}개):")
         framePack.pose.forEachIndexed { index, lm ->
-            Log.d("MediaPipeCoordinates", "  포즈[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+            if (lm != null) {
+                Log.d("MediaPipeCoordinates", "  포즈[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+            } else {
+                Log.d("MediaPipeCoordinates", "  포즈[$index]: null (인식되지 않음)")
+            }
         }
         
         // 왼손 랜드마크 (21개)
         Log.d("MediaPipeCoordinates", "왼손 랜드마크 (${framePack.left.size}개):")
         framePack.left.forEachIndexed { index, lm ->
-            Log.d("MediaPipeCoordinates", "  왼손[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+            if (lm != null) {
+                Log.d("MediaPipeCoordinates", "  왼손[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+            } else {
+                Log.d("MediaPipeCoordinates", "  왼손[$index]: null (인식되지 않음)")
+            }
         }
         
         // 오른손 랜드마크 (21개)
         Log.d("MediaPipeCoordinates", "오른손 랜드마크 (${framePack.right.size}개):")
         framePack.right.forEachIndexed { index, lm ->
-            Log.d("MediaPipeCoordinates", "  오른손[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+            if (lm != null) {
+                Log.d("MediaPipeCoordinates", "  오른손[$index]: (${String.format("%.4f", lm.x)}, ${String.format("%.4f", lm.y)}, ${String.format("%.4f", lm.z ?: 0f)})")
+            } else {
+                Log.d("MediaPipeCoordinates", "  오른손[$index]: null (인식되지 않음)")
+            }
         }
         
         // 수어 타이밍 상태
@@ -224,19 +248,31 @@ class DynamicLandmarkBuffer {
             
             // 포즈 데이터
             val poseData = frame.pose.mapIndexed { index, lm ->
-                "포즈[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+                if (lm != null) {
+                    "포즈[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+                } else {
+                    "포즈[$index]:null"
+                }
             }.joinToString("|")
             Log.d("MediaPipeUpload", "  포즈: $poseData")
             
             // 왼손 데이터
             val leftHandData = frame.left.mapIndexed { index, lm ->
-                "왼손[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+                if (lm != null) {
+                    "왼손[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+                } else {
+                    "왼손[$index]:null"
+                }
             }.joinToString("|")
             Log.d("MediaPipeUpload", "  왼손: $leftHandData")
             
             // 오른손 데이터
             val rightHandData = frame.right.mapIndexed { index, lm ->
-                "오른손[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+                if (lm != null) {
+                    "오른손[$index]:(${String.format("%.4f", lm.x)},${String.format("%.4f", lm.y)},${String.format("%.4f", lm.z ?: 0f)})"
+                } else {
+                    "오른손[$index]:null"
+                }
             }.joinToString("|")
             Log.d("MediaPipeUpload", "  오른손: $rightHandData")
         }

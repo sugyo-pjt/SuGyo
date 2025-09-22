@@ -71,6 +71,11 @@ class GamePreparationViewModel : ViewModel() {
         checkNextState()
     }
     
+    fun checkPermissions(context: Context) {
+        PermissionManager.checkPermissions(context)
+        checkNextState()
+    }
+    
     fun updatePermissionState(
         cameraGranted: Boolean,
         shouldShowRationale: Boolean = false

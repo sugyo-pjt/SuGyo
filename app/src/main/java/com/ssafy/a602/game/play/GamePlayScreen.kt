@@ -591,7 +591,9 @@ fun GamePlayScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 lensFacing = CameraSelector.LENS_FACING_FRONT,
                                 enableAnalysis = true,
-                                onFrame = { imageProxy -> mediaPipeCamera.analyzer.analyze(imageProxy) }
+                                onFrame = { imageProxy -> 
+                                    mediaPipeCamera.analyzer.analyze(imageProxy)
+                                }
                             )
                             judgmentResult?.let { JudgmentOverlay(result = it) }
                         }

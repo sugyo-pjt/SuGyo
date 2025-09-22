@@ -20,6 +20,10 @@ object GameUITheme {
         val CardBackground = Color(0xFF1A1F2E)
         val BorderColor = Color(0xFF2A2F3E)
         
+        // 텍스트 색상
+        val PrimaryText = Color(0xFFE7ECF3)
+        val SecondaryText = Color(0xFF9AA3B2)
+        
         // 판정별 색상 (새로운 색상 체계)
         val Perfect = Color(0xFF4A90E2) // 파란색 기반
         val PerfectGlow = Color(0xFF87CEEB) // 하늘색 글로우

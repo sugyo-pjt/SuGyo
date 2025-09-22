@@ -5,6 +5,7 @@ sealed class Screen(val route: String) {
     object AuthGuard : Screen("auth_guard")
     object Login : Screen("login")
     object Signup : Screen("signup")
+    object Terms : Screen("terms")
     object Home : Screen("home")
     object Search : Screen("search")
     object Game : Screen("game")
@@ -45,6 +46,14 @@ sealed class Screen(val route: String) {
         private const val BASE = "learning/songstudy/detail"
         const val route = "$BASE/{$ARG_ID}"
         fun route(id: String) = "$BASE/$id"
+    }
+
+    // ── 약관 관련 라우트 ───────────────────────────────────────────────────────
+    object TermDetail {
+        const val ARG_ID = "id"
+        private const val BASE = "term_detail"
+        const val route = "$BASE/{$ARG_ID}"
+        fun route(id: Long) = "$BASE/$id"
     }
 
     // ── 게임 흐름 라우트(파라미터 포함) ───────────────────────────────────────

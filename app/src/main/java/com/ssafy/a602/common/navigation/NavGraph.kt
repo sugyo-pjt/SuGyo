@@ -6,6 +6,8 @@ package com.ssafy.a602.common.navigation
 import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -242,11 +244,13 @@ fun NavGraph(
         composable("game_play/{songId}") { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
             val gamePlayViewModel = remember { GamePlayViewModel() }
+            val gameUiState by gamePlayViewModel.ui.collectAsState()
+            
             @OptIn(ExperimentalGetImage::class)
             GamePlayScreen(
                 songId = songId,
-                isPaused = false,
-                onTogglePause = { /* TODO */ },
+                isPaused = gameUiState.isPaused,
+                onTogglePause = { gamePlayViewModel.togglePause() },
                 onGameComplete = { _ ->
                     GameDataManager.endGame()
                     navController.navigate("game_result/$songId") {

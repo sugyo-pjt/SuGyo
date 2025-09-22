@@ -88,10 +88,7 @@ class GamePlayCamera(
      * 카메라 프레임을 받아서 MediaPipe로 분석
      */
     val analyzer = ImageAnalysis.Analyzer { image: ImageProxy ->
-        val media = image.image ?: run { 
-            image.close()
-            return@Analyzer 
-        }
+        val media = image.image ?: return@Analyzer
         
         // Bitmap 크기 조정 (필요시)
         if (rgb == null || rgb!!.width != image.width || rgb!!.height != image.height) {
@@ -114,7 +111,7 @@ class GamePlayCamera(
             android.util.Log.d("GamePlayCamera", "MediaPipe 분석 실행 중... timestamp: $timestampMs")
         }
         
-        image.close()
+        // image.close()는 CameraPreview에서 자동으로 호출됨
     }
 
     /**

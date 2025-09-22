@@ -10,7 +10,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -28,8 +29,8 @@ fun TopBarSection(
     totalDuration: Float,
     isPaused: Boolean,
     onTogglePause: () -> Unit,
-    onOpenSettings: () -> Unit,
-    showPauseButton: Boolean
+    onOpenSettings: () -> Unit = {}, // 기본값으로 빈 함수
+    showPauseButton: Boolean = true // 기본값을 true로 변경
 ) {
     Row(
         modifier = Modifier
@@ -48,19 +49,21 @@ fun TopBarSection(
         )
         Spacer(Modifier.width(8.dp))
 
-        // 설정 아이콘
-        IconButton(
-            onClick = onOpenSettings,
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(GameTheme.Colors.CardBackground.copy(alpha = 0.2f))
-        ) {
-            Icon(
-                Icons.Outlined.Settings,
-                contentDescription = "설정",
-                tint = GameTheme.Colors.TertiaryText
-            )
+        // 일시정지/재생 버튼
+        if (showPauseButton) {
+            IconButton(
+                onClick = onTogglePause,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(GameTheme.Colors.CardBackground.copy(alpha = 0.2f))
+            ) {
+                Icon(
+                    if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    contentDescription = if (isPaused) "재생" else "일시정지",
+                    tint = GameTheme.Colors.TertiaryText
+                )
+            }
         }
     }
 }

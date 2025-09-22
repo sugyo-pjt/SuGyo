@@ -23,7 +23,7 @@ data class RankingItemDto(
     val rank: Int,
     val userId: Long,
     val userNickName: String,
-    val userProfileUrl: String,
+    val userProfileUrl: String?, // nullable로 수정 - 서버에서 null 값이 올 수 있음
     val score: Int,
     val recordDate: String
 )

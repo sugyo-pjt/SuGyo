@@ -1,6 +1,5 @@
 package com.ssafy.a602.game
 
-import android.content.Context
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -8,19 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
-import java.util.concurrent.ExecutorService
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.concurrent.Executors
 
-/**
- * CameraPreview
- *
- * CameraX를 사용한 카메라 프리뷰 컴포넌트
- * MediaPipe 분석을 위한 ImageAnalysis 기능 포함
- */
 @Composable
 fun CameraPreview(
     modifier: Modifier = Modifier,
@@ -31,80 +22,68 @@ fun CameraPreview(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 카메라 실행을 위한 Executor
-    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    // 최신 onFrame 참조 보존
+    val onFrameState by rememberUpdatedState(onFrame)
 
-    // 카메라 생명주기 정리
-    DisposableEffect(Unit) {
-        onDispose {
-            cameraExecutor.shutdown()
-        }
-    }
+    // 카메라 스레드
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    DisposableEffect(Unit) { onDispose { cameraExecutor.shutdown() } }
+
+    // 한 번만 바인딩하도록 가드
+    var bound by remember { mutableStateOf(false) }
 
     AndroidView(
+        modifier = modifier.fillMaxSize(),
         factory = { ctx ->
             PreviewView(ctx).apply {
+                // ✅ Compose 오버레이가 위에 보이도록 TextureView 모드 강제
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 scaleType = PreviewView.ScaleType.FILL_CENTER
-                // 전면 카메라일 때 미러 모드 비활성화 (scaleX = -1f로 뒤집기)
-                if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
-                    scaleX = -1f
-                }
+
+                // 전면카메라 미러링은 뷰 레벨에서만
+                scaleX = if (lensFacing == CameraSelector.LENS_FACING_FRONT) -1f else 1f
             }
         },
-        modifier = modifier.fillMaxSize(),
         update = { previewView ->
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
-                val cameraProvider = cameraProviderFuture.get()
+                runCatching {
+                    val cameraProvider = cameraProviderFuture.get()
 
-                // Preview 설정 (미러 모드 비활성화)
-                val preview = Preview.Builder()
-                    .build().also {
+                    val preview = Preview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                // CameraSelector 설정
-                val cameraSelector = CameraSelector.Builder()
-                    .requireLensFacing(lensFacing)
-                    .build()
-
-                // ImageAnalysis 설정 (MediaPipe 분석용)
-                val imageAnalysis = if (enableAnalysis && onFrame != null) {
-                    ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    val selector = CameraSelector.Builder()
+                        .requireLensFacing(lensFacing)
                         .build()
-                        .also { analysis ->
-                            analysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                                onFrame(imageProxy)
-                            }
-                        }
-                } else null
 
-                try {
-                    // 기존 바인딩 해제
+                    val analysis: ImageAnalysis? =
+                        if (enableAnalysis && onFrame != null) {
+                            ImageAnalysis.Builder()
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build().apply {
+                                    setAnalyzer(cameraExecutor) { proxy ->
+                                        try { onFrame.invoke(proxy) } finally { proxy.close() }
+                                    }
+                                }
+                        } else null
+
                     cameraProvider.unbindAll()
-
-                    // 새로운 바인딩
-                    val useCaseGroup = if (imageAnalysis != null) {
-                        UseCaseGroup.Builder()
-                            .addUseCase(preview)
-                            .addUseCase(imageAnalysis)
-                            .build()
+                    if (analysis != null) {
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner, selector, preview, analysis
+                        )
                     } else {
-                        UseCaseGroup.Builder()
-                            .addUseCase(preview)
-                            .build()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner, selector, preview
+                        )
                     }
-
-                    cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        cameraSelector,
-                        useCaseGroup
-                    )
-                } catch (exc: Exception) {
-                    android.util.Log.e("CameraPreview", "카메라 바인딩 실패", exc)
+                }.onFailure { e ->
+                    android.util.Log.e("CameraPreview", "바인딩 실패", e)
                 }
             }, ContextCompat.getMainExecutor(context))
         }
     )
+
 }

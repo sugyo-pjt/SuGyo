@@ -22,7 +22,9 @@ data class GameUiState(
     // GameScoreCalculator에서 가져온 정확한 데이터
     val correctCount: Int = 0,
     val missCount: Int = 0,
-    val missWords: List<String> = emptyList()
+    val missWords: List<String> = emptyList(),
+    // 일시정지 상태 추가
+    val isPaused: Boolean = false
 )
 
 data class CompleteUiState(
@@ -108,12 +110,21 @@ class GamePlayViewModel : ViewModel() {
                     )
                 },
                 onFailure = { e ->
+                    // API 호출 실패해도 게임 결과 화면으로 넘어가도록 submitted = true로 설정
                     _complete.value.copy(
                         submitting = false,
+                        submitted = true, // 실패해도 결과 화면으로 이동
                         submitError = e.message ?: "전송 실패"
                     )
                 }
             )
         }
+    }
+    
+    /**
+     * 일시정지/재생 상태를 토글합니다.
+     */
+    fun togglePause() {
+        _ui.value = _ui.value.copy(isPaused = !_ui.value.isPaused)
     }
 }

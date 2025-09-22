@@ -86,9 +86,15 @@ class WordWindowUploader(
             
             // 첫 번째 프레임의 랜드마크 샘플
             android.util.Log.d("WordWindowUploader", "첫 프레임 랜드마크 샘플:")
-            android.util.Log.d("WordWindowUploader", "  포즈: ${firstFrame.pose.size}개 (예: ${firstFrame.pose.take(2).joinToString { "(${String.format("%.2f", it.x)}, ${String.format("%.2f", it.y)})" }})")
-            android.util.Log.d("WordWindowUploader", "  왼손: ${firstFrame.left.size}개 (예: ${firstFrame.left.take(2).joinToString { "(${String.format("%.2f", it.x)}, ${String.format("%.2f", it.y)})" }})")
-            android.util.Log.d("WordWindowUploader", "  오른손: ${firstFrame.right.size}개 (예: ${firstFrame.right.take(2).joinToString { "(${String.format("%.2f", it.x)}, ${String.format("%.2f", it.y)})" }})")
+            android.util.Log.d("WordWindowUploader", "  포즈: ${firstFrame.pose.size}개 (예: ${firstFrame.pose.take(2).joinToString { lm -> 
+                if (lm != null) "(${String.format("%.2f", lm.x)}, ${String.format("%.2f", lm.y)})" else "null"
+            }})")
+            android.util.Log.d("WordWindowUploader", "  왼손: ${firstFrame.left.size}개 (예: ${firstFrame.left.take(2).joinToString { lm -> 
+                if (lm != null) "(${String.format("%.2f", lm.x)}, ${String.format("%.2f", lm.y)})" else "null"
+            }})")
+            android.util.Log.d("WordWindowUploader", "  오른손: ${firstFrame.right.size}개 (예: ${firstFrame.right.take(2).joinToString { lm -> 
+                if (lm != null) "(${String.format("%.2f", lm.x)}, ${String.format("%.2f", lm.y)})" else "null"
+            }})")
             
             // 상세 좌표 데이터 로깅 (업로드용)
             buffer.logCoordinatesForUpload(frames)

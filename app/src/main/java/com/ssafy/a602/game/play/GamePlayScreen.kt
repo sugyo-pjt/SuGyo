@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -24,8 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,8 +50,96 @@ import com.ssafy.a602.game.time.TimelineTick
 import com.ssafy.a602.game.time.TimelineViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import com.ssafy.a602.game.ui.modern.*
+import com.ssafy.a602.game.data.SongSection
+import com.ssafy.a602.game.api.dto.CorrectDto
 
 /* ========== Utility Functions ========== */
+
+/**
+ * 현재 시간에 해당하는 수어 하이라이팅 정보를 반환
+ * 이미 시작된 수어 액션은 계속 빨간색으로 유지
+ */
+private fun getCurrentSignHighlight(
+    currentSection: SongSection?,
+    currentTime: Float,
+    currentSectionIndex: Int
+): List<Pair<Int, Int>> {
+    if (currentSection == null) {
+        Log.d("GamePlayScreen", "getCurrentSignHighlight: currentSection is null")
+        return emptyList()
+    }
+    
+    val sectionStartTime = currentSection.startTime
+    val isFirstSection = currentSectionIndex == 0 // 섹션 인덱스 기반으로 첫 소절 판단
+    
+    Log.d("GamePlayScreen", "getCurrentSignHighlight: sectionStartTime=$sectionStartTime, currentSectionIndex=$currentSectionIndex, isFirstSection=$isFirstSection, currentTime=$currentTime, correctInfoCount=${currentSection.correctInfo.size}")
+    
+    return currentSection.correctInfo.mapNotNull { correct ->
+        val actionStartTime = parseTimeToSeconds(correct.actionStartedAt)
+        val actionEndTime = parseTimeToSeconds(correct.actionEndedAt)
+        
+        // 첫 소절의 경우 게임 시작과 동시에 빨간색 표시 (전주부터)
+        // 다른 소절의 경우 현재 시간이 수어 액션 시작 시간 이후인지 확인 (끝나도 계속 빨간색 유지)
+        
+        val shouldHighlight = if (isFirstSection) {
+            // 첫 소절의 경우: 게임 시작(0초)부터 빨간색 표시
+            true
+        } else {
+            // 다른 소절의 경우: 수어 액션 시작 시간 이후부터 빨간색 표시
+            currentTime >= actionStartTime
+        }
+        
+        if (shouldHighlight) {
+            Log.d("GamePlayScreen", "Highlighting: correctStartedIndex=${correct.correctStartedIndex}, correctEndedIndex=${correct.correctEndedIndex}")
+            Pair(correct.correctStartedIndex, correct.correctEndedIndex)
+        } else {
+            Log.d("GamePlayScreen", "Not highlighting: currentTime=$currentTime < actionStartTime=$actionStartTime")
+            null
+        }
+    }
+}
+
+/**
+ * 가사 텍스트에 하이라이팅을 적용한 AnnotatedString 생성
+ * 기본적으로 흰색으로 표시하고, 수어 타이밍에 해당하는 부분만 빨간색으로 표시
+ */
+private fun createHighlightedLyrics(
+    text: String,
+    highlights: List<Pair<Int, Int>>
+): AnnotatedString {
+    Log.d("GamePlayScreen", "createHighlightedLyrics: text='$text', highlights=$highlights")
+    
+    return buildAnnotatedString {
+        var lastIndex = 0
+        
+        highlights.sortedBy { it.first }.forEach { (start, end) ->
+            Log.d("GamePlayScreen", "Processing highlight: start=$start, end=$end, text.length=${text.length}")
+            
+            // 하이라이트 이전 텍스트 추가 (흰색)
+            if (start > lastIndex) {
+                withStyle(style = SpanStyle(color = Color.White)) {
+                    append(text.substring(lastIndex, start))
+                }
+            }
+            
+            // 하이라이트된 텍스트 추가 (빨간색) - 범위를 한 글자 더 확장
+            val extendedEnd = (end + 1).coerceAtMost(text.length)
+            withStyle(style = SpanStyle(color = Color(0xFFFF4444))) {
+                append(text.substring(start, extendedEnd))
+            }
+            
+            lastIndex = extendedEnd
+        }
+        
+        // 마지막 하이라이트 이후 텍스트 추가 (흰색)
+        if (lastIndex < text.length) {
+            withStyle(style = SpanStyle(color = Color.White)) {
+                append(text.substring(lastIndex))
+            }
+        }
+    }
+}
 
 /** "HH:MM:SS.xx" -> seconds (TimeParsing 유틸 사용) */
 private fun parseTimeToSeconds(timeString: String): Float = 
@@ -152,7 +244,6 @@ fun GamePlayScreen(
         }
     }
 
-    var showPauseButton by remember { mutableStateOf(false) }
     val bg = GameTheme.Colors.DarkBackground
     val card = GameTheme.Colors.DarkCard
     val progress = GameTheme.Colors.Progress
@@ -304,38 +395,32 @@ fun GamePlayScreen(
         }
     }
 
-    // 진행/완료 체크 - 실제 채보 데이터의 마지막 섹션 종료 시간 사용
-    val totalTime = remember(currentSong, gameProgressState?.sections?.size) {
-        // 채보 데이터가 있으면 마지막 섹션의 종료 시간 사용
-        gameProgressState?.sections?.lastOrNull()?.endTime?.let { lastSectionEndTime ->
-            Log.d("GamePlayScreen", "채보 기반 총 시간: ${lastSectionEndTime}s")
-            lastSectionEndTime
-        } ?: run {
-            // 채보 데이터가 없으면 곡 정보의 durationText 사용
-            currentSong?.durationText?.let {
-                try {
-                    val parts = it.split(":")
-                    val calculatedTime = when (parts.size) {
-                        2 -> {
-                            // MM:SS 형식
-                            (parts[0].toInt() * 60 + parts[1].toInt()).toFloat()
-                        }
-                        3 -> {
-                            // HH:MM:SS 형식
-                            (parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()).toFloat()
-                        }
-                        else -> 200f // 기본값
+    // 진행/완료 체크 - 곡의 실제 총 길이 사용 (전주 + 가사 + 후주 포함)
+    val totalTime = remember(currentSong) {
+        // 곡 정보의 durationText 사용 (전주부터 후주까지 전체 곡 길이)
+        currentSong?.durationText?.let {
+            try {
+                val parts = it.split(":")
+                val calculatedTime = when (parts.size) {
+                    2 -> {
+                        // MM:SS 형식
+                        (parts[0].toInt() * 60 + parts[1].toInt()).toFloat()
                     }
-                    Log.d("GamePlayScreen", "곡 정보 기반 총 시간: ${calculatedTime}s (durationText: $it)")
-                    calculatedTime
-                } catch (_: Exception) { 
-                    Log.d("GamePlayScreen", "곡 정보 파싱 실패, 기본값 사용: 200s")
-                    200f 
+                    3 -> {
+                        // HH:MM:SS 형식
+                        (parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()).toFloat()
+                    }
+                    else -> 200f // 기본값
                 }
-            } ?: run {
-                Log.d("GamePlayScreen", "곡 정보 없음, 기본값 사용: 200s")
-                200f
+                Log.d("GamePlayScreen", "곡 전체 길이 기반 총 시간: ${calculatedTime}s (durationText: $it)")
+                calculatedTime
+            } catch (_: Exception) { 
+                Log.d("GamePlayScreen", "곡 정보 파싱 실패, 기본값 사용: 200s")
+                200f 
             }
+        } ?: run {
+            Log.d("GamePlayScreen", "곡 정보 없음, 기본값 사용: 200s")
+            200f
         }
     }
 
@@ -349,9 +434,9 @@ fun GamePlayScreen(
         // 디버깅 로그 추가
         Log.d("GamePlayScreen", "게임 시간 체크: gameTime=${gameTime}s, totalTime=${totalTime}s")
         
-        // 게임 완료 조건: 게임 시간이 총 시간을 초과하고, 총 시간이 0보다 크며, 게임 시간이 1초 이상일 때
+        // 게임 완료 조건: 곡이 완전히 종료된 후 (전주 + 가사 + 후주 모두 포함)
         if (gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f) {
-            Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s")
+            Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s (곡 완전 종료)")
             // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
             gamePlayViewModel?.finishGameAndPost()
         }
@@ -375,12 +460,46 @@ fun GamePlayScreen(
     }
 
     val songTitle = currentSong?.title ?: "곡을 선택해주세요"
+    
+    // 섹션 데이터를 직접 가져와서 사용
+    val sections = remember { mutableStateOf<List<SongSection>>(emptyList()) }
+    
+    // 섹션 데이터 로드
+    LaunchedEffect(songId) {
+        try {
+            val loadedSections = GameDataManager.getSongSections(songId)
+            sections.value = loadedSections
+            Log.d("GamePlayScreen", "섹션 데이터 로드 완료: ${loadedSections.size}개")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            Log.d("GamePlayScreen", "코루틴 취소됨 - 섹션 데이터 로드 중단")
+            // CancellationException은 정상적인 생명주기 동작이므로 로그만 출력
+        } catch (e: Exception) {
+            Log.e("GamePlayScreen", "섹션 데이터 로드 실패", e)
+        }
+    }
+    
+    // 현재 섹션 인덱스 계산
+    val currentSectionIndex = remember { mutableStateOf(0) }
+    
+    // 시간에 따라 현재 섹션 인덱스 업데이트
+    LaunchedEffect(gameTime, sections.value) {
+        if (sections.value.isNotEmpty()) {
+            val newIndex = sections.value.indexOfFirst { section ->
+                gameTime >= section.startTime && gameTime < section.endTime
+            }
+            if (newIndex >= 0 && newIndex != currentSectionIndex.value) {
+                currentSectionIndex.value = newIndex
+                Log.d("GamePlayScreen", "섹션 인덱스 업데이트: $newIndex (시간: ${gameTime}s)")
+            }
+        }
+    }
+    
     val songProgress = gameProgressState ?: SongProgress(
         songId = songId,
         currentTime = gameTime,
         totalTime = totalTime,
-        currentSectionIndex = 0,
-        sections = emptyList()
+        currentSectionIndex = currentSectionIndex.value,
+        sections = sections.value
     )
     
     // 디버깅을 위한 로그
@@ -414,14 +533,15 @@ fun GamePlayScreen(
     Surface(modifier = Modifier.fillMaxSize(), color = bg) {
         if (isScreenVisible) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { showPauseButton = false }
+                modifier = Modifier.fillMaxSize()
             ) {
+                // 게임 배경 제거 - 가사 영역에만 파도 효과 적용
+                
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     // Top bar
                     TopBarSection(
@@ -429,107 +549,59 @@ fun GamePlayScreen(
                         currentTime = songProgress.currentTime,
                         totalDuration = songProgress.totalTime,
                         isPaused = !(tick?.isPlaying ?: false),
-                        onTogglePause = onTogglePause,
-                        onOpenSettings = { showPauseButton = !showPauseButton },
-                        showPauseButton = showPauseButton
+                        onTogglePause = onTogglePause
                     )
                     
-                    // 게임 상태 표시 (점수, 등급, 콤보)
-                    if (gameUi.score > 0 || gameUi.grade.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            colors = CardDefaults.cardColors(containerColor = card),
-                            shape = RoundedCornerShape(12.dp)
+                    Spacer(Modifier.height(8.dp))
+                    
+                    // 전체 진행바 - Modern 컴포넌트 사용 (제목 바로 밑으로 이동)
+                    GameProgressBar(
+                        progress = if (songProgress.totalTime > 0f) songProgress.currentTime / songProgress.totalTime else 0f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // 게임 상태 표시 (점수, 등급, 콤보) - Modern 컴포넌트 사용 (임시 주석 처리)
+                    /*
+                    GameScoreCard(
+                        score = gameUi.score,
+                        grade = if (gameUi.grade.isNotEmpty()) gameUi.grade else "S",
+                        maxCombo = gameUi.maxCombo
+                    )
+                    */
+                    
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // Camera area - 실제 카메라 프리뷰 복원 (높이 1.5배 증가)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2E)),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        "Score",
-                                        color = Color(0xFF9AA3B2),
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                    Text(
-                                        "${gameUi.score}",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                            CameraPreview(
+                                modifier = Modifier.fillMaxSize(),
+                                lensFacing = CameraSelector.LENS_FACING_FRONT,
+                                enableAnalysis = true,
+                                onFrame = { imageProxy -> 
+                                    mediaPipeCamera.analyzer.analyze(imageProxy)
                                 }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        "Grade",
-                                        color = Color(0xFF9AA3B2),
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                    Text(
-                                        gameUi.grade,
-                                        color = Color(0xFFFFD700),
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        "Max Combo",
-                                        color = Color(0xFF9AA3B2),
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                    Text(
-                                        "${gameUi.maxCombo}",
-                                        color = Color(0xFF4CAF50),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
+                            )
+                            judgmentResult?.let { JudgmentOverlay(result = it) }
                         }
                     }
 
                     Spacer(Modifier.height(8.dp))
 
-                    // 전체 진행바
-                    LinearProgressIndicator(
-                        progress = { if (songProgress.totalTime > 0f) songProgress.currentTime / songProgress.totalTime else 0f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        trackColor = Color(0x33212535),
-                        color = progress
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // Camera area
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(card)
-                            .border(3.dp, greenBorder, RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CameraPreview(
-                            modifier = Modifier.fillMaxSize(),
-                            lensFacing = CameraSelector.LENS_FACING_FRONT,
-                            enableAnalysis = true,
-                            onFrame = { imageProxy -> mediaPipeCamera.analyzer.analyze(imageProxy) }
-                        )
-                        judgmentResult?.let { JudgmentOverlay(result = it) }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // Lyrics area - GameDataManager의 채보 데이터 사용
+                    // Lyrics area - GameDataManager의 채보 데이터 사용 (Modern 컴포넌트)
                     val currentSection = songProgress.sections.getOrNull(songProgress.currentSectionIndex)
                     
                     // 디버깅 로그 추가
@@ -543,143 +615,148 @@ fun GamePlayScreen(
                         } ?: Log.w("GamePlayScreen", "현재 섹션이 null입니다!")
                     }
                     
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = card),
-                        shape = RoundedCornerShape(16.dp)
+                    // 가사 3소절 데이터 준비
+                    val previousSection = currentSection?.let { current ->
+                        songProgress.sections
+                            .filter { it.startTime < current.startTime }
+                            .maxByOrNull { it.startTime }
+                    }
+                    
+                    val nextSection = currentSection?.let { current ->
+                        songProgress.sections
+                            .filter { it.startTime > current.startTime }
+                            .minByOrNull { it.startTime }
+                    }
+                    
+                    // 현재 가사 진행률 계산 (간단한 버전)
+                    val lyricProgress = currentSection?.let { current ->
+                        val sectionDuration = current.endTime - current.startTime
+                        if (sectionDuration > 0) {
+                            val elapsed = songProgress.currentTime - current.startTime
+                            (elapsed / sectionDuration).coerceIn(0f, 1f)
+                        } else 0f
+                    } ?: 0f
+                    
+                    // 가사 영역 - API 연동된 실제 가사 표시 (파도 효과 포함, 높이 조정)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(250.dp) // 높이를 줄여서 종료 버튼 공간 확보
                     ) {
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp, vertical = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    // 파도 효과 배경 (콤보에 따른 색상 변화)
+                    GameBackground(
+                        modifier = Modifier.fillMaxSize(),
+                        isPlaying = tick?.isPlaying ?: false,
+                        combo = gameUi.combo
+                    )
+                        
+                        // 가사 카드 (투명도 조정하여 파동 효과가 보이도록)
+                        Card(
+                            modifier = Modifier.fillMaxSize(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0x801A1F2E)), // 투명도 50%로 조정
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
                         ) {
-                            if (currentSection != null) {
-                                // 현재 섹션 정보 로그
-                                Log.d("GamePlayScreen", "현재 섹션 표시: '${currentSection.text}', correctInfo: ${currentSection.correctInfo.size}개")
-                                currentSection.correctInfo.forEachIndexed { index, correct ->
-                                    Log.d("GamePlayScreen", "  correct[$index]: 인덱스 ${correct.correctStartedIndex}~${correct.correctEndedIndex}")
-                                }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                            // 가사 그룹 (중앙)
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                // 이전 가사
+                                Text(
+                                    text = previousSection?.text ?: "",
+                                    color = Color(0xFF9AA3B2),
+                                    fontSize = 15.sp,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                                 
-                                val previousSection = songProgress.sections
-                                    .filter { it.startTime < currentSection.startTime }
-                                    .maxByOrNull { it.startTime }
-                                previousSection?.let { prev ->
-                                    Text(
-                                        prev.text,
-                                        color = Color(0xFF9AA3B2),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Spacer(Modifier.height(10.dp))
-                                }
-
-                                val nextSection = songProgress.sections
-                                    .filter { it.startTime > currentSection.startTime }
-                                    .minByOrNull { it.startTime }
-
-                                val highlightedText = buildAnnotatedString {
-                                    val text = currentSection.text
-                                    val correctInfo = currentSection.correctInfo
-                                    Log.d("GamePlayScreen", "가사 하이라이팅: '$text', correctInfo: ${correctInfo.size}개")
-                                    
-                                    if (correctInfo.isNotEmpty()) {
-                                        val first = correctInfo.first()
-                                        val startIndex = first.correctStartedIndex
-                                        val originalEndIndex = first.correctEndedIndex
-                                        // 정답 단어 뒤에 한 글자 더 포함
-                                        val endIndex = minOf(originalEndIndex + 1, text.length)
-                                        Log.d("GamePlayScreen", "하이라이트 범위: $startIndex~$endIndex (원본: $startIndex~$originalEndIndex, 텍스트 길이: ${text.length})")
-                                        
-                                        if (startIndex in 0..text.length && endIndex in 0..text.length && startIndex < endIndex) {
-                                            if (startIndex > 0) {
-                                                withStyle(SpanStyle(color = Color(0xFFE7ECF3))) {
-                                                    append(text.substring(0, startIndex))
-                                                }
-                                            }
-                                            withStyle(SpanStyle(color = Color(0xFFFF4444), fontWeight = FontWeight.Bold)) {
-                                                append(text.substring(startIndex, endIndex))
-                                            }
-                                            if (endIndex < text.length) {
-                                                withStyle(SpanStyle(color = Color(0xFFE7ECF3))) {
-                                                    append(text.substring(endIndex))
-                                                }
-                                            }
-                                            Log.d("GamePlayScreen", "하이라이트 적용 완료: '${text.substring(startIndex, endIndex)}' (원본: '${text.substring(startIndex, originalEndIndex)}')")
-                                        } else {
-                                            Log.w("GamePlayScreen", "하이라이트 범위 오류: startIndex=$startIndex, endIndex=$endIndex, textLength=${text.length}")
-                                            withStyle(SpanStyle(color = Color(0xFFE7ECF3))) { append(text) }
+                                Spacer(Modifier.height(6.dp))
+                                
+                                // 현재 가사 (메인) - 수어 하이라이팅 적용
+                                val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value)
+                                val highlightedText = if (currentSection != null) {
+                                    createHighlightedLyrics(currentSection.text, currentHighlights)
+                                } else {
+                                    buildAnnotatedString {
+                                        withStyle(style = SpanStyle(color = Color.White)) {
+                                            append("가사를 불러오는 중...")
                                         }
-                                    } else {
-                                        Log.d("GamePlayScreen", "correctInfo가 비어있음, 일반 텍스트 표시")
-                                        withStyle(SpanStyle(color = Color(0xFFE7ECF3))) { append(text) }
                                     }
                                 }
-
+                                
                                 Text(
                                     text = highlightedText,
                                     fontSize = 20.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
-
-                                nextSection?.let { next ->
-                                    Spacer(Modifier.height(10.dp))
-                                    Text(
-                                        next.text,
-                                        color = Color(0xFF6B7280),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
                                 
-                                // 디버깅용 텍스트 제거됨
-                            } else {
+                                Spacer(Modifier.height(6.dp))
+                                
+                                // 다음 가사
                                 Text(
-                                    "곡을 준비하고 있습니다",
-                                    color = Color(0xFF9AA3B2),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    "잠시만 기다려주세요",
-                                    color = Color(0xFFE7ECF3),
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center
+                                    text = nextSection?.text ?: "",
+                                    color = Color(0xFF6B7280),
+                                    fontSize = 15.sp,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
+                            
+                            // 진행률 표시 (하단)
+                            LinearProgressIndicator(
+                                progress = { lyricProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp),
+                                color = Color(0xFF4CAF50),
+                                trackColor = Color(0xFF2A2F3E)
+                            )
                         }
                     }
-
-                    Spacer(Modifier.height(16.dp))
                     
-                    // 게임 완료 결과 전송 상태 표시
+                    }
+                    
+
+                    // 게임 완료 결과 전송 상태 표시 (최소화)
                     if (completeUi.submitting) {
+                        Spacer(Modifier.height(8.dp))
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
+                                .height(40.dp), // 높이 제한
                             colors = CardDefaults.cardColors(containerColor = card),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(16.dp),
                                     color = Color(0xFF4CAF50)
                                 )
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text(
-                                    "게임 결과를 전송하고 있습니다...",
+                                    "전송 중...",
                                     color = Color.White,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    fontSize = 12.sp
                                 )
                             }
                         }
@@ -745,7 +822,7 @@ fun GamePlayScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // Bottom button
+                    // 종료 버튼 (하단 가운데)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -782,57 +859,16 @@ fun GamePlayScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                // 드롭다운 메뉴 오버레이 (설정 버튼 아래)
-                if (showPauseButton) {
-                    Card(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = (-16).dp, y = 40.dp)
-                            .width(140.dp)
-                            .clickable { },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2329)),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Button(
-                                onClick = {
-                                    if (player.isPlaying) {
-                                        player.pause()
-                                    } else {
-                                        player.playWhenReady = true
-                                        if (player.playbackState == Player.STATE_IDLE) player.prepare()
-                                        player.play()
-                                        resumeWall = SystemClock.elapsedRealtime()
-                                    }
-                                    onTogglePause()
-                                    showPauseButton = false
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (player.isPlaying) Color(0xFFFFA726) else Color(0xFF4CAF50)
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(40.dp)
-                            ) {
-                                Icon(
-                                    if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = if (player.isPlaying) "일시정지" else "재생",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    if (player.isPlaying) "일시정지" else "재생",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
+                
+                // 게임 오버레이 효과들
+                GameComboAura(
+                    combo = gameUi.combo, 
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                GameJudgmentToast(
+                    result = judgmentResult, 
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }

@@ -314,24 +314,56 @@ object GameDataManager {
      * 특정 곡의 랭킹 정보 가져오기 (곡 제목 포함)
      */
     suspend fun getRankingInfo(songId: String): Pair<String, List<RankingItem>> {
-        val rankings = getCurrentApiService().getRankings(songId)
-        val song = getSongById(songId)
-        val songTitle = song?.title ?: "알 수 없는 곡"
-        return Pair(songTitle, rankings)
+        android.util.Log.d("GameDataManager", "랭킹 정보 조회 시작: songId=$songId")
+        return try {
+            val rankings = getCurrentApiService().getRankings(songId)
+            android.util.Log.d("GameDataManager", "랭킹 조회 완료: ${rankings.size}개")
+            
+            // 곡 제목 조회를 안전하게 처리
+            val songTitle = try {
+                val song = getSongById(songId)
+                song?.title ?: "알 수 없는 곡"
+            } catch (e: Exception) {
+                android.util.Log.w("GameDataManager", "곡 제목 조회 실패, 기본값 사용", e)
+                "알 수 없는 곡"
+            }
+            android.util.Log.d("GameDataManager", "곡 제목: $songTitle")
+            
+            Pair(songTitle, rankings)
+        } catch (e: Exception) {
+            android.util.Log.e("GameDataManager", "랭킹 정보 조회 실패", e)
+            throw e
+        }
     }
     
     /**
      * 특정 곡의 Top 3 순위 가져오기
      */
     suspend fun getTop3Rankings(songId: String): List<RankingItem> {
-        return getCurrentApiService().getTop3Rankings(songId)
+        android.util.Log.d("GameDataManager", "Top3 랭킹 조회 시작: songId=$songId")
+        return try {
+            val result = getCurrentApiService().getTop3Rankings(songId)
+            android.util.Log.d("GameDataManager", "Top3 랭킹 조회 완료: ${result.size}개")
+            result
+        } catch (e: Exception) {
+            android.util.Log.e("GameDataManager", "Top3 랭킹 조회 실패", e)
+            throw e
+        }
     }
     
     /**
      * 내 순위 가져오기
      */
     suspend fun getMyRanking(songId: String): RankingItem? {
-        return getCurrentApiService().getMyRanking(songId)
+        android.util.Log.d("GameDataManager", "내 랭킹 조회 시작: songId=$songId")
+        return try {
+            val result = getCurrentApiService().getMyRanking(songId)
+            android.util.Log.d("GameDataManager", "내 랭킹 조회 완료: ${result?.rank ?: "null"}")
+            result
+        } catch (e: Exception) {
+            android.util.Log.e("GameDataManager", "내 랭킹 조회 실패", e)
+            throw e
+        }
     }
     
     /**
@@ -350,13 +382,16 @@ object GameDataManager {
      */
     suspend fun completeGame(musicId: Long, score: Int): Result<CompleteResp> = try {
         val request = CompleteReq(musicId = musicId, score = score)
+        android.util.Log.d("GameDataManager", "게임 완료 API 호출: musicId=$musicId, score=$score")
         // AuthInterceptor가 자동으로 토큰을 헤더에 추가
         val api = rhythmApi ?: throw IllegalStateException("RhythmApi가 주입되지 않았습니다. injectServices()를 먼저 호출하세요.")
         val response = api.complete(request)
+        android.util.Log.d("GameDataManager", "게임 완료 API 응답: musicId=${response.musicId}, isBestRecord=${response.isBestRecord}")
         Result.success(response)
     } catch (ce: CancellationException) {
         throw ce
     } catch (t: Throwable) {
+        android.util.Log.e("GameDataManager", "게임 완료 API 호출 실패", t)
         Result.failure(t)
     }
     

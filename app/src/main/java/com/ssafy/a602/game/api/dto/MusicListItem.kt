@@ -12,6 +12,6 @@ data class MusicListItem(
     val title: String,
     val singer: String,
     val songTime: String, // "HH:MM:SS" 형식
-    val albumImageUrl: String,
+    val albumImageUrl: String?, // null 허용
     val myScore: Long? // null 허용
 )

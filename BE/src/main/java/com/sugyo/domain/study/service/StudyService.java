@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +59,7 @@ public class StudyService {
         }
 
         List<DayProgressDto> dayProgresses = userDailyVocabularyRepository.findDayProgressByUserId(userId);
-        
+
         Integer totalDays = Math.toIntExact(dailyRepository.count());
         Integer maxProgressDay =
                 userDailyVocabularyRepository.findMaxProgressDayByUserId(userId);
@@ -77,8 +78,10 @@ public class StudyService {
         Daily daily = dailyRepository.findById(dayId)
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
-        List<StudyWordItemDto> items = dailyVocabularyRepository.findWordItemsByDailyId(dayId);
-
+        List<StudyWordItemDto> items = dailyVocabularyRepository.findByDailyId(dayId)
+                .stream()
+                .map(StudyWordItemDto::from)
+                .toList();
         return StudyDayResponseDto.builder()
                 .day(daily.getDay())
                 .items(items)

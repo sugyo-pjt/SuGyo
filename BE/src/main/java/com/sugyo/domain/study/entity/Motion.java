@@ -6,19 +6,18 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "vocabulary")
+@Table(name = "motion")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Vocabulary {
+public class Motion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String word;
+    @Column
+    private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "motion_id")
-    private Motion motion;
+    @Column
+    private String videoUrl;
 }

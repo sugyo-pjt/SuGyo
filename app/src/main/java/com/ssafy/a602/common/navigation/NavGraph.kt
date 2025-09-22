@@ -14,7 +14,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.ssafy.a602.auth.AuthGuard
 import com.ssafy.a602.chatbot.ChatbotScreen
 import com.ssafy.a602.game.data.GameDataManager
@@ -38,6 +40,8 @@ import com.ssafy.a602.mypage.MyPageScreen
 import com.ssafy.a602.search.SearchScreen
 import com.ssafy.a602.search.WordDetailScreen
 import com.ssafy.a602.signup.SignUpScreen
+import com.ssafy.a602.term.ui.TermDetailScreen
+import com.ssafy.a602.term.ui.TermsScreen
 
 @ExperimentalGetImage
 @Composable
@@ -75,11 +79,17 @@ fun NavGraph(
 
         /* ---------- Signup ---------- */
         composable(Screen.Signup.route) {
+            // ✅ 약관 화면에서 돌아올 때 전달되는 동의 결과 구독
+            val handle = navController.currentBackStackEntry?.savedStateHandle
+            val agreedFlow = handle?.getStateFlow("TERMS_MANDATORY_AGREED", false)
+            val externalAgreed by (agreedFlow ?: MutableStateFlow(false))
+                .collectAsState(initial = false)
+
             SignUpScreen(
                 onBack = { navController.popBackStack() },
                 onPickProfile = { /* TODO */ },
-                onOpenTerms = { /* TODO */ },
-                onOpenPrivacy = { /* TODO */ },
+                onOpenTerms = { navController.navigate(Screen.Terms.route) },
+                onOpenPrivacy = { /* 사용하지 않음 */ },
                 onSignupSuccess = {
                     // 회원가입 완료 → 로그인으로 복귀(스택 정리)
                     navController.navigate(Screen.Login.route) {
@@ -87,7 +97,30 @@ fun NavGraph(
                         launchSingleTop = true
                     }
                 },
-                onLogin = { navController.popBackStack() }
+                onLogin = { navController.popBackStack() },
+                // ✅ 외부 트리거 전달
+                externalTermsAgreed = externalAgreed,
+                onConsumedExternalTermsAgreed = {
+                    handle?.set("TERMS_MANDATORY_AGREED", false)
+                }
+            )
+        }
+
+        /* ---------- Terms ---------- */
+        composable(Screen.Terms.route) {
+            TermsScreen(navController = navController)
+        }
+
+        /* ---------- Term Detail ---------- */
+        composable(
+            route = Screen.TermDetail.route,
+            arguments = listOf(
+                navArgument(Screen.TermDetail.ARG_ID) { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            TermDetailScreen(
+                navController = navController,
+                backStackEntry = backStackEntry
             )
         }
 

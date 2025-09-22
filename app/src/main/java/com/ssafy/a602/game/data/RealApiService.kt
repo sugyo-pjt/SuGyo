@@ -395,6 +395,12 @@ class RealApiService @Inject constructor(
     }
     
     private fun handleGenericException(e: Exception) {
+        // CancellationException은 정상적인 코루틴 취소 예외이므로 별도 처리
+        if (e is kotlinx.coroutines.CancellationException) {
+            Log.d("RealApiService", "코루틴 취소됨 - 정상적인 생명주기 동작")
+            return // 예외를 다시 던지지 않음
+        }
+        
         val message = ApiErrorHandler.handleGenericError(e)
         ApiErrorHandler.logError("RealApiService", "일반 에러 발생", e)
         throw RuntimeException(message, e)

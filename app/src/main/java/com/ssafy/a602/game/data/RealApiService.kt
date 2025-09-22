@@ -16,6 +16,7 @@ import com.ssafy.a602.game.api.dto.RankingResp
 import com.ssafy.a602.game.api.dto.RankingItemDto
 import com.ssafy.a602.game.api.dto.MyRankingInfoDto
 import com.ssafy.a602.game.utils.TimeParsing
+import com.ssafy.a602.game.utils.DateUtils
 import com.ssafy.a602.game.score.GameResultRequest
 import retrofit2.HttpException
 import java.io.IOException
@@ -174,8 +175,8 @@ class RealApiService @Inject constructor(
                     rank = item.rank,
                     nickname = item.userNickName,
                     score = item.score,
-                    playedDate = LocalDate.parse(item.recordDate),
-                    avatarUrl = item.userProfileUrl,
+                    playedDate = DateUtils.parseRecordDateToLocalDate(item.recordDate) ?: LocalDate.now(),
+                    avatarUrl = item.userProfileUrl, // nullable이므로 null 값 허용
                     userId = item.userId.toString(),
                     isMe = false
                 )
@@ -209,7 +210,7 @@ class RealApiService @Inject constructor(
                     rank = item.rank,
                     nickname = item.userNickName,
                     score = item.score,
-                    playedDate = LocalDate.parse(item.recordDate),
+                    playedDate = DateUtils.parseRecordDateToLocalDate(item.recordDate) ?: LocalDate.now(),
                     avatarUrl = item.userProfileUrl,
                     userId = item.userId.toString(),
                     isMe = false
@@ -245,7 +246,7 @@ class RealApiService @Inject constructor(
                     rank = myInfo.rank,
                     nickname = "나", // TODO: 실제 사용자 닉네임으로 교체
                     score = myInfo.score,
-                    playedDate = LocalDate.parse(myInfo.recordDate),
+                    playedDate = DateUtils.parseRecordDateToLocalDate(myInfo.recordDate) ?: LocalDate.now(),
                     avatarUrl = null, // TODO: 실제 사용자 프로필 이미지로 교체
                     userId = null, // TODO: 실제 사용자 ID로 교체
                     isMe = true

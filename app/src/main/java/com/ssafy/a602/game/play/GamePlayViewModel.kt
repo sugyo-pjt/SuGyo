@@ -108,8 +108,10 @@ class GamePlayViewModel : ViewModel() {
                     )
                 },
                 onFailure = { e ->
+                    // API 호출 실패해도 게임 결과 화면으로 넘어가도록 submitted = true로 설정
                     _complete.value.copy(
                         submitting = false,
+                        submitted = true, // 실패해도 결과 화면으로 이동
                         submitError = e.message ?: "전송 실패"
                     )
                 }

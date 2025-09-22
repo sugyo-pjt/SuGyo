@@ -1,5 +1,6 @@
 package com.ssafy.a602.game.ranking
 
+import com.ssafy.a602.game.utils.DateUtils
 import java.time.LocalDate
 
 /**
@@ -19,4 +20,10 @@ data class RankingItem(
      */
     val formattedScore: String
         get() = String.format("%,d", score)
+    
+    /**
+     * 날짜를 UI용 포맷된 문자열로 변환 (예: 2025.09.18)
+     */
+    val formattedDate: String
+        get() = DateUtils.formatLocalDateToUi(playedDate)
 }

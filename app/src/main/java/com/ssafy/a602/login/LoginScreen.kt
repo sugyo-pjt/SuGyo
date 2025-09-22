@@ -29,6 +29,10 @@ import androidx.compose.ui.unit.dp                 // dp 단위
 import androidx.compose.ui.unit.sp                 // sp 단위(폰트 크기)
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import com.ssafy.a602.R
 
 // ────────────────────────────────────────────────────────────────────────────────
 //  💡 아이콘이 에러라면?
@@ -139,6 +143,17 @@ fun LoginScreen(
  * 앱 심볼/로고 자리.
  * - 현재는 이모지로 대체(🤟). 실제 로고 이미지가 있다면 Image(...)로 교체하세요.
  */
+// Applogo넣기위함
+@Composable
+private fun AppLogo() {
+    Image(
+        painter = painterResource(id = R.drawable.suajigyologo),
+        contentDescription = "수어지교 로고",
+        modifier = Modifier.size(150.dp),   // 필요시 크기 조절: height(84.dp) 등
+        contentScale = ContentScale.Fit
+    )
+}
+
 @Composable
 private fun AppIcon() {
     Box(
@@ -324,10 +339,10 @@ private fun LoginForm(
         modifier = Modifier.fillMaxWidth()
     ) {
         // 앱 아이콘 + 타이틀/서브타이틀
-        AppIcon()
-        Spacer(Modifier.height(12.dp))
+        AppLogo()
+//        Spacer(Modifier.height(10.dp))
         Text(
-            "수어배움",
+            "수어지교",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold
         )

@@ -12,11 +12,11 @@
  *  5) 실제 요청 예시(백엔드와 테스트할 때)
  * 브라우저/포스트맨/curl로 바로 확인 가능:
  * # 자동완성
- * curl "http://i13a106.p.ssafy.io:8000/api/words/autocomplete?q=안"
+ * curl "http://j13a602.p.ssafy.io/api/words/autocomplete?q=안"
  * # 검색
- * curl "http://i13a106.p.ssafy.io:8000/api/words/search?q=안녕하세요"
+ * curl "http://j13a602.p.ssafy.io/api/words/search?q=안녕하세요"
  * # 상세
- * curl "http://i13a106.p.ssafy.io:8000/api/words/101"
+ * curl "http://j13a602.p.ssafy.io/api/words/101"
  *
  *
  *자동완성 /api/words/autocomplete?q=안
@@ -133,7 +133,7 @@ private object ApiProvider {
         Retrofit.Builder()
             // ⚠️ http 사용이므로 AndroidManifest.xml에 android:usesCleartextTraffic="true" 필요
             //    가능하면 https 로 바꾸는 것을 추천
-            .baseUrl("http://i13a106.p.ssafy.io:8000/") // ← 끝에 '/' 중요!
+            .baseUrl("http://j13a602.p.ssafy.io/") // ← 끝에 '/' 중요!
             .addConverterFactory(GsonConverterFactory.create()) // moshi 대신 gson
             .build()
             .create(SearchApi::class.java)

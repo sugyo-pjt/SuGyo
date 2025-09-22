@@ -285,8 +285,10 @@ private fun CurrentWordCard(word: String) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.Start
         ) {
             Text(
                 text = word,
@@ -295,7 +297,8 @@ private fun CurrentWordCard(word: String) {
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 30.sp
                 ),
-                textAlign = TextAlign.Center
+                modifier = Modifier.fillMaxWidth(),  // ✅ 폭 채우기
+                textAlign = TextAlign.Start
             )
             Spacer(Modifier.height(6.dp))
             Text(

@@ -28,6 +28,7 @@ import com.ssafy.a602.game.songs.SongsViewModel
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.PermissionManager
+import coil.compose.AsyncImage
 
 @Composable
 fun SongsScreen(
@@ -142,12 +143,22 @@ fun SongCard(
                     .background(Color(0xFFF3F4F6)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Outlined.PlayArrow, 
-                    contentDescription = null,
-                    tint = Color(0xFF9CA3AF),
-                    modifier = Modifier.size(24.dp)
-                )
+                if (!song.albumImageUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = song.albumImageUrl,
+                        contentDescription = "앨범 이미지",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        error = painterResource(id = android.R.drawable.ic_menu_gallery)
+                    )
+                } else {
+                    Icon(
+                        Icons.Outlined.PlayArrow, 
+                        contentDescription = "기본 아이콘",
+                        tint = Color(0xFF9CA3AF),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.width(16.dp))

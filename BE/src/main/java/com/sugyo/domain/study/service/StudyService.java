@@ -4,6 +4,7 @@ import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.domain.study.entity.UserDailyVocabulary;
+import com.sugyo.domain.study.entity.Vocabulary;
 import com.sugyo.domain.study.repository.UserDailyVocabularyRepository;
 import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
@@ -13,11 +14,16 @@ import com.sugyo.domain.study.dto.response.StudyWordItemDto;
 import com.sugyo.domain.study.entity.Daily;
 import com.sugyo.domain.study.repository.DailyRepository;
 import com.sugyo.domain.study.repository.DailyVocabularyRepository;
+import com.sugyo.domain.study.repository.VocabularyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static com.sugyo.common.exception.GlobalErrorCode.RESOURCE_NOT_FOUND;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +33,7 @@ public class StudyService {
     private final UserDailyVocabularyRepository userDailyVocabularyRepository;
     private final DailyRepository dailyRepository;
     private final DailyVocabularyRepository dailyVocabularyRepository;
+    private final VocabularyRepository vocabularyRepository;
 
     public StudyProgressResponseDto getStudyProgress(CustomUserDetails user) {
 
@@ -75,7 +82,7 @@ public class StudyService {
 
     public StudyDayResponseDto getStudyDay(Long dayId) {
         Daily daily = dailyRepository.findById(dayId)
-                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
 
         List<StudyWordItemDto> items = dailyVocabularyRepository.findWordItemsByDailyId(dayId);
 
@@ -83,5 +90,12 @@ public class StudyService {
                 .day(daily.getDay())
                 .items(items)
                 .build();
+    }
+
+    public List<StudyWordItemDto> searchVocabulary(String keyword){
+        List<Vocabulary> vocabularies = vocabularyRepository.findByWordContaining(keyword);
+        return vocabularies.stream()
+                .map(StudyWordItemDto::from)
+                .collect(Collectors.toList());
     }
 }

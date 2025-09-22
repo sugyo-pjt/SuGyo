@@ -4,6 +4,7 @@ import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
+import com.sugyo.domain.study.dto.response.StudyWordItemDto;
 import com.sugyo.domain.study.service.StudyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name = "수어 학습", description = "수어 학습 API")
 @RestController
@@ -249,6 +252,11 @@ public class StudyController {
     public ResponseEntity<StudyDayResponseDto> getStudyDay(@PathVariable Long dayId) {
         StudyDayResponseDto response = studyService.getStudyDay(dayId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/search/{keyword}")
+    public ResponseEntity<List<StudyWordItemDto>> searchVocabulary(@PathVariable String keyword){
+        return ResponseEntity.ok(studyService.searchVocabulary(keyword));
     }
 
 }

@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.Set;
+
 @Getter
 @Builder
 @AllArgsConstructor
@@ -19,15 +21,16 @@ public class StudyWordItemDto {
 
     private String videoUrl;
 
-    // Factory method
-    public static StudyWordItemDto from(DailyVocabulary dv) {
-        var v = dv.getVocabulary();
+    private Set<String> sameMotionWord;
+
+    public static StudyWordItemDto from(Vocabulary v, Set<String> sameMotionWord) {
         var m = v.getMotion();
         return new StudyWordItemDto(
                 v.getId(),
                 v.getWord(),
                 m.getDescription(),
-                m.getVideoUrl()
+                m.getVideoUrl(),
+                sameMotionWord
         );
     }
 }

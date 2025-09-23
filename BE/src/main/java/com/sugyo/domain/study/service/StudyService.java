@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.sugyo.common.exception.GlobalErrorCode.RESOURCE_NOT_FOUND;
@@ -86,7 +87,12 @@ public class StudyService {
 
         List<StudyWordItemDto> items = dailyVocabularyRepository.findByDailyId(dayId)
                 .stream()
-                .map(dv -> StudyWordItemDto.from(dv.getVocabulary()))
+                .map(dv -> {
+                    Vocabulary vocabulary = dv.getVocabulary();
+                    Set<String> wordListByMotion = getWordListByMotion(vocabulary.getMotion().getId());
+                    wordListByMotion.remove(vocabulary.getWord());
+                    return StudyWordItemDto.from(vocabulary, wordListByMotion);
+                })
                 .toList();
         return StudyDayResponseDto.builder()
                 .day(daily.getDay())
@@ -101,9 +107,19 @@ public class StudyService {
                 .collect(Collectors.toList());
     }
 
-    public StudyWordItemDto getWordItem(long wordId){
+    public StudyWordItemDto getWordItem(long wordId) {
         Vocabulary vocabulary = vocabularyRepository.findById(wordId)
-                .orElseThrow(()-> new ApplicationException(RESOURCE_NOT_FOUND));
-        return StudyWordItemDto.from(vocabulary);
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
+        Set<String> wordListByMotion = getWordListByMotion(vocabulary.getMotion().getId());
+        wordListByMotion.remove(vocabulary.getWord());
+        return StudyWordItemDto.from(vocabulary, wordListByMotion);
+    }
+
+    private Set<String> getWordListByMotion(long motionId) {
+        List<Vocabulary> vocabularies = vocabularyRepository.findByMotionId(motionId)
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
+        return vocabularies.stream()
+                .map(Vocabulary::getWord)
+                .collect(Collectors.toSet());
     }
 }

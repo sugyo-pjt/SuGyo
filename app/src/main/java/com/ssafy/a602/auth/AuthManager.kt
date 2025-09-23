@@ -66,10 +66,7 @@ class AuthManager @Inject constructor(
         nickname: String, 
         password: String, 
         selfIntroduction: String? = null,
-        termAgreements: List<TermAgreement> = listOf(
-            TermAgreement(1, true), // 필수 약관
-            TermAgreement(2, true)  // 필수 약관
-        )
+        termAgreements: List<TermAgreement> = emptyList()
     ): AuthResult {
         _authState.value = _authState.value.copy(isLoading = true, error = null)
         

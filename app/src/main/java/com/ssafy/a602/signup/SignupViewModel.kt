@@ -27,7 +27,7 @@ class SignupViewModel @Inject constructor(
     /**
      * 회원가입 처리
      */
-    fun signup(email: String, nickname: String, password: String, selfIntroduction: String? = null) {
+    fun signup(email: String, nickname: String, password: String, selfIntroduction: String? = null, termAgreements: List<com.ssafy.a602.auth.dto.TermAgreement> = emptyList()) {
         if (email.isBlank() || nickname.isBlank() || password.isBlank()) {
             _uiState.value = _uiState.value.copy(
                 error = "모든 필드를 입력해주세요."
@@ -59,7 +59,7 @@ class SignupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            when (val result = authManager.signup(email, nickname, password, selfIntroduction)) {
+            when (val result = authManager.signup(email, nickname, password, selfIntroduction, termAgreements)) {
                 is AuthResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

@@ -114,6 +114,9 @@ fun SignUpScreen(
     onOpenPrivacy: () -> Unit = {},
     onSignupSuccess: () -> Unit = {},
     onLogin: () -> Unit = {},
+    // ✅ 추가: 외부에서 약관 동의 완료 신호를 받기 위한 파라미터
+    externalTermsAgreed: Boolean = false,
+    onConsumedExternalTermsAgreed: () -> Unit = {},
     viewModel: SignupViewModel = hiltViewModel()
 ) {
     // ViewModel 상태 관찰
@@ -136,6 +139,21 @@ fun SignUpScreen(
     var showPw by rememberSaveable { mutableStateOf(false) }
     var showPw2 by rememberSaveable { mutableStateOf(false) }
     var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    
+    // 약관 동의 상태 (실제 약관 ID와 동의 여부)
+    var termAgreements by rememberSaveable { mutableStateOf(listOf<com.ssafy.a602.auth.dto.TermAgreement>()) }
+    
+    // 약관 동의 상태 관리
+    var termsAgreed by rememberSaveable { mutableStateOf(false) } // 기본적으로 미동의 상태
+
+    // ✅ 외부 신호가 true가 되면 자동 체크 + 1회성 소비
+    LaunchedEffect(externalTermsAgreed) {
+        if (externalTermsAgreed) {
+            termsAgreed = true
+            agree = true
+            onConsumedExternalTermsAgreed()
+        }
+    }
 
     val pickPhotoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -152,7 +170,7 @@ fun SignUpScreen(
         pw.any { it.isLetter() } &&
         pw.any { !it.isLetterOrDigit() }
     val pwMatch = pw.isNotEmpty() && pw == pw2
-    val canSubmit = emailOk && nicknameOk && pwOk && pwMatch && agree
+    val canSubmit = emailOk && nicknameOk && pwOk && pwMatch && agree && termsAgreed
 
     Box(
         Modifier
@@ -301,13 +319,34 @@ fun SignUpScreen(
 
             // 약관 문구 (색/배치 고정)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = agree, onCheckedChange = { agree = it }) 
-                Text("이용약관", color = LinkBlue, fontSize = 14.sp,
-                    modifier = Modifier.clickable(onClick = onOpenTerms))
-                Text(" 및 ", fontSize = 14.sp, color = Subtle)
-                Text("개인정보 처리방침", color = LinkBlue, fontSize = 14.sp,
-                    modifier = Modifier.clickable(onClick = onOpenPrivacy))
-                Text("에 동의합니다.", fontSize = 14.sp, color = Subtle)
+                Checkbox(
+                    checked = agree, 
+                    onCheckedChange = { newValue ->
+                        // 약관 동의가 완료된 경우에만 체크 가능, 체크 해제는 항상 가능
+                        if (newValue && !termsAgreed) {
+                            // 약관 동의가 안된 상태에서 체크하려고 하면 약관 페이지로 이동
+                            onOpenTerms()
+                        } else {
+                            agree = newValue
+                        }
+                    },
+                    enabled = true, // 항상 활성화 (클릭 가능)
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = if (termsAgreed) Primary else Color.Gray,
+                        uncheckedColor = if (termsAgreed) Primary else Color.Gray,
+                        disabledCheckedColor = Color.Gray,
+                        disabledUncheckedColor = Color.Gray
+                    )
+                ) 
+                Text(
+                    "이용약관", 
+                    color = LinkBlue, 
+                    fontSize = 14.sp,
+                    modifier = Modifier.clickable { 
+                        onOpenTerms()
+                    }
+                )
+                Text("에 동의합니다.", fontSize = 14.sp, color = if (termsAgreed) Subtle else Color.Gray)
             }
 
             Spacer(Modifier.height(6.dp))
@@ -328,7 +367,18 @@ fun SignUpScreen(
                 onClick = { 
                     // 자기소개는 현재 빈 문자열로 전달 (필요시 UI에서 입력받도록 수정)
                     val selfIntroduction = "안녕하세요! ${nickname.trim()}입니다."
-                    viewModel.signup(email.trim(), nickname.trim(), pw, selfIntroduction)
+                    
+                    // 약관 동의 정보 생성 (현재는 단순히 체크 여부만 전달)
+                    val agreements = if (agree) {
+                        listOf(
+                            com.ssafy.a602.auth.dto.TermAgreement(1, true), // 기본 필수 약관
+                            com.ssafy.a602.auth.dto.TermAgreement(2, true)  // 기본 필수 약관
+                        )
+                    } else {
+                        emptyList()
+                    }
+                    
+                    viewModel.signup(email.trim(), nickname.trim(), pw, selfIntroduction, agreements)
                 }
             )
 
@@ -676,9 +726,6 @@ private fun SignUpScreenWithState(
                 Checkbox(checked = agreeState, onCheckedChange = { agreeState = it }) 
                 Text("이용약관", color = LinkBlue, fontSize = 14.sp,
                     modifier = Modifier.clickable(onClick = onOpenTerms))
-                Text(" 및 ", fontSize = 14.sp, color = Subtle)
-                Text("개인정보 처리방침", color = LinkBlue, fontSize = 14.sp,
-                    modifier = Modifier.clickable(onClick = onOpenPrivacy))
                 Text("에 동의합니다.", fontSize = 14.sp, color = Subtle)
             }
 

@@ -1,10 +1,9 @@
 package com.ssafy.a602.mypage
 
-
-
 /* ────────────────────────────────────────────────────────────────────
    Imports
    ──────────────────────────────────────────────────────────────────── */
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,16 +43,38 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 
+// 🔒 TokenManager(Hilt) 접근용
+import com.ssafy.a602.auth.TokenManager
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+
+// Navigation
+import androidx.navigation.NavController
+import androidx.navigation.NavOptionsBuilder
+
+/* ────────────────────────────────────────────────────────────────────
+   ✅ 라우트 상수 (프로젝트 라우트명에 맞게 변경하세요)
+   ──────────────────────────────────────────────────────────────────── */
+private const val ROUTE_LOGIN = "login"
+
 /* ────────────────────────────────────────────────────────────────────
    🔧 Backend Switch
-   - true  : Fake(더미) 데이터 사용
-   - false : Retrofit으로 실제 서버 호출
    ──────────────────────────────────────────────────────────────────── */
 private const val USE_FAKE_BACKEND = true
 
+/* ────────────────────────────────────────────────────────────────────
+   Hilt EntryPoint: MyPage에서 TokenManager 꺼내 쓰기
+   ──────────────────────────────────────────────────────────────────── */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface MyPageDeps {
+    fun tokenManager(): TokenManager
+}
 
 /* ────────────────────────────────────────────────────────────────────
-   Domain models (UI에서 쓸 데이터)
+   Domain models
    ──────────────────────────────────────────────────────────────────── */
 private data class Profile(
     val name: String,
@@ -71,18 +93,18 @@ private data class MyPageData(
 )
 
 /* ────────────────────────────────────────────────────────────────────
-   DataSource 인터페이스 (가짜/진짜 공통 API)
+   DataSource 공통 인터페이스
    ──────────────────────────────────────────────────────────────────── */
 private interface MyPageDataSource {
     suspend fun load(): MyPageData
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   1) 가짜 백엔드 (더미 데이터)
+   1) Fake 백엔드
    ──────────────────────────────────────────────────────────────────── */
 private class FakeMyPageDataSource : MyPageDataSource {
     override suspend fun load(): MyPageData {
-        delay(600) // 네트워크 흉내
+        delay(600)
         return MyPageData(
             profile = Profile(
                 name = "김수어",
@@ -98,10 +120,9 @@ private class FakeMyPageDataSource : MyPageDataSource {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   2) 진짜 백엔드 (Retrofit)
+   2) 실제 백엔드 (Retrofit)
    ──────────────────────────────────────────────────────────────────── */
 private interface MyPageApi {
-    // 서버 스펙에 맞춰 경로/필드명만 맞추면 됩니다.
     @GET("/api/users/me")
     suspend fun getProfile(): ProfileDto
 
@@ -109,11 +130,9 @@ private interface MyPageApi {
     suspend fun getStats(): StatsDto
 }
 
-// 서버 응답 DTO (서버 JSON 키에 맞춰 이름 조정)
 private data class ProfileDto(val name: String, val email: String, val avatarUrl: String?)
 private data class StatsDto(val dayCompleted: Int, val streakDays: Int)
 
-// Retrofit Provider (baseUrl 끝에 반드시 '/')
 private object ApiProvider {
     private const val BASE_URL = "http://i13a106.p.ssafy.io:8000/"
 
@@ -126,7 +145,6 @@ private object ApiProvider {
     }
 }
 
-// 원격 데이터 소스
 private class RemoteMyPageDataSource : MyPageDataSource {
     private val api = ApiProvider.api
     override suspend fun load(): MyPageData {
@@ -140,7 +158,7 @@ private class RemoteMyPageDataSource : MyPageDataSource {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Repository (UI가 Datasource 구체 타입을 몰라도 되게끔)
+   Repository
    ──────────────────────────────────────────────────────────────────── */
 private class MyPageRepository(private val ds: MyPageDataSource) {
     suspend fun load(): MyPageData = ds.load()
@@ -199,17 +217,43 @@ private class MyPageVmFactory : ViewModelProvider.Factory {
 }
 
 /* ────────────────────────────────────────────────────────────────────
+   🔁 네비게이션 헬퍼
+   ──────────────────────────────────────────────────────────────────── */
+private fun NavController.navigateToLoginClearingBackstack() {
+    // 전체 백스택 비우고 로그인으로
+    this.navigate(ROUTE_LOGIN) {
+        // 그래프 루트까지 모두 제거
+        popUpTo(graph.id) {
+            inclusive = true
+        }
+        launchSingleTop = true
+        restoreState = false
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────────
    UI (Compose)
    ──────────────────────────────────────────────────────────────────── */
 @Composable
 fun MyPageScreen(
-    onLogout: (() -> Unit)? = null,
+    navController: NavController,              // ✅ NavController 받기
     onWithdraw: (() -> Unit)? = null,
 ) {
     val vm: MyPageViewModel = viewModel(factory = MyPageVmFactory())
     val state by vm.state.collectAsState()
 
-    Scaffold { inner ->
+    // 🔑 Hilt EntryPoint로 TokenManager 획득
+    val appContext = LocalContext.current.applicationContext
+    val deps = remember {
+        EntryPointAccessors.fromApplication(appContext, MyPageDeps::class.java)
+    }
+    val tokenManager = remember { deps.tokenManager() }
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) }
+    ) { inner ->
         when {
             state.isLoading -> {
                 Box(Modifier.fillMaxSize().padding(inner)) {
@@ -307,11 +351,19 @@ fun MyPageScreen(
                     SettingsItem(Icons.Outlined.PrivacyTip, "개인정보 보호") { /* TODO */ }
                     SettingsItem(Icons.Outlined.HelpOutline, "도움말") { /* TODO */ }
                     SettingsItem(Icons.Outlined.HeadsetMic, "문의하기") { /* TODO */ }
+
+                    // 🔴 로그아웃: 토큰 삭제 후 로그인 화면으로 네비게이션(백스택 비움)
                     SettingsItem(
                         icon = Icons.Outlined.Logout,
                         label = "로그아웃",
                         labelColor = Color(0xFFEF4444)
-                    ) { onLogout?.invoke() }
+                    ) {
+                        scope.launch {
+                            tokenManager.clearTokens()                     // 1) 토큰 삭제
+                            snackbar.showSnackbar("로그아웃 되었습니다.")
+                            navController.navigateToLoginClearingBackstack() // 2) 로그인으로 전환
+                        }
+                    }
 
                     Spacer(Modifier.height(8.dp))
 
@@ -328,6 +380,9 @@ fun MyPageScreen(
             }
         }
     }
+
+    // (선택) 마이페이지에서 뒤로가기로 앱 이탈 방지 로직을 두고 싶을 때 활용
+    BackHandler(enabled = false) { /* 필요 시 처리 */ }
 }
 
 /* ── 재사용 컴포넌트 ─────────────────────────────────────────────── */

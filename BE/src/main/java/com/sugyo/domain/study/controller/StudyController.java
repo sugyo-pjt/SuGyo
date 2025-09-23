@@ -1,6 +1,7 @@
 package com.sugyo.domain.study.controller;
 
 import com.sugyo.auth.dto.CustomUserDetails;
+import com.sugyo.domain.study.dto.response.SearchKeywordResponse;
 import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
@@ -255,8 +256,13 @@ public class StudyController {
     }
 
     @GetMapping("/search/{keyword}")
-    public ResponseEntity<List<StudyWordItemDto>> searchVocabulary(@PathVariable String keyword){
+    public ResponseEntity<List<SearchKeywordResponse>> searchVocabulary(@PathVariable String keyword){
         return ResponseEntity.ok(studyService.searchVocabulary(keyword));
+    }
+
+    @GetMapping("/word/{wordId}")
+    public ResponseEntity<StudyWordItemDto> getWordItem(@PathVariable long wordId){
+        return ResponseEntity.ok(studyService.getWordItem(wordId));
     }
 
 }

@@ -4,6 +4,7 @@ import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.domain.study.dto.response.DayProgressDto;
+import com.sugyo.domain.study.dto.response.SearchKeywordResponse;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
@@ -93,10 +94,16 @@ public class StudyService {
                 .build();
     }
 
-    public List<StudyWordItemDto> searchVocabulary(String keyword) {
+    public List<SearchKeywordResponse> searchVocabulary(String keyword) {
         List<Vocabulary> vocabularies = vocabularyRepository.findByWordContaining(keyword);
         return vocabularies.stream()
-                .map(StudyWordItemDto::from)
+                .map(SearchKeywordResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    public StudyWordItemDto getWordItem(long wordId){
+        Vocabulary vocabulary = vocabularyRepository.findById(wordId)
+                .orElseThrow(()-> new ApplicationException(RESOURCE_NOT_FOUND));
+        return StudyWordItemDto.from(vocabulary);
     }
 }

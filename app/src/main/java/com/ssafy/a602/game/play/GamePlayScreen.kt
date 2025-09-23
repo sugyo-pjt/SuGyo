@@ -40,6 +40,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.ssafy.a602.game.GameTheme
 import com.ssafy.a602.game.CameraPreview
 import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.play.input.DynamicLandmarkBuffer
@@ -213,17 +214,23 @@ fun GamePlayScreen(
     val timelineViewModel = remember(player) { TimelineViewModel(player) }
     val tick: TimelineTick? by timelineViewModel.ticks.collectAsState()
 
-    // MediaPipe
+    // MediaPipe - 게임 모드에 따라 다른 업로더 사용
     val buffer = remember { DynamicLandmarkBuffer() }
     val resultHandler = remember { LandmarkResultHandler(buffer) }
-    val uploader = remember { 
+    
+    // Easy 모드: HTTP 업로더 (기존 방식)
+    val httpUploader = remember { 
         WordWindowUploader(
             buffer, 
             endpoint = "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play",
             tokenManager = null // TODO: TokenManager 주입 필요
         ) 
     }
-    val mediaPipeCamera = remember { GamePlayCamera(resultHandler, uploader) }
+    
+    // Hard 모드: 웹소켓 업로더 (추후 구현)
+    // val websocketUploader = remember { WebSocketStreamer(...) }
+    
+    val mediaPipeCamera = remember { GamePlayCamera(resultHandler, httpUploader) }
 
     LaunchedEffect(Unit) {
         Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
@@ -250,7 +257,16 @@ fun GamePlayScreen(
     val greenBorder = GameTheme.Colors.GreenBorder
 
     val currentSong by GameDataManager.currentSong.collectAsState()
+    val currentGameMode by GameDataManager.currentGameMode.collectAsState()
     val gameProgressState by GameDataManager.gameProgress.collectAsState()
+    
+    // 현재 모드에 따른 업로더 선택
+    val currentUploader = when (currentGameMode) {
+        GameMode.EASY -> httpUploader
+        GameMode.HARD -> httpUploader // TODO: websocketUploader로 변경
+        null -> httpUploader // 기본값
+        else -> httpUploader // 기본값
+    }
 
     // 곡 선택 및 게임 초기화
     LaunchedEffect(songId) {
@@ -372,7 +388,7 @@ fun GamePlayScreen(
             val actionEndTime = (parseTimeToSeconds(correctInfo.actionEndedAt) * 1000).toLong()
 
             if (currentMs in actionStartTime until (actionStartTime + 100)) {
-                uploader.onWord(
+                currentUploader.onWord(
                     actionStartMs = actionStartTime,
                     actionEndMs = actionEndTime,
                     segment = currentSection.id.toInt(),
@@ -386,7 +402,7 @@ fun GamePlayScreen(
                 buffer.logBufferDetails()
             }
             if (currentMs in actionEndTime until (actionEndTime + 100)) {
-                uploader.onActionEnd()
+                currentUploader.onActionEnd()
                 
                 // 수어 타이밍 종료 시 버퍼 상태 로그
                 Log.d("GamePlayScreen", "수어 타이밍 종료: ${currentSection.text}")
@@ -549,7 +565,8 @@ fun GamePlayScreen(
                         currentTime = songProgress.currentTime,
                         totalDuration = songProgress.totalTime,
                         isPaused = !(tick?.isPlaying ?: false),
-                        onTogglePause = onTogglePause
+                        onTogglePause = onTogglePause,
+                        gameMode = currentGameMode
                     )
                     
                     Spacer(Modifier.height(8.dp))
@@ -562,6 +579,7 @@ fun GamePlayScreen(
                     
                     Spacer(Modifier.height(16.dp))
                     
+
                     // 게임 상태 표시 (점수, 등급, 콤보) - Modern 컴포넌트 사용 (임시 주석 처리)
                     /*
                     GameScoreCard(

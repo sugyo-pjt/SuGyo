@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ssafy.a602.game.songs.SongsViewModel
 import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.PermissionManager
 import coil.compose.AsyncImage
@@ -43,19 +45,33 @@ fun SongsScreen(
     // 권한 요청 후 대기 중인 노래를 저장
     var pendingSong by remember { mutableStateOf<SongItem?>(null) }
     
-    // 노래 클릭 시 권한 확인 후 처리하는 함수
+    // 모드 선택 다이얼로그 상태
+    var showModeDialog by remember { mutableStateOf(false) }
+    var selectedSong by remember { mutableStateOf<SongItem?>(null) }
+    
+    // 노래 클릭 시 모드 선택 다이얼로그 표시
     val handleSongClick: (SongItem) -> Unit = { song ->
-        // GameDataManager에 곡 선택 저장
-        vm.selectSong(song)
-        
-        if (!permissionState.cameraGranted) {
-            // 권한이 없으면 권한 요청하고 대기 중인 노래로 설정
-            pendingSong = song
-            permissionLauncher?.invoke(arrayOf(android.Manifest.permission.CAMERA))
-        } else {
-            // 권한이 있으면 바로 게임 준비 화면으로 이동
-            onSongClick(song)
+        selectedSong = song
+        showModeDialog = true
+    }
+    
+    // 모드 선택 후 처리
+    val handleModeSelection: (GameMode) -> Unit = { mode ->
+        selectedSong?.let { song ->
+            // GameDataManager에 곡과 모드 선택 저장
+            GameDataManager.selectSongAndMode(song, mode)
+            
+            if (!permissionState.cameraGranted) {
+                // 권한이 없으면 권한 요청하고 대기 중인 노래로 설정
+                pendingSong = song
+                permissionLauncher?.invoke(arrayOf(android.Manifest.permission.CAMERA))
+            } else {
+                // 권한이 있으면 바로 게임 준비 화면으로 이동
+                onSongClick(song)
+            }
         }
+        showModeDialog = false
+        selectedSong = null
     }
     
     // 권한이 허용되면 대기 중인 노래로 게임 준비 화면으로 이동
@@ -114,6 +130,18 @@ fun SongsScreen(
                 }
             }
         }
+    }
+    
+    // 모드 선택 다이얼로그
+    if (showModeDialog && selectedSong != null) {
+        GameModeSelectionDialog(
+            song = selectedSong!!,
+            onModeSelected = handleModeSelection,
+            onDismiss = { 
+                showModeDialog = false
+                selectedSong = null
+            }
+        )
     }
 }
 
@@ -196,6 +224,81 @@ fun SongCard(
             }
         }
     }
+}
+
+@Composable
+fun GameModeSelectionDialog(
+    song: SongItem,
+    onModeSelected: (GameMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "게임 모드 선택",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "\"${song.title}\"",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF3B82F6)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "플레이할 게임 모드를 선택해주세요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF6B7280)
+                )
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Easy 모드 버튼
+                Button(
+                    onClick = { onModeSelected(GameMode.EASY) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = GameMode.EASY.displayName,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                
+                // Hard 모드 버튼
+                Button(
+                    onClick = { onModeSelected(GameMode.HARD) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFEF4444)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = GameMode.HARD.displayName,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        },
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 /* ---- Preview ---- */

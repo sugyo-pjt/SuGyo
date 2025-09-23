@@ -345,10 +345,11 @@ fun NavGraph(
         }
 
         /* ---------- MyPage ---------- */
+        /* ---------- MyPage ---------- */
         composable(Screen.MyPage.route) {
-            // 필요하면 여기서 onLogout/onWithdraw 로직을 주입
+            // MyPageScreen 내부에서 token 삭제 + 로그인으로 전환까지 처리
             MyPageScreen(
-                onLogout = { /* TODO: 토큰 삭제, 로그인 화면으로 navigate 등 */ },
+                navController = navController,
                 onWithdraw = { /* TODO: 회원탈퇴 처리 */ }
             )
         }

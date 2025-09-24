@@ -18,10 +18,10 @@ object MediaPipeToRhythmConverter {
                 part = Part.BODY,
                 coordinates = pose.map { lm ->
                     CoordinateDto(
-                        x = lm.x?.toDouble() ?: 0.0,
-                        y = lm.y?.toDouble() ?: 0.0,
-                        z = lm.z?.toDouble() ?: 0.0,
-                        w = lm.w?.toDouble() ?: 0.0
+                        x = lm.x?.toDouble(),
+                        y = lm.y?.toDouble(),
+                        z = lm.z?.toDouble(),
+                        w = lm.w?.toDouble()
                     )
                 }
             ),
@@ -30,10 +30,10 @@ object MediaPipeToRhythmConverter {
                 part = Part.LEFT_HAND,
                 coordinates = left.map { lm ->
                     CoordinateDto(
-                        x = lm.x?.toDouble() ?: 0.0,
-                        y = lm.y?.toDouble() ?: 0.0,
-                        z = lm.z?.toDouble() ?: 0.0,
-                        w = lm.w?.toDouble() ?: 0.0
+                        x = lm.x?.toDouble(),
+                        y = lm.y?.toDouble(),
+                        z = lm.z?.toDouble(),
+                        w = lm.w?.toDouble()
                     )
                 }
             ),
@@ -42,10 +42,10 @@ object MediaPipeToRhythmConverter {
                 part = Part.RIGHT_HAND,
                 coordinates = right.map { lm ->
                     CoordinateDto(
-                        x = lm.x?.toDouble() ?: 0.0,
-                        y = lm.y?.toDouble() ?: 0.0,
-                        z = lm.z?.toDouble() ?: 0.0,
-                        w = lm.w?.toDouble() ?: 0.0
+                        x = lm.x?.toDouble(),
+                        y = lm.y?.toDouble(),
+                        z = lm.z?.toDouble(),
+                        w = lm.w?.toDouble()
                     )
                 }
             )

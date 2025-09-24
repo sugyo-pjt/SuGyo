@@ -19,15 +19,15 @@ enum class PosePart {
 
 @Serializable
 data class Coordinate(
-    val x: Float?, 
-    val y: Float?, 
-    val z: Float?, 
-    val w: Float?
+    val x: Float, 
+    val y: Float, 
+    val z: Float, 
+    val w: Float
 )
 
 @Serializable
 data class PoseBlock(
-    val part: PosePart,
+    val part: String,              // "BODY", "LEFT_HAND", "RIGHT_HAND" (명세에 맞게 String으로 변경)
     val coordinates: List<Coordinate>
 )
 
@@ -37,6 +37,23 @@ data class FrameBlock(
     val poses: List<PoseBlock>     // BODY, LEFT_HAND, RIGHT_HAND
 )
 
+// 통합된 요청 DTO (HTTP 명세에 맞게)
+@Serializable
+data class SimilarityRequest(
+    val type: String,              // "PLAY", "PAUSE", "RESUME"
+    val timestamp: Long,           // 0, 300, 600, 900 ... 노래 처음부터 지난 시점 millisecond
+    val frames: List<FrameBlock>
+)
+
+// 통합된 응답 DTO (HTTP 명세에 맞게)
+@Serializable
+data class SimilarityResponse(
+    val similarity: Float,
+    val timestamp: Long,
+    val musicId: Long
+)
+
+// 기존 웹소켓용 래퍼 (하위 호환성 유지)
 @Serializable
 data class ActionFrames(
     @SerialName("GameActionType") val action: GameActionType,

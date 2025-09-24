@@ -12,11 +12,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class WebSocketStreamer @Inject constructor() {
+class WebSocketStreamer @Inject constructor(
+    private val httpStreamer: HttpStreamer
+) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: WebSocket? = null
     @Volatile private var connected = false
     @Volatile private var paused = false
+    @Volatile private var useHttpMode = true // HTTP 모드로 시작
 
     private val buffer = PingPongBuffer<FrameEntry>(initialCapacity = 10)
     private val windowLocalIndex = AtomicInteger(0)
@@ -38,6 +41,13 @@ class WebSocketStreamer @Inject constructor() {
         playerPositionProvider = playerPositionMs
         this.onJudgmentReceived = onJudgment
         
+        if (useHttpMode) {
+            // HTTP 모드 사용
+            httpStreamer.startStreaming(playerPositionMs, onJudgment)
+            return
+        }
+        
+        // WebSocket 모드 사용
         if (socket != null) return
         
         val request = Request.Builder()
@@ -52,8 +62,21 @@ class WebSocketStreamer @Inject constructor() {
             
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    val result = json.decodeFromString<WebSocketJudgmentResult>(text)
-                    onJudgmentReceived?.invoke(result)
+                    // HTTP 명세에 맞는 응답 형식으로 변경
+                    val result = json.decodeFromString<SimilarityResponse>(text)
+                    // SimilarityResponse를 WebSocketJudgmentResult로 변환
+                    val judgmentResult = WebSocketJudgmentResult(
+                        judgment = "PERFECT", // 서버에서 계산된 유사도에 따라 판정
+                        word = "DANCE", // 임시
+                        timestamp = result.timestamp,
+                        score = (result.similarity * 100).toInt(), // 유사도를 점수로 변환
+                        combo = 1, // 임시
+                        totalScore = null,
+                        maxCombo = null,
+                        accuracy = result.similarity,
+                        grade = null
+                    )
+                    onJudgmentReceived?.invoke(judgmentResult)
                 } catch (e: Exception) {
                     android.util.Log.e("WebSocketStreamer", "판정 결과 파싱 실패: $text", e)
                 }
@@ -75,6 +98,11 @@ class WebSocketStreamer @Inject constructor() {
 
     /** 0.3초마다 PLAY 배치 전송 */
     fun startStreaming() {
+        if (useHttpMode) {
+            // HTTP 모드에서는 httpStreamer가 처리
+            return
+        }
+        
         scope.launch {
             while (isActive) {
                 delay(300L)
@@ -95,12 +123,8 @@ class WebSocketStreamer @Inject constructor() {
 
                 if (list.isNotEmpty()) {
                     val t = playerPositionProvider?.invoke() ?: 0L
-                    val envelope = buildAllFramesEnvelope(
-                        action = GameActionType.PLAY,
-                        timestampMs = t,
-                        entries = list.toList()
-                    )
-                    val payload = json.encodeToString(AllFramesEnvelope.serializer(), envelope)
+                    val request = buildSimilarityRequest("PLAY", t, list.toList())
+                    val payload = json.encodeToString(SimilarityRequest.serializer(), request)
                     socket?.send(payload)
                     list.clear()
                 }
@@ -109,12 +133,16 @@ class WebSocketStreamer @Inject constructor() {
     }
 
     fun stop() {
-        scope.cancel()
-        try { 
-            socket?.close(1000, "bye") 
-        } catch (_: Throwable) {}
-        socket = null
-        connected = false
+        if (useHttpMode) {
+            httpStreamer.stop()
+        } else {
+            scope.cancel()
+            try { 
+                socket?.close(1000, "bye") 
+            } catch (_: Throwable) {}
+            socket = null
+            connected = false
+        }
         buffer.clearAll()
         windowLocalIndex.set(0)
         paused = false
@@ -125,8 +153,12 @@ class WebSocketStreamer @Inject constructor() {
         if (paused) return
         if (pose.size != 23 || left.size != 21 || right.size != 21) return
         
-        val idx = windowLocalIndex.getAndIncrement()
-        buffer.add(FrameEntry(idx, pose, left, right))
+        if (useHttpMode) {
+            httpStreamer.addFrame(pose, left, right)
+        } else {
+            val idx = windowLocalIndex.getAndIncrement()
+            buffer.add(FrameEntry(idx, pose, left, right))
+        }
     }
 
     /** PAUSE/RESUME 액션을 서버로 알림 (frames 비움) */
@@ -134,19 +166,74 @@ class WebSocketStreamer @Inject constructor() {
         paused = pausedNow
         windowLocalIndex.set(0)
         
-        // 액션만 담긴 Envelope
-        val t = playerPositionProvider?.invoke() ?: 0L
-        val action = if (paused) GameActionType.PAUSE else GameActionType.RESUME
-        val envelope = AllFramesEnvelope(
-            allFrames = listOf(
-                ActionFrames(
-                    action = action, 
-                    timestamp = t, 
-                    frames = emptyList()
+        if (useHttpMode) {
+            httpStreamer.sendPauseResume(pausedNow)
+        } else {
+            // HTTP 명세에 맞는 형식으로 변경
+            val t = playerPositionProvider?.invoke() ?: 0L
+            val action = if (paused) "PAUSE" else "RESUME"
+            val request = SimilarityRequest(
+                type = action,
+                timestamp = t,
+                frames = emptyList()
+            )
+            val text = json.encodeToString(SimilarityRequest.serializer(), request)
+            socket?.send(text)
+        }
+    }
+    
+    /** HTTP/WebSocket 모드 전환 */
+    fun setHttpMode(enabled: Boolean) {
+        useHttpMode = enabled
+        android.util.Log.d("WebSocketStreamer", "HTTP 모드: $enabled")
+    }
+    
+    private fun buildSimilarityRequest(type: String, timestamp: Long, frames: List<FrameEntry>): SimilarityRequest {
+        val frameBlocks = frames.mapIndexed { index, frameEntry ->
+            FrameBlock(
+                frame = index + 1,
+                poses = listOf(
+                    PoseBlock(
+                        part = "BODY",
+                        coordinates = frameEntry.pose.map { lm ->
+                            Coordinate(
+                                x = lm.x ?: 0f,
+                                y = lm.y ?: 0f,
+                                z = lm.z ?: 0f,
+                                w = lm.w ?: 0f
+                            )
+                        }
+                    ),
+                    PoseBlock(
+                        part = "LEFT_HAND",
+                        coordinates = frameEntry.left.map { lm ->
+                            Coordinate(
+                                x = lm.x ?: 0f,
+                                y = lm.y ?: 0f,
+                                z = lm.z ?: 0f,
+                                w = lm.w ?: 0f
+                            )
+                        }
+                    ),
+                    PoseBlock(
+                        part = "RIGHT_HAND",
+                        coordinates = frameEntry.right.map { lm ->
+                            Coordinate(
+                                x = lm.x ?: 0f,
+                                y = lm.y ?: 0f,
+                                z = lm.z ?: 0f,
+                                w = lm.w ?: 0f
+                            )
+                        }
+                    )
                 )
             )
+        }
+        
+        return SimilarityRequest(
+            type = type,
+            timestamp = timestamp,
+            frames = frameBlocks
         )
-        val text = json.encodeToString(AllFramesEnvelope.serializer(), envelope)
-        socket?.send(text)
     }
 }

@@ -41,14 +41,14 @@ data class PoseDto(
 )
 
 /**
- * 좌표 정보
+ * 좌표 정보 (수어 인식되지 않을 때 null)
  */
 @Serializable
 data class CoordinateDto(
-    val x: Double,
-    val y: Double,
-    val z: Double,
-    val w: Double
+    val x: Double?,
+    val y: Double?,
+    val z: Double?,
+    val w: Double?
 )
 
 /**

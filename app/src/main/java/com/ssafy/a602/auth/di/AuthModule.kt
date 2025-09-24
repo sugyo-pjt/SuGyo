@@ -5,6 +5,7 @@ import com.ssafy.a602.auth.interceptor.AuthInterceptor
 import com.ssafy.a602.auth.interceptor.TokenAuthenticator
 import com.ssafy.a602.game.api.RetrofitClient
 import com.ssafy.a602.game.api.RhythmApi
+import com.ssafy.a602.game.play.api.RhythmApi as PlayRhythmApi
 import com.ssafy.a602.learning.api.StudyApiService
 import com.ssafy.a602.term.data.remote.TermApi
 import dagger.Module
@@ -61,6 +62,17 @@ object AuthModule {
         val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(RhythmApi::class.java)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePlayRhythmApi(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator
+    ): PlayRhythmApi {
+        val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
+        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
+        return retrofit.create(PlayRhythmApi::class.java)
     }
 
     // === 디버그 전용: StudyApiService는 "강제 토큰 1개만" 붙여 호출 =========

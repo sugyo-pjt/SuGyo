@@ -1,6 +1,8 @@
 package com.ssafy.a602.game.play.api
 
 import com.ssafy.a602.game.play.dto.RhythmSaveRequest
+import com.ssafy.a602.game.play.dto.SimilarityRequest
+import com.ssafy.a602.game.play.dto.SimilarityResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Header
@@ -24,6 +26,19 @@ interface RhythmApi {
         @Body request: RhythmSaveRequest,
         @Header("Authorization") authorization: String
     ): Response<RhythmSaveResponse>
+    
+    /**
+     * 리듬게임 유사도 분석 (HTTP API)
+     * 
+     * @param request 유사도 분석 요청
+     * @param authorization Bearer 토큰
+     * @return 유사도 분석 결과
+     */
+    @POST("api/v1/game/rhythm/similarity")
+    suspend fun getSimilarity(
+        @Body request: SimilarityRequest,
+        @Header("Authorization") authorization: String
+    ): Response<SimilarityResponse>
 }
 
 /**

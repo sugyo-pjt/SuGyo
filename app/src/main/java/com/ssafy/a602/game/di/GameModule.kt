@@ -1,6 +1,7 @@
 package com.ssafy.a602.game.di
 
 import com.ssafy.a602.game.play.net.WebSocketStreamer
+import com.ssafy.a602.game.play.net.HttpStreamer
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,7 +14,7 @@ object GameModule {
     
     @Provides
     @Singleton
-    fun provideWebSocketStreamer(): WebSocketStreamer {
-        return WebSocketStreamer()
+    fun provideWebSocketStreamer(httpStreamer: HttpStreamer): WebSocketStreamer {
+        return WebSocketStreamer(httpStreamer)
     }
 }

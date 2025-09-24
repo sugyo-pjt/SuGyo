@@ -5,7 +5,7 @@ import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.common.repository.ObjectStorageRepository;
 import com.sugyo.domain.game.entity.Chart;
 import com.sugyo.domain.game.entity.Music;
-import com.sugyo.domain.game.entity.RhythmGameRank;
+import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
@@ -23,7 +23,6 @@ import com.sugyo.domain.user.domain.User;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -134,8 +133,8 @@ public class RhythmGameService {
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
         // 상위 5명 랭킹 조회
-        List<RhythmGameRank> topRanks = rankRepository.findTop5ByMusicIdOrderByScoreDesc(musicId);
-        
+        List<GameResult> topRanks = rankRepository.findTop5ByMusicIdOrderByScoreDesc(musicId);
+
         AtomicInteger rank = new AtomicInteger(1);
         List<RankingUserDto> ranking = topRanks.stream()
                 .limit(5)
@@ -151,9 +150,9 @@ public class RhythmGameService {
 
         // 내 정보 조회
         MyRankInfoDto myInfo = null;
-        Optional<RhythmGameRank> myBestScore = rankRepository.findTopByMusicIdAndUserIdOrderByScoreDesc(musicId, userId);
+        Optional<GameResult> myBestScore = rankRepository.findTopByMusicIdAndUserIdOrderByScoreDesc(musicId, userId);
         if (myBestScore.isPresent()) {
-            RhythmGameRank myRank = myBestScore.get();
+            GameResult myRank = myBestScore.get();
             Integer myRankPosition = rankRepository.findRankByMusicIdAndScore(musicId, myRank.getScore());
             myInfo = MyRankInfoDto.builder()
                     .rank(myRankPosition)
@@ -170,51 +169,51 @@ public class RhythmGameService {
                 .build();
     }
 
-    @Transactional
-    public GameResultResponseDto saveGameResult(GameResultRequestDto request, Long userId) {
-        if (userId == null) {
-            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
-        }
-
-        // 음악 존재 확인
-        Music music = musicRepository.findById(request.getMusicId())
-                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
-
-        // 사용자 존재 확인
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
-
-        // 기존 기록 조회
-        Optional<RhythmGameRank> existingRank = rankRepository.findByMusicIdAndUserId(request.getMusicId(), userId);
-
-        boolean isBestRecord = false;
-
-        if (existingRank.isPresent()) {
-            // 기존 기록이 있는 경우 - 최고 점수인지 확인
-            RhythmGameRank currentRank = existingRank.get();
-            if (request.getScore() > currentRank.getScore()) {
-                // 최고 기록 갱신
-                currentRank.setScore(request.getScore());
-                currentRank.setRecordTime(LocalDateTime.now());
-                rankRepository.save(currentRank);
-                isBestRecord = true;
-            }
-        } else {
-            // 기존 기록이 없는 경우 - 새로운 기록 생성
-            RhythmGameRank newRank = RhythmGameRank.builder()
-                    .music(music)
-                    .user(user)
-                    .score(request.getScore())
-                    .build();
-            rankRepository.save(newRank);
-            isBestRecord = true;
-        }
-
-        return GameResultResponseDto.builder()
-                .musicId(request.getMusicId())
-                .isBestRecord(isBestRecord)
-                .build();
-    }
+//    @Transactional
+//    public GameResultResponseDto saveGameResult(GameResultRequestDto request, Long userId) {
+//        if (userId == null) {
+//            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
+//        }
+//
+//        // 음악 존재 확인
+//        Music music = musicRepository.findById(request.getMusicId())
+//                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+//
+//        // 사용자 존재 확인
+//        User user = userRepository.findById(userId)
+//                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+//
+//        // 기존 기록 조회
+//        Optional<GameResult> existingRank = rankRepository.findByMusicIdAndUserId(request.getMusicId(), userId);
+//
+//        boolean isBestRecord = false;
+//
+//        if (existingRank.isPresent()) {
+//            // 기존 기록이 있는 경우 - 최고 점수인지 확인
+//            GameResult currentRank = existingRank.get();
+//            if (request.getScore() > currentRank.getScore()) {
+//                // 최고 기록 갱신
+//                currentRank.setScore(request.getScore());
+//                currentRank.setRecordTime(LocalDateTime.now());
+//                rankRepository.save(currentRank);
+//                isBestRecord = true;
+//            }
+//        } else {
+//            // 기존 기록이 없는 경우 - 새로운 기록 생성
+//            GameResult newRank = GameResult.builder()
+//                    .music(music)
+//                    .user(user)
+//                    .score(request.getScore())
+//                    .build();
+//            rankRepository.save(newRank);
+//            isBestRecord = true;
+//        }
+//
+//        return GameResultResponseDto.builder()
+//                .musicId(request.getMusicId())
+//                .isBestRecord(isBestRecord)
+//                .build();
+//    }
 
     public void processGamePlay(GamePlayRequestDto request, Long userId) {
         if (userId == null) {

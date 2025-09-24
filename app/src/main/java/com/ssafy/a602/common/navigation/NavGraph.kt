@@ -39,7 +39,7 @@ import com.ssafy.a602.learning.Total_RoadMap
 import com.ssafy.a602.login.LoginScreen
 import com.ssafy.a602.mypage.MyPageScreen
 import com.ssafy.a602.search.SearchScreen
-import com.ssafy.a602.search.WordDetailScreen
+import com.ssafy.a602.search.SearchDetailScreen
 import com.ssafy.a602.signup.SignUpScreen
 import com.ssafy.a602.term.ui.TermDetailScreen
 import com.ssafy.a602.term.ui.TermsScreen
@@ -226,7 +226,7 @@ fun NavGraph(
             arguments = listOf(navArgument(Screen.SearchDetail.ARG_ID) { type = NavType.LongType })
         ) { backStackEntry ->
             val wordId = backStackEntry.arguments?.getLong(Screen.SearchDetail.ARG_ID)!!
-            WordDetailScreen(wordId = wordId, onBack = { navController.popBackStack() })
+            SearchDetailScreen(wordId = wordId, onBack = { navController.popBackStack() })
         }
 
         /* ---------- Chat ---------- */

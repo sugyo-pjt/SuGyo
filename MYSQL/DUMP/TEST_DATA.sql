@@ -1,3 +1,6 @@
+DROP DATABASE IF EXISTS sugyo;
+create database sugyo;
+use sugyo;
 CREATE TABLE users
 (
 	id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -112,6 +115,12 @@ CREATE TABLE `rhythm_game_rank` (
 	CONSTRAINT FK_user_TO_rank FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE `frame_coordinates` (
+	`id`	BIGINT	NOT NULL AUTO_INCREMENT PRIMARY KEY,
+	`music_id`	BIGINT	NOT NULL,
+	`time_passed`	BIGINT	NOT NULL,
+	`frame_data`	JSON	NOT NULL
+);
 
 INSERT INTO users (id,email,nickname,password,profile_image_url,created_at,updated_at,self_introduction) VALUES (
     1,

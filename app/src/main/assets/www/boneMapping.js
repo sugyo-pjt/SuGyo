@@ -1,9 +1,9 @@
 // assets/www/boneMapping.js
 import * as THREE from 'three';
 
-/* ======================================================
- * 본매핑 관련 상수 및 설정
- * ==================================================== */
+/* =========================
+ * Mixamo 기본 본 이름 매핑
+ * ========================= */
 export const FINGERS = {
   L: {
     thumb:  ['mixamorigLeftHandThumb1','mixamorigLeftHandThumb2','mixamorigLeftHandThumb3'],
@@ -40,102 +40,122 @@ export const FINGER_TUNING = {
   }
 };
 
-/* ======================================================
- * 본매핑 클래스
- * ==================================================== */
+/* =========================
+ * 내부 상수/임시 객체(재사용)
+ * ========================= */
+const AXIS_V = Object.freeze({
+  x: new THREE.Vector3(1,0,0),
+  y: new THREE.Vector3(0,1,0),
+  z: new THREE.Vector3(0,0,1),
+});
+const _tmp = {
+  q: new THREE.Quaternion(),
+};
+const deg = THREE.MathUtils.degToRad;
+
+/* =========================
+ * BoneMapping
+ *  - 본/REST 쿼터니언 캐시(Map)
+ *  - 본 탐색을 avatar root에서 자동
+ *  - 손가락/엄지 유틸
+ * ========================= */
 export class BoneMapping {
-  constructor() {
-    this.bones = {};      // boneName -> Bone
-    this.restQuat = {};   // boneName -> REST local quaternion
+  constructor(mapping = FINGERS) {
+    this.mapping = mapping;
+    this.bones = new Map();   // name -> THREE.Bone
+    this.rest  = new Map();   // name -> THREE.Quaternion
+    this.skeleton = null;     // 가장 먼저 만난 스켈레톤
   }
 
-  // 스켈레톤에서 본 정보 추출
-  extractBoneInfo(skinned) {
-    if (!skinned || !skinned.skeleton) return;
-    
-    this.bones = {};
-    this.restQuat = {};
-    
-    skinned.skeleton.bones.forEach(bone => {
-      this.bones[bone.name] = bone;
-      this.restQuat[bone.name] = bone.quaternion.clone();
+  /** 아바타 루트에서 본 자동 바인딩 */
+  bindFrom(root) {
+    this.bones.clear();
+    this.rest.clear();
+    this.skeleton = null;
+
+    root.traverse(o => {
+      if (o.isSkinnedMesh && !this.skeleton) this.skeleton = o.skeleton;
+      if (o.isBone) {
+        this.bones.set(o.name, o);
+        this.rest.set(o.name, o.quaternion.clone());
+      }
     });
-    
-    console.log('본 정보 추출 완료:', Object.keys(this.bones).length, '개');
+
+    console.log('[BoneMapping] bound bones:', this.bones.size, 'skeleton:', !!this.skeleton);
+    return this;
   }
 
-  // 손가락 관절 설정
-  setFingerJointRelative(boneName, angleRad, axis = 'x', sign = +1, clamp = [-1.5, 1.5], slerp = 0.35) {
-    const b = this.bones[boneName]; 
-    if (!b) return;
-    
-    const rq = this.restQuat[boneName]; 
-    if (!rq) return;
-    
-    const AXIS_V = {
-      x: new THREE.Vector3(1, 0, 0),
-      y: new THREE.Vector3(0, 1, 0),
-      z: new THREE.Vector3(0, 0, 1),
-    };
-    
-    const a = THREE.MathUtils.clamp(sign * angleRad, clamp[0], clamp[1]);
-    const qDelta  = new THREE.Quaternion().setFromAxisAngle(AXIS_V[axis], a);
-    const qTarget = rq.clone().multiply(qDelta);
-    b.quaternion.slerp(qTarget, slerp);
+  /** 과거 API 호환용 */
+  extractBoneInfo(skinned) {
+    if (!skinned?.skeleton) return;
+    this.bones.clear(); this.rest.clear();
+    skinned.skeleton.bones.forEach(b => {
+      this.bones.set(b.name, b);
+      this.rest.set(b.name, b.quaternion.clone());
+    });
+    this.skeleton = skinned.skeleton;
+    console.log('[BoneMapping] extractBoneInfo:', this.bones.size);
   }
 
-  // 손가락 각도 적용
+  getBone(name){ return this.bones.get(name); }
+  getRest(name){ return this.rest.get(name); }
+
+  /** 특정 본을 REST 기준으로 상대 회전 */
+  setFingerJointRelative(boneName, angleRad, axis='x', sign=+1, clamp=[-1.5,1.5], slerp=0.35) {
+    const b  = this.getBone(boneName);
+    const rq = this.getRest(boneName);
+    if (!b || !rq) return false;
+    const a  = THREE.MathUtils.clamp(sign * angleRad, clamp[0], clamp[1]);
+    const ax = AXIS_V[axis]; if (!ax) return false;
+
+    _tmp.q.setFromAxisAngle(ax, a);
+    const target = rq.clone().multiply(_tmp.q);
+
+    if (slerp >= 1) b.quaternion.copy(target);
+    else b.quaternion.slerp(target, slerp);
+    return true;
+  }
+
   applyFingerAngles(side, finger, a1, a2, a3) {
-    const cfg = FINGER_TUNING[side][finger];
-    const names = FINGERS[side][finger];
+    const cfg   = FINGER_TUNING[side][finger];
+    const names = this.mapping[side][finger];
     this.setFingerJointRelative(names[0], a1, cfg.axis, cfg.sign, cfg.clamp);
     this.setFingerJointRelative(names[1], a2, cfg.axis, cfg.sign, cfg.clamp);
     this.setFingerJointRelative(names[2], a3, cfg.axis, cfg.sign, cfg.clamp);
   }
 
-  // 엄지 첫 번째 관절 설정 (특별한 처리)
   setThumb1Across(
     side,
-    flexRad = THREE.MathUtils.degToRad(45),
-    acrossRad = THREE.MathUtils.degToRad(58),
-    flexAxis = 'z',
-    abductAxis = 'y',
-    slerp = 0.35
+    flexRad = deg(45),
+    acrossRad = deg(58),
+    flexAxis='z',
+    abductAxis='y',
+    slerp=0.35
   ) {
-    const name = FINGERS[side].thumb[0];
-    const b = this.bones[name], rq = this.restQuat[name];
-    if (!b || !rq) return;
-
-    const AXIS_V = {
-      x: new THREE.Vector3(1, 0, 0),
-      y: new THREE.Vector3(0, 1, 0),
-      z: new THREE.Vector3(0, 0, 1),
-    };
+    const name = this.mapping[side].thumb[0];
+    const b  = this.getBone(name);
+    const rq = this.getRest(name);
+    if (!b || !rq) return false;
 
     const flexSign   = (side === 'R') ? +1 : -1;
     const abductSign = (side === 'R') ? -1 : +1;
 
-    const qAbd   = new THREE.Quaternion().setFromAxisAngle(AXIS_V[abductAxis], abductSign * acrossRad);
-    const qFlex  = new THREE.Quaternion().setFromAxisAngle(AXIS_V[flexAxis],  flexSign   * flexRad);
-    const qTarget = rq.clone().multiply(qAbd).multiply(qFlex);
-    b.quaternion.slerp(qTarget, slerp);
+    const qAbd  = new THREE.Quaternion().setFromAxisAngle(AXIS_V[abductAxis], abductSign * acrossRad);
+    const qFlex = new THREE.Quaternion().setFromAxisAngle(AXIS_V[flexAxis],  flexSign   * flexRad);
+    const target = rq.clone().multiply(qAbd).multiply(qFlex);
+
+    if (slerp >= 1) b.quaternion.copy(target);
+    else b.quaternion.slerp(target, slerp);
+    return true;
   }
 
-  // 포즈 리셋
   resetPose() {
-    Object.keys(this.bones).forEach(n => { 
-      const b = this.bones[n], rq = this.restQuat[n]; 
-      if (b && rq) b.quaternion.copy(rq); 
+    this.bones.forEach((b, name) => {
+      const rq = this.rest.get(name);
+      if (rq) b.quaternion.copy(rq);
     });
   }
 
-  // 설정 가져오기
-  getConfig() { 
-    return JSON.parse(JSON.stringify(FINGER_TUNING)); 
-  }
-
-  // 설정 업데이트
-  setConfig(side, finger, patch) { 
-    Object.assign(FINGER_TUNING[side][finger], patch); 
-  }
+  getConfig(){ return JSON.parse(JSON.stringify(FINGER_TUNING)); }
+  setConfig(side, finger, patch){ Object.assign(FINGER_TUNING[side][finger], patch); }
 }

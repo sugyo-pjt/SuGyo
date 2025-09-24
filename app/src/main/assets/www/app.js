@@ -70,7 +70,7 @@ function applySizeAndCamera() {
   
   // 아바타가 있으면 카메라 피팅
   if (avatar) {
-    fitCameraToAvatar();
+    frameAvatarFullBody(); // 전신 프레이밍으로 통일
   }
 }
 
@@ -108,6 +108,28 @@ controls.enablePan = true;
 controls.panSpeed = 0.5;
 controls.rotateSpeed = 0.5;
 controls.zoomSpeed = 0.8;
+
+// ↙︎ 여기에 추가
+function syncCamRigFromCamera() {
+  if (!controls) return;
+
+  const target      = controls.target.clone();
+  const camNoOffset = camera.position.clone().sub(camRig.offset); // ★ 오프셋 제거
+  const toTarget    = target.clone().sub(camNoOffset);
+  const dist        = toTarget.length();
+  if (dist === 0) return;
+
+  const d = toTarget.normalize();
+  camRig.target.copy(target);
+  camRig.dist  = dist;
+  camRig.yaw   = THREE.MathUtils.radToDeg(Math.atan2(d.x, d.z));
+  camRig.pitch = THREE.MathUtils.radToDeg(Math.asin(d.y));
+
+  // ★ 사용자가 컨트롤을 움직여도 X+100 오프셋을 유지
+  placeCameraFromRig({ updateControls: false });
+}
+controls.addEventListener('change', syncCamRigFromCamera);
+
 
 // Lights - 조명 강화 및 위치 설정
 scene.add(new THREE.AmbientLight(0xffffff, 0.8)); // 환경광 강화
@@ -174,15 +196,201 @@ function fitCameraToObject(camera, object, offset, controls) {
   return cameraZ;
 }
 
+// === 전신 프레이밍(가로/세로 둘 다 꽉 차게) ===
+// === 아바타 기준 카메라 리그(orbit/dolly/target/snap) ===
+const camRig = {
+  target: new THREE.Vector3(),
+  dist: 2,
+  yaw: 0,
+  pitch: -5,
+  offset: new THREE.Vector3(100, 100, 0), // ★ X축 +100 오프셋 (월드 기준)
+};
+
+// 아바타의 바운딩 박스 기반 타겟 지점 계산 (Y 바이어스로 원하는 높이 조정)
+function getAvatarTarget(targetBiasY = 0.55) {
+  const box = new THREE.Box3().setFromObject(avatar);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  return new THREE.Vector3(center.x, box.min.y + size.y * targetBiasY, center.z);
+}
+
+// camRig 상태대로 실제 카메라 배치
+function placeCameraFromRig({ updateControls = true } = {}) {
+  const dir = new THREE.Vector3(0, 0, 1)
+    .applyAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(camRig.pitch))
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(camRig.yaw))
+    .normalize();
+
+  camera.position.copy(camRig.target).addScaledVector(dir, -camRig.dist).add(camRig.offset);
+  camera.lookAt(camRig.target);
+
+  camera.near = Math.max(0.01, camRig.dist * 0.01);
+  camera.far  = Math.max(100,  camRig.dist * 50);
+  camera.updateProjectionMatrix();
+
+  if (updateControls && controls) {
+    controls.target.copy(camRig.target);
+    controls.minDistance = camRig.dist * 0.35;
+    controls.maxDistance = camRig.dist * 6.0;
+    controls.update();
+  }
+}
+
+// 전신 프레이밍하면서 camRig 갱신(초기화에도 사용)
+function frameAndStoreFullBody({
+  margin = 1.12,
+  headroom = 0.08,
+  targetBiasY = 0.55,
+  yawDeg = 0,
+  pitchDeg = -5,
+  minFar = 100,
+} = {}) {
+  if (!avatar) return;
+
+  const box  = new THREE.Box3().setFromObject(avatar);
+  const size = box.getSize(new THREE.Vector3());
+  const vFov = THREE.MathUtils.degToRad(camera.fov);
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+
+  const halfH = (size.y * (1 + headroom)) * 0.5;
+  const halfW = (size.x * 1.05) * 0.5;
+
+  const distV = halfH / Math.tan(vFov / 2);
+  const distH = halfW / Math.tan(hFov / 2);
+  const dist  = Math.max(distV, distH) * margin;
+
+  camRig.target.copy(getAvatarTarget(targetBiasY));
+  camRig.dist  = dist;
+  camRig.yaw   = yawDeg;
+  camRig.pitch = pitchDeg;
+
+  placeCameraFromRig();
+  hasInitialFit = true;
+  return dist;
+}
+
+// 전역 헬퍼(콘솔/버튼에서 바로 조작)
+window.cam = {
+  // 전신 프레임 후 camRig 저장(초기화용)
+  frame(opts) { return frameAndStoreFullBody(opts); },
+
+  // 타깃 높이만 바꾸고 재배치
+  setTargetBiasY(v = 0.55) { camRig.target.copy(getAvatarTarget(v)); placeCameraFromRig(); },
+
+  // 각도 설정(절대/증가치): add=true면 누적, false면 절대값
+  orbit({ yaw = 0, pitch = 0, add = true } = {}) {
+    if (add) { camRig.yaw += yaw; camRig.pitch += pitch; }
+    else { camRig.yaw = yaw; camRig.pitch = pitch; }
+    placeCameraFromRig();
+  },
+
+  // 거리 직접 설정 or 배율로 돌리(줌)
+  setDist(d) { camRig.dist = Math.max(0.05, d); placeCameraFromRig(); },
+  dolly(k = 1.1) { camRig.dist = Math.max(0.05, camRig.dist * k); placeCameraFromRig(); },
+
+  // 부드러운 스윕(간단 rAF 트윈)
+  sweep({ yawBy = 360, pitchBy = 0, seconds = 3, easing = t => t } = {}) {
+    const y0 = camRig.yaw, p0 = camRig.pitch;
+    const y1 = y0 + yawBy, p1 = p0 + pitchBy;
+    const t0 = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / (seconds * 1000));
+      const s = easing(t);
+      camRig.yaw   = y0 + (y1 - y0) * s;
+      camRig.pitch = p0 + (p1 - p0) * s;
+      placeCameraFromRig();
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  },
+
+  // 스냅샷 찍기 (AndroidBridge 지원 시 브릿지로 전달)
+  snap(name = 'shot.png') {
+    try {
+      const url = renderer.domElement.toDataURL('image/png');
+      if (window.AndroidBridge?.onSnapshot) {
+        AndroidBridge.onSnapshot(url, name);
+      } else {
+        const a = document.createElement('a');
+        a.href = url; a.download = name; a.click();
+      }
+    } catch (e) { console.error('snap failed', e); }
+  },
+};
+
+
+//function frameAvatarFullBody({
+//  margin = 1.12,
+//  headroom = 0.08,
+//  yawDeg = 0,
+//  pitchDeg = -5,
+//  targetBiasY = 0.55,
+//  minFar = 100,
+//} = {}) {
+//  if (!avatar) return;
+//
+//  // 바운딩 박스
+//  const box    = new THREE.Box3().setFromObject(avatar);
+//  const size   = box.getSize(new THREE.Vector3());
+//  const center = box.getCenter(new THREE.Vector3());
+//  const target = new THREE.Vector3(center.x, box.min.y + size.y * targetBiasY, center.z);
+//
+//  // 종횡비 고려 거리
+//  const vFov = THREE.MathUtils.degToRad(camera.fov);
+//  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+//
+//  const halfH = (size.y * (1 + headroom)) * 0.5;
+//  const halfW = (size.x * 1.05) * 0.5;
+//
+//  const distV = halfH / Math.tan(vFov / 2);
+//  const distH = halfW / Math.tan(hFov / 2);
+//  const dist  = Math.max(distV, distH) * margin;
+//
+//  // 카메라 방향 (yaw/pitch)
+//  const dir = new THREE.Vector3(0, 0, 1)
+//    .applyAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(pitchDeg))
+//    .applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(yawDeg))
+//    .normalize();
+//
+//  camera.position.copy(target).addScaledVector(dir, -dist);
+//  camera.lookAt(target);
+//
+//  camera.near = Math.max(0.01, dist * 0.01);
+//  camera.far  = Math.max(minFar, dist * 50);
+//  camera.updateProjectionMatrix();
+//
+//  if (controls) {
+//    controls.target.copy(target);
+//    controls.minDistance = dist * 0.35;
+//    controls.maxDistance = dist * 6.0;
+//    controls.update();
+//  }
+//
+//  hasInitialFit = true;
+//  return dist;
+//}
+
+// 기존 frameAvatarFullBody 본문을 지우고 아래 한 줄로 교체
+function frameAvatarFullBody(opts = {}) {
+  return frameAndStoreFullBody(opts);
+}
+
+
+// 디버그용 글로벌 헬퍼
+window.frameFull = (opts) => frameAvatarFullBody(opts);
+
+
 let hasInitialFit = false;
 let fitDebounce   = null;
 
 function refitUpperBody(offset = 1.2) {
   if (!avatar) return;
-  console.log('refitUpperBody 호출 - 새로운 fitCameraToObject 사용');
-  const dist = fitCameraToObject(camera, avatar, offset, controls);
-  hasInitialFit = true;
-  return dist;
+//  console.log('refitUpperBody 호출 - 새로운 fitCameraToObject 사용');
+//  const dist = fitCameraToObject(camera, avatar, offset, controls);
+//  hasInitialFit = true;
+//  return dist;
+    console.log('refitUpperBody 호출 - frameAvatarFullBody 사용');
+    return frameAvatarFullBody({ margin: 1.12 });
 }
 
 /* ======================================================
@@ -224,7 +432,11 @@ window.debug = {
     },
     open(side = 'R') {
       ['thumb','index','middle','ring','pinky'].forEach(f => window.debug.finger(side, f, 0, 0, 0));
-      const w = FINGERS[side].wrist; if (w) boneMapping.bones[w]?.quaternion.copy(boneMapping.restQuat[w]);
+//      const w = FINGERS[side].wrist; if (w) boneMapping.bones[w]?.quaternion.copy(boneMapping.restQuat[w]);
+      const w = FINGERS[side].wrist;
+      const bw = boneMapping.getBone(w);
+      const rq = boneMapping.getRest(w);
+      if (bw && rq) bw.quaternion.copy(rq);
     }
   },
   bend(boneName, degVal, axis = 'x', sign = +1) { boneMapping.setFingerJointRelative(boneName, deg(degVal), axis, sign); },
@@ -250,6 +462,7 @@ document.getElementById('fistR')  ?.addEventListener('click', () => window.debug
 
 let playing     = true;
 let playbackFps = 30;
+let lastAdvance = performance.now();
 
 // retargetHand 함수는 이제 retargeting 클래스의 메서드로 대체됨
 
@@ -264,7 +477,7 @@ window.playQueue = [];
 window.updateHandFrame = (frame) => {
   if (frame) {
     window.playQueue = [frame];
-    if ($qsz) $qsz.textContent = String(window.playQueue.length);
+    if ($qsz)  $qsz.textContent  = String((window.playQueue?.length) || 0);
   }
 };
 if (window.AndroidBridge?.onReady) { try { AndroidBridge.onReady(); } catch(e){} }
@@ -295,8 +508,8 @@ window.AndroidBridge = {
       
       // 아바타가 로드되었다면 카메라 피팅도 다시 실행
       if (avatar) {
-        console.log('아바타 재피팅 실행');
-        fitCameraToAvatar();
+        console.log('아바타 전신 프레이밍 재실행');
+        frameAndStoreFullBody({ margin: 1.15, headroom: 0.10, pitchDeg: -8 });
       }
     }, 100);
   },
@@ -428,8 +641,10 @@ loader.load('avatar.glb', (gltf) => {
   
   // 본 정보 추출
   if (skinned) {
-    boneMapping.extractBoneInfo(skinned);
+    boneMapping.extractBoneInfo(skinned); // 기존 호환
   }
+  // ✅ 루트 기준 전체 본을 캐싱(복수 skinnedMesh도 대응)
+  boneMapping.bindFrom(avatar);
   
   // 테스트용 큐브 추가 (아바타가 보이지 않는 경우 확인용)
   const testCube = new THREE.Mesh(
@@ -448,7 +663,7 @@ loader.load('avatar.glb', (gltf) => {
   // 아바타 로드 후 사이즈 확정 → 피팅 순서 보장
   requestAnimationFrame(() => {
     applySizeAndCamera(); // 사이즈 먼저
-    requestAnimationFrame(fitCameraToAvatar); // 그 다음 피팅
+    requestAnimationFrame(() => frameAvatarFullBody({ margin: 1.15, headroom: 0.10, pitchDeg: -8 }));
   });
 
   // 앱 환경에서 안정적인 피팅을 위한 강화된 대기 로직
@@ -483,8 +698,9 @@ loader.load('avatar.glb', (gltf) => {
       // 렌더러 크기 조정
       if (resizeRendererToDisplaySize(renderer, camera)) {
         // 새로운 fitCameraToObject 함수 사용
-        const dist = fitCameraToObject(camera, avatar, 1.2, controls);
-        hasInitialFit = true;
+//        const dist = fitCameraToObject(camera, avatar, 1.2, controls);
+//        hasInitialFit = true;
+          const dist = frameAvatarFullBody({ margin: 1.15, headroom: 0.10, pitchDeg: -8 });
 
         const $loading = document.getElementById('loading');
         if ($loading) $loading.style.display = 'none';
@@ -622,6 +838,7 @@ function resizeRendererToDisplaySize(renderer, camera) {
 function onResize() {
   resizeRendererToDisplaySize(renderer, camera);
   controls.update();
+  if (avatar && hasInitialFit) placeCameraFromRig();
 }
 window.addEventListener('resize', onResize);
 
@@ -637,7 +854,7 @@ ro.observe(container);
 window.addEventListener('orientationchange', () => {
   setTimeout(() => { 
     resizeRendererToDisplaySize(renderer, camera); 
-    if (avatar) fitCameraToObject(camera, avatar, 1.2, controls);
+    if (avatar) placeCameraFromRig();
   }, 220);
 });
 let lastDPR = window.devicePixelRatio;
@@ -646,7 +863,7 @@ setInterval(() => {
     lastDPR = window.devicePixelRatio;
     renderer.setPixelRatio(lastDPR || 1);
     resizeRendererToDisplaySize(renderer, camera);
-    if (avatar && hasInitialFit) fitCameraToObject(camera, avatar, 1.2, controls);
+    if (avatar && hasInitialFit) placeCameraFromRig();
   }
 }, 900);
 
@@ -769,5 +986,5 @@ render();
  * 11) UI 초기값 표기
  * ==================================================== */
 if ($mode) $mode.textContent = 'EMBEDDED';
-if ($qsz)  $qsz.textContent  = String(playQueue.length);
+if ($qsz) $qsz.textContent = String((window.playQueue?.length) || 0);
 if ($fps)  $fps.textContent  = String(playbackFps);

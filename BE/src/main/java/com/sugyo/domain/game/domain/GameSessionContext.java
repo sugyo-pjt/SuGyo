@@ -2,6 +2,7 @@ package com.sugyo.domain.game.domain;
 
 import lombok.Getter;
 import lombok.ToString;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,6 +16,7 @@ public class GameSessionContext {
     private final String userId;
     private final Long musicId;
     private final String webSocketSessionId;
+    private final WebSocketSession webSocketSession;
 
     private final AtomicInteger score;      // 누적 점수
     private final AtomicInteger combo;      // 현재 콤보
@@ -24,12 +26,14 @@ public class GameSessionContext {
 
     private volatile GameState gameState;   // 게임 상태 (volatile로 가시성 보장)
     private volatile Instant lastActivityTime; // 마지막 활동 시간 (타임아웃 처리용)
+    private final double lastNoteTimestamp; // 노래의 마지막 노트 시작 시간
 
 
-    public GameSessionContext(String userId, Long songId, String webSocketSessionId){
+    public GameSessionContext(String userId, Long songId, WebSocketSession session, double lastNoteTimestamp) {
         this.userId = userId;
         this.musicId = songId;
-        this.webSocketSessionId = webSocketSessionId;
+        this.webSocketSessionId = session.getId();
+        this.webSocketSession = session;
 
         this.score = new AtomicInteger(0);
         this.combo = new AtomicInteger(0);
@@ -39,17 +43,18 @@ public class GameSessionContext {
 
         this.gameState = PLAYING;
         this.lastActivityTime = Instant.now();
+        this.lastNoteTimestamp = lastNoteTimestamp;
     }
 
-    public boolean isPlaying(){
+    public boolean isPlaying() {
         return this.gameState == PLAYING;
     }
 
-    public void applyJudgment(int points, Judgment judgment){
+    public void applyJudgment(int points, Judgment judgment) {
         this.score.addAndGet(points);
         recordActivity();
 
-        switch (judgment){
+        switch (judgment) {
             case PERFECT -> {
                 this.combo.incrementAndGet();
                 this.perfectCount.incrementAndGet();
@@ -65,12 +70,12 @@ public class GameSessionContext {
         }
     }
 
-    public void changeState(GameState newState){
+    public void changeState(GameState newState) {
         this.gameState = newState;
         recordActivity();
     }
 
-    private void recordActivity(){
+    private void recordActivity() {
         this.lastActivityTime = Instant.now();
     }
 }

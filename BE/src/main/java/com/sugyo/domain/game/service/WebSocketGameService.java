@@ -7,8 +7,10 @@ import com.sugyo.domain.game.dto.MotionFrame;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.dto.response.GameActionResponse;
 import com.sugyo.domain.game.dto.response.GameStateResponse;
+import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.entity.Music;
+import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.game.repository.GameResultRepository;
 import com.sugyo.domain.game.repository.MusicRepository;
 import com.sugyo.domain.user.domain.User;
@@ -38,10 +40,10 @@ import static com.sugyo.domain.game.domain.Judgment.PERFECT;
 public class WebSocketGameService {
 
     private final ObjectMapper objectMapper;
-    private final NoteDataService noteDataService;
     private final GameResultRepository gameResultRepository;
     private final UserRepository userRepository;
     private final MusicRepository musicRepository;
+    private final FrameCoordinatesRepository frameCoordinatesRepository;
 
     private static final double SIMILARITY_THRESHOLD = 0.6;
     private static final double PERFECT_RATIO_THRESHOLD = 0.9;
@@ -53,13 +55,20 @@ public class WebSocketGameService {
             return;
         }
 
-        List<MotionFrame> referenceFrames = noteDataService.getReferenceFrames(context.getMusicId(), request.timestamp());
+        Optional<FrameCoordinates> frameCoordinatesOpt = frameCoordinatesRepository
+                .findByMusicIdAndTimePassed(context.getMusicId(), request.timestamp());
 
-        long similarFrameCount = request.frames().stream()
-                .filter(userFrame -> isFrameSimilar(userFrame, referenceFrames))
-                .count();
+        if (frameCoordinatesOpt.isEmpty()) {
+            log.warn("해당 타임스탬프에 대한 프레임 좌표를 찾을 수 없습니다. musicId: {}, timePassed: {}",
+                    context.getMusicId(), request.timestamp());
+            return;
+        }
 
-        double similarRatio = (double) similarFrameCount / request.frames().size();
+        FrameCoordinates frameCoordinates = frameCoordinatesOpt.get();
+        List<MotionFrame> referenceFrames = frameCoordinates.getFrameData();
+
+
+        double similarRatio = isFrameSimilar(request.frames(),referenceFrames);
         Judgment judgment = judgeByRatio(similarRatio);
 
         int points = calculatePoints(judgment, context.getCombo().get());
@@ -118,9 +127,10 @@ public class WebSocketGameService {
 
     }
 
-    private boolean isFrameSimilar(MotionFrame userFrame, List<MotionFrame> referenceFrame) {
-        double similarity = calculate(userFrame.getPoses(), referenceFrame.getPoses());
-        return SIMILARITY_THRESHOLD <= similarity;
+    private Double isFrameSimilar(List<MotionFrame> userFrame, List<MotionFrame> referenceFrame) {
+        return JsonSimilarityComparator.calculateMotionSimilarity(
+                userFrame, referenceFrame, 640, 480);
+
     }
 
     private Judgment judgeByRatio(double ratio) {

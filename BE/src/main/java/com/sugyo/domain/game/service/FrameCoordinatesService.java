@@ -40,7 +40,7 @@ public class FrameCoordinatesService {
         for (GameActionRequest gameAction : requestDto.getAllFrames()) {
             FrameCoordinates frameCoordinates = FrameCoordinates.builder()
                     .music(music)
-                    .timePassed(gameAction.timestamp().longValue())
+                    .timePassed(gameAction.timestamp())
                     .frameData(gameAction.frames())
                     .build();
 
@@ -51,7 +51,7 @@ public class FrameCoordinatesService {
     }
 
     public double calculateSimilarity(GameActionRequest request) {
-        Long timePassed = request.timestamp().longValue();
+        double timePassed = request.timestamp();
 
         Optional<FrameCoordinates> frameCoordinatesOpt = frameCoordinatesRepository
                 .findByMusicIdAndTimePassed(MUSIC_ID, timePassed);

@@ -21,7 +21,7 @@ public class FrameCoordinates {
     private Long id;
 
     @Column(nullable = false)
-    private Long timePassed;
+    private Double timePassed;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "frame_data", nullable = false, columnDefinition = "json")

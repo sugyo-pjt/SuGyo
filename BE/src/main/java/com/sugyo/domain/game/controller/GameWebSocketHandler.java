@@ -6,8 +6,11 @@ import com.sugyo.domain.game.domain.GameActionType;
 import com.sugyo.domain.game.domain.GameSessionContext;
 import com.sugyo.domain.game.domain.PlayValidationGroup;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
+import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.exception.WebSocketErrorCode;
 import com.sugyo.domain.game.exception.WebSocketException;
+import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
+import com.sugyo.domain.game.service.FrameCoordinatesService;
 import com.sugyo.domain.game.service.WebSocketGameService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -21,6 +24,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,7 +43,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final WebSocketGameService gameService;
-    private final NoteDataService noteDataService;
+    private final FrameCoordinatesRepository frameCoordinatesRepository;
 
     private final Map<WebSocketSession, GameSessionContext> sessions = new ConcurrentHashMap<>();
 
@@ -49,7 +53,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Long musicId = extractMusicIdFromUri(session.getUri());
             String userId = extractUserIdFromSession(session);
 
-            double lastNoteTimestamp = noteDataService.getLastNoteTimestamp(musicId);
+            FrameCoordinates frameCoordinates = frameCoordinatesRepository.findTop1ByMusicIdOrderByTimePassedDesc(musicId)
+                    .orElseThrow(() -> new WebSocketException(INVALID_MUSIC_ID));
+
+            double lastNoteTimestamp=frameCoordinates.getTimePassed();
 
             GameSessionContext context = new GameSessionContext(userId, musicId, session, lastNoteTimestamp);
             sessions.put(session, context);

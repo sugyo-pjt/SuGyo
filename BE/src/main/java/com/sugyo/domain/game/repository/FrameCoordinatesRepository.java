@@ -12,5 +12,7 @@ import java.util.Optional;
 public interface FrameCoordinatesRepository extends JpaRepository<FrameCoordinates, Long> {
 
     @Query("SELECT fc FROM FrameCoordinates fc WHERE fc.music.id = :musicId AND fc.timePassed = :timePassed")
-    Optional<FrameCoordinates> findByMusicIdAndTimePassed(@Param("musicId") Long musicId, @Param("timePassed") Long timePassed);
+    Optional<FrameCoordinates> findByMusicIdAndTimePassed(@Param("musicId") Long musicId, @Param("timePassed") Double timePassed);
+
+    Optional<FrameCoordinates> findTop1ByMusicIdOrderByTimePassedDesc(Long musicId);
 }

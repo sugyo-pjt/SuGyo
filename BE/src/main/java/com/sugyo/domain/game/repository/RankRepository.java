@@ -12,15 +12,15 @@ import java.util.Optional;
 @Repository
 public interface RankRepository extends JpaRepository<GameResult, Long> {
 
-    @Query("SELECT r FROM RhythmGameRank r WHERE r.music.id = :musicId ORDER BY r.score DESC")
+    @Query("SELECT r FROM GameResult r WHERE r.music.id = :musicId ORDER BY r.score DESC")
     List<GameResult> findTop5ByMusicIdOrderByScoreDesc(@Param("musicId") Long musicId);
 
-    @Query("SELECT r FROM RhythmGameRank r WHERE r.music.id = :musicId AND r.user.id = :userId ORDER BY r.score DESC")
+    @Query("SELECT r FROM GameResult r WHERE r.music.id = :musicId AND r.user.id = :userId ORDER BY r.score DESC")
     Optional<GameResult> findTopByMusicIdAndUserIdOrderByScoreDesc(@Param("musicId") Long musicId, @Param("userId") Long userId);
 
-    @Query("SELECT COUNT(r2) + 1 FROM RhythmGameRank r2 WHERE r2.music.id = :musicId AND r2.score > :score")
+    @Query("SELECT COUNT(r2) + 1 FROM GameResult r2 WHERE r2.music.id = :musicId AND r2.score > :score")
     Integer findRankByMusicIdAndScore(@Param("musicId") Long musicId, @Param("score") Integer score);
 
-    @Query("SELECT r FROM RhythmGameRank r WHERE r.music.id = :musicId AND r.user.id = :userId")
+    @Query("SELECT r FROM GameResult r WHERE r.music.id = :musicId AND r.user.id = :userId")
     Optional<GameResult> findByMusicIdAndUserId(@Param("musicId") Long musicId, @Param("userId") Long userId);
 }

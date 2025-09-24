@@ -1,9 +1,8 @@
 
 from fastapi import APIRouter, HTTPException
-from app.models.schemas import SentenceInput, SentenceResponse, WordInput, WordResponse
-from app.models.input_models import chatInput, chatOutput
-from app.services.chatbot import start_chat
-from app.services.run_model import classification
+from app.models.schemas import SignInput, TextInput, ChatbotOutput
+from app.services.chatbot import chatting
+from app.services.dense import classification
 import numpy as np
 
 router = APIRouter()
@@ -13,54 +12,43 @@ async def health():
     """서버의 상태를 확인합니다."""
     return "OK"
 
-# 얘는 일단은 챗봇 시작하는 함수만 간단하게 구현해 둠. 나중에 크게 바뀔 예정.
-@router.post("/chat/start", response_model=chatOutput)
-async def chat(input_data: chatInput):
-    """
-    챗봇 대화를 시작합니다.
-    
-    Args:
-        input_data: 대화 주제와 난이도 정보
-        
-    Returns:
-        챗봇의 초기 응답 메시지
-    """
+# 챗봇과 수어로 대화하는 엔드포인트
+@router.post("/chatbot", response_model=ChatbotOutput)
+async def sign_to_text_chat(input_data: SignInput):
+    """수어 동작 시퀀스를 받아 텍스트로 변환하고, 챗봇 응답을 반환합니다."""
     try:
-        result = await start_chat(input_data.subject, input_data.level)
-        return chatOutput(result=result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"챗봇 응답 생성 중 오류 발생: {str(e)}")
-
-
-# 요거는 노래에서 단어 분류하는 것. 일단 만들고 있는데 user_id가 필요없음?
-# 준오형이 까서 해준다고 함.
-@router.post("/api/v1/game/rhythm/play", response_model=WordResponse)
-async def word_classification(input_data: WordInput):
-    """
-    단일 수어 동작을 분류합니다.
-    
-    Args:
-        input_data: 사용자 ID와 랜드마크 데이터
+        recognized_words = []
+        for sequence in input_data.sequences:
+            # sequence가 리스트일 경우 numpy 배열로 변환
+            np_sequence = np.array(sequence, dtype=np.float32)
+            word = classification(np_sequence)
+            recognized_words.append(word)
         
-    Returns:
-        분류된 단어 결과
-    """
+        # 공백을 사이에 두고 단어들을 합쳐 문장 생성
+        sentence = " ".join(recognized_words)
+        
+        if not sentence:
+            raise HTTPException(status_code=400, detail="수어 동작을 단어로 변환하지 못했습니다.")
+
+        # 챗봇 서비스 호출
+        chatbot_response = await chatting(sentence)
+        
+        return ChatbotOutput(result=chatbot_response)
+
+    except RuntimeError as e:
+        # 모델이 로드되지 않은 경우 등 서비스 내부 오류
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        # 기타 예외 처리
+        raise HTTPException(status_code=500, detail=f"처리 중 오류가 발생했습니다: {e}")
+
+# 텍스트로 챗봇과 대화하는 엔드포인트
+@router.post("/chat", response_model=ChatbotOutput)
+async def text_chat(input_data: TextInput):
+    """텍스트 문장을 받아 챗봇 응답을 반환합니다."""
     try:
-        # WordInput 모델이 dict 타입이므로 직접 접근
-        user_id = input_data.input_data.get("user_id")
-        landmarks = input_data.input_data.get("frames")
-        
-        if not user_id or landmarks is None:
-            raise ValueError("user_id와 landmarks가 필요합니다.")
-        
-        classified_word = classification(landmarks)
-        
-        result = {
-            "user_id": user_id,
-            "word": classified_word
-        }
-        
-        return WordResponse(result=result)
-        
+        sentence = input_data.sentence
+        chatbot_response = await chatting(sentence)
+        return ChatbotOutput(result=chatbot_response)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"단어 분류 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"처리 중 오류가 발생했습니다: {e}")

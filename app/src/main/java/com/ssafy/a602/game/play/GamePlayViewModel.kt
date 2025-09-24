@@ -185,7 +185,9 @@ class GamePlayViewModel @Inject constructor(
             val positionMs = playerPositionProvider?.invoke() ?: 0L
             val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
             // 모든 MediaPipe 프레임을 즉시 수집
-            rhythmCollector?.addFrameToBuffer(poses, positionMs)
+            viewModelScope.launch {
+                rhythmCollector?.addFrameToBuffer(poses, positionMs)
+            }
         }
     }
     

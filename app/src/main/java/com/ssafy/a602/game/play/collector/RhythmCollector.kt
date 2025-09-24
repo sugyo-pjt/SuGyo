@@ -5,6 +5,7 @@ import com.ssafy.a602.game.play.dto.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -89,7 +90,7 @@ class RhythmCollector(
     /**
      * MediaPipe 결과를 즉시 수집 (모든 프레임 수집)
      */
-    fun addFrameToBuffer(poses: List<PoseDto>, positionMs: Long) {
+    suspend fun addFrameToBuffer(poses: List<PoseDto>, positionMs: Long) {
         if (!isCollecting) return
         
         mutex.withLock {

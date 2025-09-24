@@ -158,13 +158,20 @@ fun GamePlayScreen(
     onOpenSettings: () -> Unit = {},
     onFrame: ((ImageProxy) -> Unit)? = null,
     judgmentResult: JudgmentResult? = null,
-    gamePlayViewModel: GamePlayViewModel? = null
+    gamePlayViewModel: GamePlayViewModel? = null,
+    playerPositionMs: () -> Long = { 0L }  // ExoPlayer 위치 제공
 ) {
     val context = LocalContext.current
 
     // GamePlayViewModel 상태
     val gameUi by (gamePlayViewModel?.ui?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(GameUiState()) })
     val completeUi by (gamePlayViewModel?.complete?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(CompleteUiState()) })
+    
+    // 🔥 웹소켓 판정 결과 상태 (기존 구조 활용)
+    val currentJudgment by (gamePlayViewModel?.currentJudgment?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) })
+    
+    // 게임 모드 확인
+    val gameMode = GameDataManager.currentGameMode.value ?: GameMode.EASY
     
     // 중복 호출 제거: GameDataManager로 이미 채보 데이터 관리됨
 
@@ -218,24 +225,27 @@ fun GamePlayScreen(
     val buffer = remember { DynamicLandmarkBuffer() }
     val resultHandler = remember { LandmarkResultHandler(buffer) }
     
-    // Easy 모드: HTTP 업로더 (기존 방식)
-    val httpUploader = remember { 
-        WordWindowUploader(
-            buffer, 
-            endpoint = "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play",
-            tokenManager = null // TODO: TokenManager 주입 필요
-        ) 
+    // 🔥 게임 모드에 따른 업로더 선택
+    val uploader = when (gameMode) {
+        GameMode.EASY -> WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null)
+        GameMode.HARD -> null // 웹소켓은 ViewModel에서 처리
+        else -> null
     }
     
-    // Hard 모드: 웹소켓 업로더 (추후 구현)
-    // val websocketUploader = remember { WebSocketStreamer(...) }
-    
-    val mediaPipeCamera = remember { GamePlayCamera(resultHandler, httpUploader) }
+    val mediaPipeCamera = remember { 
+        GamePlayCamera(resultHandler, uploader ?: WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null))
+    }
 
     LaunchedEffect(Unit) {
         Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
         mediaPipeCamera.init(context)
         Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+    }
+    
+    // 🔥 게임 시작 시 플레이어 위치 제공자 설정
+    LaunchedEffect(gamePlayViewModel) {
+        val totalWords = 10 // TODO: 실제 총 단어 수로 설정
+        gamePlayViewModel?.startGame(songId, totalWords, gameMode, playerPositionMs)
     }
 
     // Pause→Resume AC 측정
@@ -262,10 +272,10 @@ fun GamePlayScreen(
     
     // 현재 모드에 따른 업로더 선택
     val currentUploader = when (currentGameMode) {
-        GameMode.EASY -> httpUploader
-        GameMode.HARD -> httpUploader // TODO: websocketUploader로 변경
-        null -> httpUploader // 기본값
-        else -> httpUploader // 기본값
+        GameMode.EASY -> uploader
+        GameMode.HARD -> uploader // TODO: websocketUploader로 변경
+        null -> uploader // 기본값
+        else -> uploader // 기본값
     }
 
     // 곡 선택 및 게임 초기화
@@ -298,7 +308,7 @@ fun GamePlayScreen(
                     Log.d("GamePlayScreen", "✅ 채보 데이터 로드 성공, 게임 시작")
                 }
 
-                vm.startGame(songId, totalWords = sections.size)
+                vm.startGame(songId, totalWords = sections.size, mode = gameMode, playerPositionMs = playerPositionMs)
             } ?: Log.e("GamePlayScreen", "GamePlayViewModel이 null입니다!")
         } else {
             Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")
@@ -388,22 +398,11 @@ fun GamePlayScreen(
             val actionEndTime = (parseTimeToSeconds(correctInfo.actionEndedAt) * 1000).toLong()
 
             if (currentMs in actionStartTime until (actionStartTime + 100)) {
-                currentUploader.onWord(
-                    actionStartMs = actionStartTime,
-                    actionEndMs = actionEndTime,
-                    segment = currentSection.id.toInt(),
-                    correctStartedIndex = correctInfo.correctStartedIndex,
-                    correctEndedIndex = correctInfo.correctEndedIndex,
-                    musicId = songId.toInt()
-                )
-                
                 // 수어 타이밍 시작 시 버퍼 상태 로그
                 Log.d("GamePlayScreen", "수어 타이밍 시작: segment=${currentSection.id}, range=${correctInfo.correctStartedIndex}~${correctInfo.correctEndedIndex}")
                 buffer.logBufferDetails()
             }
             if (currentMs in actionEndTime until (actionEndTime + 100)) {
-                currentUploader.onActionEnd()
-                
                 // 수어 타이밍 종료 시 버퍼 상태 로그
                 Log.d("GamePlayScreen", "수어 타이밍 종료: ${currentSection.text}")
                 Log.d("GamePlayScreen", "버퍼 상태: ${buffer.getBufferInfo()}")
@@ -883,6 +882,16 @@ fun GamePlayScreen(
                     combo = gameUi.combo, 
                     modifier = Modifier.align(Alignment.Center)
                 )
+                
+                // 🔥 하드 모드일 때만 웹소켓 판정 결과 표시 (기존 GameJudgmentToast 활용)
+                if (gameMode == GameMode.HARD) {
+                    GameJudgmentToast(
+                        result = currentJudgment,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                
+                // 기존 HTTP 판정 결과도 유지 (Easy 모드용)
                 GameJudgmentToast(
                     result = judgmentResult, 
                     modifier = Modifier.align(Alignment.Center)

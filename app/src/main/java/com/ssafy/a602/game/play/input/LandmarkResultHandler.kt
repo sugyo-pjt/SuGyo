@@ -6,7 +6,8 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 
 class LandmarkResultHandler(
     private val buffer: DynamicLandmarkBuffer,
-    private val mirrorCompensation: Boolean = false // 전면 미러링 입력으로 추론했다면 true
+    private val mirrorCompensation: Boolean = false, // 전면 미러링 입력으로 추론했다면 true
+    private val onLandmarks: ((List<LM>, List<LM>, List<LM>) -> Unit)? = null // 🔥 ViewModel 콜백
 ) {
     private var currentPoseResult: PoseLandmarkerResult? = null
     private var currentHandResult: HandLandmarkerResult? = null
@@ -100,6 +101,13 @@ class LandmarkResultHandler(
         val right = toLMFiltered(rightSrc, HAND_KEEP)
 
         buffer.add(FramePack(lastTimestamp, pose, left, right))
+        
+        // 🔥 ViewModel에 랜드마크 결과 전달 (null 제거)
+        onLandmarks?.invoke(
+            pose.filterNotNull(),
+            left.filterNotNull(),
+            right.filterNotNull()
+        )
 
         currentPoseResult = null
         currentHandResult = null

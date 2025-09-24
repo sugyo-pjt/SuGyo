@@ -10,6 +10,10 @@ import com.ssafy.a602.game.play.net.WebSocketStreamer
 import com.ssafy.a602.game.score.GameScoreCalculator
 import com.ssafy.a602.game.score.JudgmentType as ScoreJudgmentType
 import com.ssafy.a602.game.play.JudgmentType
+import com.ssafy.a602.game.play.collector.RhythmCollector
+import com.ssafy.a602.game.play.collector.MediaPipeToRhythmConverter
+import com.ssafy.a602.game.play.dto.*
+import com.ssafy.a602.game.play.service.RhythmUploadService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +47,8 @@ data class CompleteUiState(
 
 @HiltViewModel
 class GamePlayViewModel @Inject constructor(
-    private val webSocketStreamer: WebSocketStreamer
+    private val webSocketStreamer: WebSocketStreamer,
+    private val rhythmUploadService: RhythmUploadService
 ) : ViewModel() {
 
     private lateinit var calc: GameScoreCalculator
@@ -63,6 +68,9 @@ class GamePlayViewModel @Inject constructor(
     
     // 플레이어 위치 제공자 (ExoPlayer에서 가져올 수 있도록)
     private var playerPositionProvider: (() -> Long)? = null
+    
+    // 🔥 하드 모드 리듬 수집기
+    private var rhythmCollector: RhythmCollector? = null
 
     fun startGame(songId: String, totalWords: Int, mode: GameMode, playerPositionMs: () -> Long = { 0L }) {
         this.songId = songId
@@ -73,6 +81,20 @@ class GamePlayViewModel @Inject constructor(
         // Easy 모드일 때만 프론트엔드 계산기 사용
         if (mode == GameMode.EASY) {
             calc = GameScoreCalculator(songId = songId, totalWords = totalWords, baseScore = 100)
+        }
+        
+        // 🔥 하드 모드일 때 리듬 수집기 초기화
+        if (mode == GameMode.HARD) {
+            rhythmCollector = RhythmCollector(
+                musicId = currentMusicId.toInt(),
+                coroutineScope = viewModelScope
+            )
+            rhythmCollector?.startCollection()
+            
+            // 🔥 게임 시작 시 PLAY 세그먼트 시작
+            viewModelScope.launch {
+                rhythmCollector?.onTypeChanged(SegmentType.PLAY, 0L)
+            }
         }
         
         _ui.value = GameUiState()
@@ -158,6 +180,12 @@ class GamePlayViewModel @Inject constructor(
     fun onLandmarks(pose: List<LM>, left: List<LM>, right: List<LM>) {
         if (gameMode == GameMode.HARD) {
             webSocketStreamer.addFrame(pose, left, right)
+            
+            // 🔥 리듬 수집기에도 프레임 데이터 전달 (모든 프레임 즉시 수집)
+            val positionMs = playerPositionProvider?.invoke() ?: 0L
+            val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
+            // 모든 MediaPipe 프레임을 즉시 수집
+            rhythmCollector?.addFrameToBuffer(poses, positionMs)
         }
     }
     
@@ -168,6 +196,13 @@ class GamePlayViewModel @Inject constructor(
         // 하드 모드일 때 웹소켓에 일시정지 상태 전송
         if (gameMode == GameMode.HARD) {
             webSocketStreamer.sendPauseResume(!currentPaused)
+            
+            // 🔥 리듬 수집기에 세그먼트 타입 변경 알림
+            val positionMs = playerPositionProvider?.invoke() ?: 0L
+            val segmentType = if (currentPaused) SegmentType.PAUSE else SegmentType.RESUME
+            viewModelScope.launch {
+                rhythmCollector?.onTypeChanged(segmentType, positionMs)
+            }
         }
     }
     
@@ -229,9 +264,47 @@ class GamePlayViewModel @Inject constructor(
                 )
             }
         } else {
-            // Hard 모드: 서버에서 계산된 결과를 사용 (웹소켓으로 받은 최종 결과)
-            // 서버에서 게임 완료 신호를 받으면 자동으로 처리됨
-            _complete.value = _complete.value.copy(submitted = true)
+            // 🔥 Hard 모드: 리듬 데이터 수집 완료 후 업로드
+            viewModelScope.launch {
+                _complete.value = _complete.value.copy(submitting = true, submitError = null)
+                
+                try {
+                    // 리듬 데이터 수집 완료
+                    val rhythmData = rhythmCollector?.onSongEnd()
+                    if (rhythmData != null) {
+                        // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
+                        val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
+                            request = rhythmData
+                        )
+                        
+                        if (uploadResult.isSuccess) {
+                            _complete.value = _complete.value.copy(
+                                submitting = false,
+                                submitted = true,
+                                isBestRecord = false // TODO: 서버 응답에서 확인
+                            )
+                        } else {
+                            _complete.value = _complete.value.copy(
+                                submitting = false,
+                                submitted = true,
+                                submitError = uploadResult.exceptionOrNull()?.message ?: "리듬 데이터 업로드 실패"
+                            )
+                        }
+                    } else {
+                        _complete.value = _complete.value.copy(
+                            submitting = false,
+                            submitted = true,
+                            submitError = "리듬 데이터 수집 실패"
+                        )
+                    }
+                } catch (e: Exception) {
+                    _complete.value = _complete.value.copy(
+                        submitting = false,
+                        submitted = true,
+                        submitError = e.message ?: "리듬 데이터 업로드 실패"
+                    )
+                }
+            }
         }
     }
     
@@ -239,6 +312,7 @@ class GamePlayViewModel @Inject constructor(
         super.onCleared()
         if (gameMode == GameMode.HARD) {
             webSocketStreamer.stop()
+            rhythmCollector?.stopCollection()
         }
     }
     

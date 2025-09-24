@@ -223,7 +223,17 @@ fun GamePlayScreen(
 
     // MediaPipe - 게임 모드에 따라 다른 업로더 사용
     val buffer = remember { DynamicLandmarkBuffer() }
-    val resultHandler = remember { LandmarkResultHandler(buffer) }
+    val resultHandler = remember { 
+        LandmarkResultHandler(
+            buffer = buffer,
+            onLandmarks = { pose, left, right ->
+                // 🔥 하드 모드일 때 ViewModel에 랜드마크 결과 전달
+                if (gameMode == GameMode.HARD) {
+                    gamePlayViewModel?.onLandmarks(pose, left, right)
+                }
+            }
+        )
+    }
     
     // 🔥 게임 모드에 따른 업로더 선택
     val uploader = when (gameMode) {
@@ -246,6 +256,15 @@ fun GamePlayScreen(
     LaunchedEffect(gamePlayViewModel) {
         val totalWords = 10 // TODO: 실제 총 단어 수로 설정
         gamePlayViewModel?.startGame(songId, totalWords, gameMode, playerPositionMs)
+    }
+    
+    // 🔥 하드 모드일 때 리듬 수집기에 프레임 데이터 전달
+    LaunchedEffect(gameMode, tick?.positionMs) {
+        if (gameMode == GameMode.HARD && tick?.isPlaying == true) {
+            val currentMs = tick?.positionMs ?: 0L
+            // 300ms 주기로 프레임 수집 (실제로는 MediaPipe에서 처리)
+            // TODO: MediaPipe 결과를 리듬 수집기에 전달하는 로직 추가
+        }
     }
 
     // Pause→Resume AC 측정

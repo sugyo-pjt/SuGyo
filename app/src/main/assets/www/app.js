@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { BoneMapping, FINGERS, FINGER_TUNING } from './boneMapping.js';
+import { Retargeting } from './retargeting.js';
 
 /* ======================================================
  * 1) Scene / Camera / Lights
@@ -128,44 +130,10 @@ const loader = new GLTFLoader();
 // 텍스처 경로 설정 (텍스처 파일이 models 폴더에 있다고 가정)
 // loader.setPath('./models/'); // 모델 로드 시 경로 중복 방지를 위해 주석 처리
 let avatar = null, skinned = null, skeleton = null;
-const bones = {};      // boneName -> Bone
-const restQuat = {};   // boneName -> REST local quaternion
 
-const FINGERS = {
-  L: {
-    thumb:  ['mixamorigLeftHandThumb1','mixamorigLeftHandThumb2','mixamorigLeftHandThumb3'],
-    index:  ['mixamorigLeftHandIndex1','mixamorigLeftHandIndex2','mixamorigLeftHandIndex3'],
-    middle: ['mixamorigLeftHandMiddle1','mixamorigLeftHandMiddle2','mixamorigLeftHandMiddle3'],
-    ring:   ['mixamorigLeftHandRing1','mixamorigLeftHandRing2','mixamorigLeftHandRing3'],
-    pinky:  ['mixamorigLeftHandPinky1','mixamorigLeftHandPinky2','mixamorigLeftHandPinky3'],
-    wrist:  'mixamorigLeftHand'
-  },
-  R: {
-    thumb:  ['mixamorigRightHandThumb1','mixamorigRightHandThumb2','mixamorigRightHandThumb3'],
-    index:  ['mixamorigRightHandIndex1','mixamorigRightHandIndex2','mixamorigRightHandIndex3'],
-    middle: ['mixamorigRightHandMiddle1','mixamorigRightHandMiddle2','mixamorigRightHandMiddle3'],
-    ring:   ['mixamorigRightHandRing1','mixamorigRightHandRing2','mixamorigRightHandRing3'],
-    pinky:  ['mixamorigRightHandPinky1','mixamorigRightHandPinky2','mixamorigRightHandPinky3'],
-    wrist:  'mixamorigRightHand'
-  }
-};
-
-const FINGER_TUNING = {
-  L: {
-    thumb:  { axis:'z', sign:-1, clamp:[-2.0, 2.0] },
-    index:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-    middle: { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-    ring:   { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-    pinky:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-  },
-  R: {
-    thumb:  { axis:'z', sign:+1, clamp:[-2.0, 2.0] },
-    index:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-    middle: { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-    ring:   { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-    pinky:  { axis:'x', sign:+1, clamp:[-2.0, 2.0] },
-  }
-};
+// 본매핑 및 리타게팅 인스턴스 생성
+const boneMapping = new BoneMapping();
+const retargeting = new Retargeting(boneMapping);
 
 /* ======================================================
  * 2-1) 범용 카메라 피팅 함수 (제미나이 제안)
@@ -218,51 +186,8 @@ function refitUpperBody(offset = 1.2) {
 }
 
 /* ======================================================
- * 3) Finger helpers
+ * 3) Finger helpers (이제 boneMapping 클래스에서 처리)
  * ==================================================== */
-const AXIS_V = {
-  x: new THREE.Vector3(1, 0, 0),
-  y: new THREE.Vector3(0, 1, 0),
-  z: new THREE.Vector3(0, 0, 1),
-};
-
-function setFingerJointRelative(boneName, angleRad, axis = 'x', sign = +1, clamp = [-1.5, 1.5], slerp = 0.35) {
-  const b = bones[boneName]; if (!b) return;
-  const rq = restQuat[boneName]; if (!rq) return;
-  const a = THREE.MathUtils.clamp(sign * angleRad, clamp[0], clamp[1]);
-  const qDelta  = new THREE.Quaternion().setFromAxisAngle(AXIS_V[axis], a);
-  const qTarget = rq.clone().multiply(qDelta);
-  b.quaternion.slerp(qTarget, slerp);
-}
-
-function applyFingerAngles(side, finger, a1, a2, a3) {
-  const cfg = FINGER_TUNING[side][finger];
-  const names = FINGERS[side][finger];
-  setFingerJointRelative(names[0], a1, cfg.axis, cfg.sign, cfg.clamp);
-  setFingerJointRelative(names[1], a2, cfg.axis, cfg.sign, cfg.clamp);
-  setFingerJointRelative(names[2], a3, cfg.axis, cfg.sign, cfg.clamp);
-}
-
-function setThumb1Across(
-  side,
-  flexRad = THREE.MathUtils.degToRad(45),
-  acrossRad = THREE.MathUtils.degToRad(58),
-  flexAxis = 'z',
-  abductAxis = 'y',
-  slerp = 0.35
-) {
-  const name = FINGERS[side].thumb[0];
-  const b = bones[name], rq = restQuat[name];
-  if (!b || !rq) return;
-
-  const flexSign   = (side === 'R') ? +1 : -1;
-  const abductSign = (side === 'R') ? -1 : +1;
-
-  const qAbd   = new THREE.Quaternion().setFromAxisAngle(AXIS_V[abductAxis], abductSign * acrossRad);
-  const qFlex  = new THREE.Quaternion().setFromAxisAngle(AXIS_V[flexAxis],  flexSign   * flexRad);
-  const qTarget = rq.clone().multiply(qAbd).multiply(qFlex);
-  b.quaternion.slerp(qTarget, slerp);
-}
 
 /* ======================================================
  * 4) Debug API
@@ -277,7 +202,7 @@ window.debug = {
   finger(side, which, d1 = 40, d2 = 60, d3 = 40, axis, sign) {
     if (axis) FINGER_TUNING[side][which].axis = axis;
     if (sign != null) FINGER_TUNING[side][which].sign = sign;
-    applyFingerAngles(side, which, deg(d1), deg(d2), deg(d3));
+    boneMapping.applyFingerAngles(side, which, deg(d1), deg(d2), deg(d3));
   },
   handPose: {
     fist(side = 'R', tight = 1.0) {
@@ -291,21 +216,21 @@ window.debug = {
         const [mcp, pip, dip] = arr.map(v => v * tight);
         window.debug.finger(side, f, mcp, pip, dip);
       });
-      setThumb1Across(side, deg(45 * tight), deg(58 * tight));
+      boneMapping.setThumb1Across(side, deg(45 * tight), deg(58 * tight));
       const cfg = FINGER_TUNING[side].thumb;
-      setFingerJointRelative(FINGERS[side].thumb[1], deg(58 * tight), cfg.axis, cfg.sign, cfg.clamp);
-      setFingerJointRelative(FINGERS[side].thumb[2], deg(48 * tight), cfg.axis, cfg.sign, cfg.clamp);
-      setFingerJointRelative(FINGERS[side].wrist, deg(10 * tight), 'x', +1, [-0.6, 0.6], 0.3);
+      boneMapping.setFingerJointRelative(FINGERS[side].thumb[1], deg(58 * tight), cfg.axis, cfg.sign, cfg.clamp);
+      boneMapping.setFingerJointRelative(FINGERS[side].thumb[2], deg(48 * tight), cfg.axis, cfg.sign, cfg.clamp);
+      boneMapping.setFingerJointRelative(FINGERS[side].wrist, deg(10 * tight), 'x', +1, [-0.6, 0.6], 0.3);
     },
     open(side = 'R') {
       ['thumb','index','middle','ring','pinky'].forEach(f => window.debug.finger(side, f, 0, 0, 0));
-      const w = FINGERS[side].wrist; if (w) bones[w]?.quaternion.copy(restQuat[w]);
+      const w = FINGERS[side].wrist; if (w) boneMapping.bones[w]?.quaternion.copy(boneMapping.restQuat[w]);
     }
   },
-  bend(boneName, degVal, axis = 'x', sign = +1) { setFingerJointRelative(boneName, deg(degVal), axis, sign); },
-  resetPose() { Object.keys(bones).forEach(n => { const b = bones[n], rq = restQuat[n]; if (b && rq) b.quaternion.copy(rq); }); },
-  getConfig() { return JSON.parse(JSON.stringify(FINGER_TUNING)); },
-  setConfig(side, finger, patch) { Object.assign(FINGER_TUNING[side][finger], patch); }
+  bend(boneName, degVal, axis = 'x', sign = +1) { boneMapping.setFingerJointRelative(boneName, deg(degVal), axis, sign); },
+  resetPose() { boneMapping.resetPose(); },
+  getConfig() { return boneMapping.getConfig(); },
+  setConfig(side, finger, patch) { boneMapping.setConfig(side, finger, patch); }
 };
 
 /* ======================================================
@@ -323,111 +248,14 @@ document.getElementById('openR')  ?.addEventListener('click', () => window.debug
 document.getElementById('fistL')  ?.addEventListener('click', () => window.debug.handPose.fist('L', 1.1));
 document.getElementById('fistR')  ?.addEventListener('click', () => window.debug.handPose.fist('R', 1.1));
 
-let playQueue   = [];
-let nextSince   = 0;
 let playing     = true;
 let playbackFps = 30;
-let lastAdvance = performance.now();
 
-const ema = { L: { landmarks:null, alpha:0.6 }, R: { landmarks:null, alpha:0.6 } };
-
-function toVecArray(hand) { return hand.map(p => new THREE.Vector3(p.x, p.y, p.z)); }
-
-function retargetHand(side, handArr21) {
-  const current = toVecArray(handArr21);
-  const conf = handArr21.map(p => (p.w ?? 1));
-  const state = ema[side];
-
-  if (!state.landmarks) {
-    state.landmarks = current.map(v => v.clone());
-  } else {
-    for (let i = 0; i < current.length; i++) {
-      const a = state.alpha * (0.5 + 0.5 * conf[i]);
-      state.landmarks[i].lerp(current[i], a);
-    }
-  }
-
-  const L = state.landmarks;
-  const basis = palmBasisFromHand(L);
-  applyWrist(side, basis);
-
-  const A = computeHandAngles(L);
-  applyFingersFromAngles(side, A);
-}
-
-function advancePlayback(now) {
-  if (!playing) return;
-  const dt = now - lastAdvance;
-  const frameDur = 1000 / playbackFps;
-  if (dt < frameDur) return;
-  lastAdvance = now;
-
-  const frame = playQueue.shift();
-  if ($qsz) $qsz.textContent = String(playQueue.length);
-  if (!frame) return;
-
-  if (Array.isArray(frame.left)  && frame.left.length  >= 21) retargetHand('L', frame.left);
-  if (Array.isArray(frame.right) && frame.right.length >= 21) retargetHand('R', frame.right);
-}
+// retargetHand 함수는 이제 retargeting 클래스의 메서드로 대체됨
 
 /* ======================================================
- * 6) 손바닥 좌표계 & 각도 계산
+ * 6) 손바닥 좌표계 & 각도 계산 (이제 retargeting.js로 이동)
  * ==================================================== */
-function palmBasisFromHand(L) {
-  const wrist = L[0], idxMCP = L[5], midMCP = L[9], pkyMCP = L[17];
-  const x  = idxMCP.clone().sub(pkyMCP).normalize();
-  const y  = midMCP.clone().sub(wrist).normalize();
-  const z  = new THREE.Vector3().crossVectors(x, y).normalize();
-  const y2 = new THREE.Vector3().crossVectors(z, x).normalize();
-  return new THREE.Matrix4().makeBasis(x, y2, z);
-}
-
-function angleAt(B, A, C) {
-  const BA = B.clone().sub(A).normalize();
-  const CA = C.clone().sub(A).normalize();
-  return Math.acos(THREE.MathUtils.clamp(BA.dot(CA), -1, 1));
-}
-
-function computeHandAngles(L) {
-  const rad = (b, a, c) => angleAt(L[b], L[a], L[c]);
-  const d = {};
-  d.index  = [rad(0,5,6),  rad(5,6,7),  rad(6,7,8)];
-  d.middle = [rad(0,9,10), rad(9,10,11), rad(10,11,12)];
-  d.ring   = [rad(0,13,14),rad(13,14,15),rad(14,15,16)];
-  d.pinky  = [rad(0,17,18),rad(17,18,19),rad(18,19,20)];
-
-  const flex  = rad(1,2,3) + 0.6 * rad(2,3,4);
-  const basis = palmBasisFromHand(L);
-  const xPalm = new THREE.Vector3().setFromMatrixColumn(basis, 0);
-  const yPalm = new THREE.Vector3().setFromMatrixColumn(basis, 1);
-  const zPalm = new THREE.Vector3().setFromMatrixColumn(basis, 2);
-  const thumbVec = L[3].clone().sub(L[2]);
-  const proj = thumbVec.clone().sub(zPalm.clone().multiplyScalar(thumbVec.dot(zPalm))).normalize();
-  const across = Math.atan2(proj.dot(yPalm), proj.dot(xPalm));
-  d.thumb = { flex, across };
-  return d;
-}
-
-function applyWrist(side, basis) {
-  const wristName = FINGERS[side].wrist;
-  const rq = restQuat[wristName], b = bones[wristName];
-  if (!rq || !b) return;
-  const qPalm = new THREE.Quaternion().setFromRotationMatrix(basis);
-  const qTarget = rq.clone().multiply(qPalm);
-  b.quaternion.slerp(qTarget, 0.35);
-}
-
-function applyFingersFromAngles(side, A) {
-  const r2d = (r) => THREE.MathUtils.radToDeg(r);
-  for (const f of ['index','middle','ring','pinky']) {
-    const [mcp, pip, dip] = A[f].map(r2d);
-    window.debug.finger(side, f, mcp, pip, dip);
-  }
-  setThumb1Across(side, A.thumb.flex, A.thumb.across, 'z', 'y');
-  const cfg = FINGER_TUNING[side].thumb;
-  setFingerJointRelative(FINGERS[side].thumb[1], A.thumb.flex * 0.9, cfg.axis, cfg.sign, cfg.clamp);
-  setFingerJointRelative(FINGERS[side].thumb[2], A.thumb.flex * 0.7, cfg.axis, cfg.sign, cfg.clamp);
-}
 
 /* ======================================================
  * 7) Android ↔ JS 브리지
@@ -581,7 +409,7 @@ loader.load('avatar.glb', (gltf) => {
 
   avatar.traverse(o => {
     if (o.isSkinnedMesh) { skinned = o; skeleton = o.skeleton; }
-    if (o.isBone) { bones[o.name] = o; restQuat[o.name] = o.quaternion.clone(); }
+    // 본 정보는 이제 boneMapping 클래스에서 처리
     
     // 메시에 재질이 없거나 투명한 경우 강제로 재질 설정
     if (o.isMesh || o.isSkinnedMesh) {
@@ -597,6 +425,11 @@ loader.load('avatar.glb', (gltf) => {
       }
     }
   });
+  
+  // 본 정보 추출
+  if (skinned) {
+    boneMapping.extractBoneInfo(skinned);
+  }
   
   // 테스트용 큐브 추가 (아바타가 보이지 않는 경우 확인용)
   const testCube = new THREE.Mesh(
@@ -829,8 +662,8 @@ function render() {
     const f = window.playQueue[0];
     window.playQueue.length = 0;
     if (avatar) {
-      if (Array.isArray(f.left)  && f.left.length  >= 21) retargetHand('L', f.left);
-      if (Array.isArray(f.right) && f.right.length >= 21) retargetHand('R', f.right);
+      if (Array.isArray(f.left)  && f.left.length  >= 21) retargeting.retargetHand('L', f.left);
+      if (Array.isArray(f.right) && f.right.length >= 21) retargeting.retargetHand('R', f.right);
     }
   }
 

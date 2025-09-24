@@ -3,21 +3,28 @@ package com.sugyo.domain.study.service;
 import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
-import com.sugyo.domain.study.entity.UserDailyVocabulary;
-import com.sugyo.domain.study.repository.UserDailyVocabularyRepository;
-import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
-import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.sugyo.domain.study.dto.response.DayProgressDto;
+import com.sugyo.domain.study.dto.response.SearchKeywordResponse;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
+import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
+import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
 import com.sugyo.domain.study.dto.response.StudyWordItemDto;
 import com.sugyo.domain.study.entity.Daily;
+import com.sugyo.domain.study.entity.UserDailyVocabulary;
+import com.sugyo.domain.study.entity.Vocabulary;
 import com.sugyo.domain.study.repository.DailyRepository;
 import com.sugyo.domain.study.repository.DailyVocabularyRepository;
+import com.sugyo.domain.study.repository.UserDailyVocabularyRepository;
+import com.sugyo.domain.study.repository.VocabularyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.sugyo.common.exception.GlobalErrorCode.RESOURCE_NOT_FOUND;
 
 @Service
 @RequiredArgsConstructor
@@ -27,12 +34,13 @@ public class StudyService {
     private final UserDailyVocabularyRepository userDailyVocabularyRepository;
     private final DailyRepository dailyRepository;
     private final DailyVocabularyRepository dailyVocabularyRepository;
+    private final VocabularyRepository vocabularyRepository;
 
     public StudyProgressResponseDto getStudyProgress(CustomUserDetails user) {
 
         Long userId = user.getId();
 
-        if(userId == null){
+        if (userId == null) {
             throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
         }
 
@@ -58,7 +66,7 @@ public class StudyService {
         }
 
         List<DayProgressDto> dayProgresses = userDailyVocabularyRepository.findDayProgressByUserId(userId);
-        
+
         Integer totalDays = Math.toIntExact(dailyRepository.count());
         Integer maxProgressDay =
                 userDailyVocabularyRepository.findMaxProgressDayByUserId(userId);
@@ -75,13 +83,43 @@ public class StudyService {
 
     public StudyDayResponseDto getStudyDay(Long dayId) {
         Daily daily = dailyRepository.findById(dayId)
-                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
 
-        List<StudyWordItemDto> items = dailyVocabularyRepository.findWordItemsByDailyId(dayId);
-
+        List<StudyWordItemDto> items = dailyVocabularyRepository.findByDailyId(dayId)
+                .stream()
+                .map(dv -> {
+                    Vocabulary vocabulary = dv.getVocabulary();
+                    Set<String> wordListByMotion = getWordListByMotion(vocabulary.getMotion().getId());
+                    wordListByMotion.remove(vocabulary.getWord());
+                    return StudyWordItemDto.from(vocabulary, wordListByMotion);
+                })
+                .toList();
         return StudyDayResponseDto.builder()
                 .day(daily.getDay())
                 .items(items)
                 .build();
+    }
+
+    public List<SearchKeywordResponse> searchVocabulary(String keyword) {
+        List<Vocabulary> vocabularies = vocabularyRepository.findByWordContaining(keyword);
+        return vocabularies.stream()
+                .map(SearchKeywordResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    public StudyWordItemDto getWordItem(long wordId) {
+        Vocabulary vocabulary = vocabularyRepository.findById(wordId)
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
+        Set<String> wordListByMotion = getWordListByMotion(vocabulary.getMotion().getId());
+        wordListByMotion.remove(vocabulary.getWord());
+        return StudyWordItemDto.from(vocabulary, wordListByMotion);
+    }
+
+    private Set<String> getWordListByMotion(long motionId) {
+        List<Vocabulary> vocabularies = vocabularyRepository.findByMotionId(motionId)
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
+        return vocabularies.stream()
+                .map(Vocabulary::getWord)
+                .collect(Collectors.toSet());
     }
 }

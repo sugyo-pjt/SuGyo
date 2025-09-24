@@ -11,18 +11,14 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class Vocabulary {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @Column(nullable = false)
     private String word;
 
-    @Column
-    private String description;
-
-    @Column
-    private String videoUrl;
-    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "motion_id")
+    private Motion motion;
 }

@@ -8,7 +8,9 @@ import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
 import com.sugyo.domain.game.dto.request.GameResultRequestDto;
 import com.sugyo.domain.game.dto.response.GameResultResponseDto;
 import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
+import com.sugyo.domain.game.dto.request.FrameSaveRequestDto;
 import com.sugyo.domain.game.service.RhythmGameService;
+import com.sugyo.domain.game.service.FrameCoordinatesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -27,6 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RhythmGameController {
     private final RhythmGameService rhythmGameService;
+    private final FrameCoordinatesService frameCoordinatesService;
 
     @Operation(
             summary = "Music의 URL 값 조회",
@@ -425,5 +428,51 @@ public class RhythmGameController {
             @AuthenticationPrincipal CustomUserDetails user) {
         rhythmGameService.processGamePlay(request, user.getId());
         return ResponseEntity.ok("OK");
+    }
+
+    @Operation(
+            summary = "프레임 좌표 데이터 저장",
+            description = "프레임 좌표 데이터를 저장합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "프레임 좌표 데이터 저장 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 예시",
+                                            value = "\"Frame data saved successfully\""
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "음악을 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                            """
+                                            {
+                                              "status": 404,
+                                              "code": "GLOBAL-404-01",
+                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                            }
+                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @PostMapping("/save")
+    public ResponseEntity<String> saveFrameCoordinates(
+            @RequestBody FrameSaveRequestDto request) {
+        frameCoordinatesService.saveFrameCoordinates(request);
+        return ResponseEntity.ok("Frame data saved successfully");
     }
 }

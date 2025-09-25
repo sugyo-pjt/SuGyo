@@ -20,7 +20,6 @@ public record GameActionRequest(
         GameActionType type,
 
         @Schema(description = "진행 시간(ms)", example = "1663843200300.0")
-        @Positive(groups = PlayValidationGroup.class, message = "타임스탬프는 양수여야 합니다.")
         @NotNull(groups = PlayValidationGroup.class, message = "타임스탬프는 필수입니다.")
         Double timestamp,
 

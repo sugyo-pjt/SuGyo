@@ -45,7 +45,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final WebSocketGameService gameService;
     private final FrameCoordinatesRepository frameCoordinatesRepository;
 
-    private final Map<WebSocketSession, GameSessionContext> sessions = new ConcurrentHashMap<>();
+    private final Map<String, GameSessionContext> sessions = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -59,7 +59,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             double lastNoteTimestamp=frameCoordinates.getTimePassed();
 
             GameSessionContext context = new GameSessionContext(userId, musicId, session, lastNoteTimestamp);
-            sessions.put(session, context);
+            sessions.put(session.getId(), context);
             log.info("세션 시작: SessionId={}, UserId={}, MusicId={}", session.getId(), userId, musicId);
         } catch (IllegalArgumentException e) {
             closeSessionWithError(session, INVALID_MUSIC_ID);
@@ -86,7 +86,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         try {
-            GameSessionContext context = sessions.get(session);
+            GameSessionContext context = sessions.get(session.getId());
             if (context == null) {
                 throw new WebSocketException(SESSION_NOT_FOUND);
             }
@@ -136,7 +136,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } catch (IOException e) {
             log.error("세션 종료 중 오류 발생", e);
         } finally {
-            sessions.remove(session);
+            sessions.remove(session.getId());
         }
     }
 }

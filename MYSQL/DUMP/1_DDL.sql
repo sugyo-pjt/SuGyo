@@ -1,6 +1,3 @@
-DROP DATABASE IF EXISTS sugyo;
-create database sugyo;
-use sugyo;
 CREATE TABLE users
 (
 	id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,

@@ -1,6 +1,7 @@
 package com.sugyo.domain.game.entity;
 
 import com.sugyo.common.domain.BaseTimeEntity;
+import com.sugyo.common.domain.CreatedOnlyEntity;
 import com.sugyo.domain.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -34,11 +35,6 @@ public class GameResult extends BaseTimeEntity {
 
     @Column(nullable = false)
     private Integer score;
-
-    @Column(name = "record_time", nullable = false)
-    @CreationTimestamp
-    private LocalDateTime recordTime;
-
 
     public static GameResult create(User user, Music music, int score) {
         return GameResult.builder()

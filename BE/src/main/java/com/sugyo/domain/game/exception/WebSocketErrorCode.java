@@ -24,7 +24,7 @@ public enum WebSocketErrorCode {
     USER_NOT_FOUND_IN_SESSION(4401, "WS-4401", "세션에서 사용자를 찾지 못했습니다."),
 
     // 5000번대: 서버 내부 오류
-    INTERNAL_SERVER_ERROR(5000, "WS-5000", "서버 내부 오류가 발생했습니다.");
+    INTERNAL_SERVER_ERROR(4999, "WS-5000", "서버 내부 오류가 발생했습니다.");
 
     private final int closeCode;
     private final String code;

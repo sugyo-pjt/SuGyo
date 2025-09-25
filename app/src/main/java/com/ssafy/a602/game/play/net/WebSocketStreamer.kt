@@ -4,6 +4,7 @@ import com.ssafy.a602.game.play.input.*
 import com.ssafy.a602.game.play.dto.*
 import com.ssafy.a602.auth.TokenManager
 import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.*
@@ -153,7 +154,10 @@ class WebSocketStreamer @Inject constructor(
                 windowLocalIndex.set(0)
 
                 if (list.isNotEmpty()) {
-                    val t = playerPositionProvider?.invoke() ?: 0L
+                    // ExoPlayer는 메인 스레드에서만 접근 가능하므로 withContext 사용
+                    val t = withContext(Dispatchers.Main) {
+                        playerPositionProvider?.invoke() ?: 0L
+                    }
                     val request = buildSimilarityRequest("PLAY", t, list.toList())
                     val payload = json.encodeToString(SimilarityRequest.serializer(), request)
                     
@@ -222,21 +226,24 @@ class WebSocketStreamer @Inject constructor(
             httpStreamer.sendPauseResume(pausedNow)
         } else {
             // HTTP 명세에 맞는 형식으로 변경
-            val t = playerPositionProvider?.invoke() ?: 0L
-            val action = if (paused) "PAUSE" else "RESUME"
-            val request = SimilarityRequest(
-                type = action,
-                timestamp = t,
-                frames = emptyList()
-            )
-            val text = json.encodeToString(SimilarityRequest.serializer(), request)
-            
-            android.util.Log.d("WebSocketStreamer", "📤 웹소켓 $action 전송 시도: timestamp=$t")
-            val success = socket?.send(text) ?: false
-            if (success) {
-                android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 $action 전송 성공")
-            } else {
-                android.util.Log.e("WebSocketStreamer", "❌ 웹소켓 $action 전송 실패")
+            // ExoPlayer는 메인 스레드에서만 접근 가능하므로 withContext 사용
+            scope.launch(Dispatchers.Main) {
+                val t = playerPositionProvider?.invoke() ?: 0L
+                val action = if (paused) "PAUSE" else "RESUME"
+                val request = SimilarityRequest(
+                    type = action,
+                    timestamp = t,
+                    frames = emptyList()
+                )
+                val text = json.encodeToString(SimilarityRequest.serializer(), request)
+                
+                android.util.Log.d("WebSocketStreamer", "📤 웹소켓 $action 전송 시도: timestamp=$t")
+                val success = socket?.send(text) ?: false
+                if (success) {
+                    android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 $action 전송 성공")
+                } else {
+                    android.util.Log.e("WebSocketStreamer", "❌ 웹소켓 $action 전송 실패")
+                }
             }
         }
     }
@@ -248,6 +255,7 @@ class WebSocketStreamer @Inject constructor(
     }
     
     /** 여러 URL 후보를 순차적으로 시도하는 연결 메서드 */
+    /*
     fun connectWithFallback(
         urls: List<String>,
         playerPositionMs: () -> Long,
@@ -276,8 +284,10 @@ class WebSocketStreamer @Inject constructor(
             reconnectWithBackback(urls, token, onJudgment)
         }
     }
+    */
     
     /** 지수 백오프 재시도 로직 */
+    /*
     private suspend fun reconnectWithBackback(
         urls: List<String>,
         token: String,
@@ -318,8 +328,10 @@ class WebSocketStreamer @Inject constructor(
         setHttpMode(true)
         httpStreamer.startStreaming(playerPositionProvider ?: { 0L }, onJudgment)
     }
+    */
     
     /** 단일 연결 시도 */
+    /*
     private fun connectOnce(request: Request, onJudgment: (WebSocketJudgmentResult) -> Unit): Boolean {
         if (socket != null) return false
         
@@ -361,8 +373,10 @@ class WebSocketStreamer @Inject constructor(
         // 연결 시도 후 즉시 true 반환 (실제 성공 여부는 onOpen/onFailure에서 처리)
         return true
     }
+    */
     
     /** 웹소켓 요청 빌더 */
+    /*
     private fun buildWsRequest(url: String, token: String, useOrigin: Boolean = false, useSubproto: Boolean = false): Request {
         val builder = Request.Builder().url(url)
             .addHeader("Authorization", "Bearer $token")
@@ -376,6 +390,7 @@ class WebSocketStreamer @Inject constructor(
         
         return builder.build()
     }
+    */
     
     private fun buildSimilarityRequest(type: String, timestamp: Long, frames: List<FrameEntry>): SimilarityRequest {
         val frameBlocks = frames.mapIndexed { index, frameEntry ->
@@ -387,10 +402,10 @@ class WebSocketStreamer @Inject constructor(
                         coordinates = frameEntry.pose.mapNotNull { lm ->
                             lm?.let {
                                 Coordinate(
-                                    x = it.x ?: 0f,
-                                    y = it.y ?: 0f,
-                                    z = it.z ?: 0f,
-                                    w = it.w ?: 0f
+                                    x = it.x,
+                                    y = it.y,
+                                    z = it.z,
+                                    w = it.w
                                 )
                             }
                         }
@@ -400,10 +415,10 @@ class WebSocketStreamer @Inject constructor(
                         coordinates = frameEntry.left.mapNotNull { lm ->
                             lm?.let {
                                 Coordinate(
-                                    x = it.x ?: 0f,
-                                    y = it.y ?: 0f,
-                                    z = it.z ?: 0f,
-                                    w = it.w ?: 0f
+                                    x = it.x,
+                                    y = it.y,
+                                    z = it.z,
+                                    w = it.w
                                 )
                             }
                         }
@@ -413,10 +428,10 @@ class WebSocketStreamer @Inject constructor(
                         coordinates = frameEntry.right.mapNotNull { lm ->
                             lm?.let {
                                 Coordinate(
-                                    x = it.x ?: 0f,
-                                    y = it.y ?: 0f,
-                                    z = it.z ?: 0f,
-                                    w = it.w ?: 0f
+                                    x = it.x,
+                                    y = it.y,
+                                    z = it.z,
+                                    w = it.w
                                 )
                             }
                         }

@@ -55,8 +55,8 @@ data class PoseBlock(
 // 좌표 (HTTP 요청용)
 @Serializable
 data class Coordinate(
-    val x: Float, 
-    val y: Float, 
-    val z: Float, 
-    val w: Float
+    val x: Float?, 
+    val y: Float?, 
+    val z: Float?, 
+    val w: Float?
 )

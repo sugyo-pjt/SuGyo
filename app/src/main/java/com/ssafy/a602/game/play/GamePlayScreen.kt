@@ -160,7 +160,7 @@ fun GamePlayScreen(
     onFrame: ((ImageProxy) -> Unit)? = null,
     judgmentResult: JudgmentResult? = null,
     gamePlayViewModel: GamePlayViewModel? = null,
-    playerPositionMs: () -> Long = { 0L }  // ExoPlayer 위치 제공
+    playerPositionMs: () -> Long = { 0L }  // ExoPlayer 위치 제공 (기본값)
 ) {
     val context = LocalContext.current
 
@@ -256,7 +256,12 @@ fun GamePlayScreen(
     // 🔥 게임 시작 시 플레이어 위치 제공자 설정
     LaunchedEffect(gamePlayViewModel) {
         val totalWords = 10 // TODO: 실제 총 단어 수로 설정
-        gamePlayViewModel?.startGame(songId, totalWords, gameMode, playerPositionMs)
+        // ExoPlayer의 실제 위치를 사용하도록 수정
+        val actualPlayerPositionMs: () -> Long = { 
+            val position = player.currentPosition
+            if (position == C.TIME_UNSET) 0L else position
+        }
+        gamePlayViewModel?.startGame(songId, totalWords, gameMode, actualPlayerPositionMs)
     }
     
     // 🔥 하드 모드일 때 리듬 수집기에 프레임 데이터 전달
@@ -328,7 +333,12 @@ fun GamePlayScreen(
                     Log.d("GamePlayScreen", "✅ 채보 데이터 로드 성공, 게임 시작")
                 }
 
-                vm.startGame(songId, totalWords = sections.size, mode = gameMode, playerPositionMs = playerPositionMs)
+                // ExoPlayer의 실제 위치를 사용하도록 수정
+                val actualPlayerPositionMs: () -> Long = { 
+                    val position = player.currentPosition
+                    if (position == C.TIME_UNSET) 0L else position
+                }
+                vm.startGame(songId, totalWords = sections.size, mode = gameMode, playerPositionMs = actualPlayerPositionMs)
             } ?: Log.e("GamePlayScreen", "GamePlayViewModel이 null입니다!")
         } else {
             Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")

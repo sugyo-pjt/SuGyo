@@ -115,8 +115,20 @@ class GamePlayViewModel @Inject constructor(
     }
     
     private fun connectWebSocket() {
-        val wsUrl = "wss://j13a602.p.ssafy.io/ws/game/rhythm"
-        webSocketStreamer.connect(wsUrl, playerPositionProvider ?: { 0L }) { judgment ->
+        if (currentMusicId <= 0) {
+            android.util.Log.e("GamePlayViewModel", "❌ invalid musicId=$currentMusicId (songId=$songId)")
+            webSocketStreamer.setHttpMode(true)
+            return
+        }
+        tryWsWithCandidates(currentMusicId)
+    }
+    
+    private fun tryWsWithCandidates(musicId: Long) {
+        val base = "wss://j13a602.p.ssafy.io"
+        val urls = listOf(
+            "$base/play/hard/$musicId"
+        )
+        webSocketStreamer.connectWithFallback(urls, playerPositionProvider ?: { 0L }) { judgment ->
             // 웹소켓에서 받은 판정 결과를 기존 JudgmentResult로 변환
             val judgmentResult = JudgmentResult(
                 type = when (judgment.judgment) {
@@ -159,6 +171,7 @@ class GamePlayViewModel @Inject constructor(
             }
         }
         
+        // 연결 성립 후에만 전송 시작
         webSocketStreamer.startStreaming()
     }
 

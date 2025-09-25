@@ -27,8 +27,14 @@ class WebSocketStreamer @Inject constructor(
     private val windowLocalIndex = AtomicInteger(0)
     private var playerPositionProvider: (() -> Long)? = null
     
-    // OkHttpClient 재사용
-    private val client by lazy { OkHttpClient() }
+    // OkHttpClient 재사용 - 강화된 설정
+    private val client by lazy {
+        OkHttpClient.Builder()
+            .retryOnConnectionFailure(true)
+            .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build()
+    }
     
     private val json = Json {
         encodeDefaults = true
@@ -38,6 +44,17 @@ class WebSocketStreamer @Inject constructor(
     
     // 판정 결과 수신 콜백
     private var onJudgmentReceived: ((WebSocketJudgmentResult) -> Unit)? = null
+    
+    /** 웹소켓 URL 스킴 보정 */
+    private fun normalizeWsUrl(raw: String): String {
+        // 이미 ws/wss면 그대로, http/https면 ws/wss로 변환
+        return when {
+            raw.startsWith("wss://") || raw.startsWith("ws://") -> raw
+            raw.startsWith("https://") -> "wss://" + raw.removePrefix("https://")
+            raw.startsWith("http://")  -> "ws://"  + raw.removePrefix("http://")
+            else -> "wss://$raw" // 스킴 누락 시 기본 wss
+        }
+    }
 
     fun connect(url: String, playerPositionMs: () -> Long, onJudgment: (WebSocketJudgmentResult) -> Unit) {
         playerPositionProvider = playerPositionMs
@@ -59,8 +76,12 @@ class WebSocketStreamer @Inject constructor(
             return
         }
         
+        // URL 스킴 보정
+        val fixed = normalizeWsUrl(url)
+        android.util.Log.i("WebSocketStreamer", "CONNECT → $fixed")
+        
         val request = Request.Builder()
-            .url(url)
+            .url(fixed)
             .addHeader("Authorization", "Bearer $token")
             .build()
             
@@ -74,56 +95,22 @@ class WebSocketStreamer @Inject constructor(
                 try {
                     android.util.Log.d("WebSocketStreamer", "웹소켓 메시지 수신: $text")
                     
-                    // 먼저 WebSocketJudgmentResult로 파싱 시도
-                    try {
-                        val judgmentResult = json.decodeFromString<WebSocketJudgmentResult>(text)
-                        android.util.Log.d("WebSocketStreamer", "판정 결과 수신: ${judgmentResult.judgment}")
-                        onJudgmentReceived?.invoke(judgmentResult)
-                        return
-                    } catch (e: Exception) {
-                        android.util.Log.d("WebSocketStreamer", "WebSocketJudgmentResult 파싱 실패, SimilarityResponse 시도")
-                    }
+                    // TODO: 서버에서 받는 데이터 구조가 확정되면 파싱 로직 구현
+                    // 현재는 로그만 출력하고 나중에 실제 데이터 처리 로직 추가 예정
                     
-                    // SimilarityResponse로 파싱 시도
-                    try {
-                        val result = json.decodeFromString<SimilarityResponse>(text)
-                        // SimilarityResponse를 WebSocketJudgmentResult로 변환
-                        val judgmentResult = WebSocketJudgmentResult(
-                            judgment = when {
-                                result.similarity >= 0.9f -> "PERFECT"
-                                result.similarity >= 0.7f -> "GREAT"
-                                result.similarity >= 0.5f -> "GOOD"
-                                else -> "MISS"
-                            },
-                            word = "DANCE", // TODO: 서버에서 실제 단어 정보 제공
-                            timestamp = result.timestamp,
-                            score = (result.similarity * 100).toInt(),
-                            combo = 1, // TODO: 서버에서 실제 콤보 정보 제공
-                            totalScore = null,
-                            maxCombo = null,
-                            accuracy = result.similarity,
-                            grade = when {
-                                result.similarity >= 0.9f -> "S"
-                                result.similarity >= 0.8f -> "A"
-                                result.similarity >= 0.7f -> "B"
-                                result.similarity >= 0.6f -> "C"
-                                else -> "F"
-                            }
-                        )
-                        android.util.Log.d("WebSocketStreamer", "유사도 기반 판정: ${judgmentResult.judgment} (${result.similarity})")
-                        onJudgmentReceived?.invoke(judgmentResult)
-                    } catch (e: Exception) {
-                        android.util.Log.e("WebSocketStreamer", "SimilarityResponse 파싱 실패", e)
-                    }
                 } catch (e: Exception) {
-                    android.util.Log.e("WebSocketStreamer", "웹소켓 메시지 파싱 실패: $text", e)
+                    android.util.Log.e("WebSocketStreamer", "웹소켓 메시지 처리 실패: $text", e)
                 }
             }
             
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 connected = false
                 socket = null
-                android.util.Log.e("WebSocketStreamer", "웹소켓 연결 실패", t)
+                android.util.Log.e("WebSocketStreamer", "FAIL url=${response?.request?.url} code=${response?.code} msg=${response?.message}", t)
+                try {
+                    android.util.Log.e("WebSocketStreamer", "HEADERS=${response?.headers}")
+                    android.util.Log.e("WebSocketStreamer", "BODY=${response?.peekBody(Long.MAX_VALUE)?.string()}")
+                } catch (_: Throwable) {}
             }
             
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -163,7 +150,14 @@ class WebSocketStreamer @Inject constructor(
                     val t = playerPositionProvider?.invoke() ?: 0L
                     val request = buildSimilarityRequest("PLAY", t, list.toList())
                     val payload = json.encodeToString(SimilarityRequest.serializer(), request)
-                    socket?.send(payload)
+                    
+                    android.util.Log.d("WebSocketStreamer", "📤 웹소켓 데이터 전송 시도: frames=${list.size}, timestamp=$t")
+                    val success = socket?.send(payload) ?: false
+                    if (success) {
+                        android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 데이터 전송 성공")
+                    } else {
+                        android.util.Log.e("WebSocketStreamer", "❌ 웹소켓 데이터 전송 실패")
+                    }
                     list.clear()
                 }
             }
@@ -216,7 +210,14 @@ class WebSocketStreamer @Inject constructor(
                 frames = emptyList()
             )
             val text = json.encodeToString(SimilarityRequest.serializer(), request)
-            socket?.send(text)
+            
+            android.util.Log.d("WebSocketStreamer", "📤 웹소켓 $action 전송 시도: timestamp=$t")
+            val success = socket?.send(text) ?: false
+            if (success) {
+                android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 $action 전송 성공")
+            } else {
+                android.util.Log.e("WebSocketStreamer", "❌ 웹소켓 $action 전송 실패")
+            }
         }
     }
     
@@ -224,6 +225,136 @@ class WebSocketStreamer @Inject constructor(
     fun setHttpMode(enabled: Boolean) {
         useHttpMode = enabled
         android.util.Log.d("WebSocketStreamer", "HTTP 모드: $enabled")
+    }
+    
+    /** 여러 URL 후보를 순차적으로 시도하는 연결 메서드 */
+    fun connectWithFallback(
+        urls: List<String>,
+        playerPositionMs: () -> Long,
+        onJudgment: (WebSocketJudgmentResult) -> Unit
+    ) {
+        playerPositionProvider = playerPositionMs
+        this.onJudgmentReceived = onJudgment
+        
+        if (useHttpMode) {
+            // HTTP 모드 사용
+            httpStreamer.startStreaming(playerPositionMs, onJudgment)
+            return
+        }
+        
+        // 토큰 가져오기
+        val token = tokenManager.getAccessToken()
+        if (token.isNullOrEmpty()) {
+            android.util.Log.e("WebSocketStreamer", "❌ no token")
+            setHttpMode(true)
+            httpStreamer.startStreaming(playerPositionMs, onJudgment)
+            return
+        }
+        
+        // 지수 백오프 재시도 로직
+        scope.launch {
+            reconnectWithBackback(urls, token, onJudgment)
+        }
+    }
+    
+    /** 지수 백오프 재시도 로직 */
+    private suspend fun reconnectWithBackback(
+        urls: List<String>,
+        token: String,
+        onJudgment: (WebSocketJudgmentResult) -> Unit
+    ) {
+        var delayMs = 300L
+        repeat(3) { attempt ->
+            android.util.Log.i("WebSocketStreamer", "재시도 $attempt: delay=${delayMs}ms")
+            
+            for (url in urls) {
+                val fixed = normalizeWsUrl(url)
+                android.util.Log.i("WebSocketStreamer", "try $fixed")
+                val req = buildWsRequest(fixed, token, useOrigin = false, useSubproto = false)
+                connectOnce(req, onJudgment)
+                
+                // 연결 성공 대기 (최대 1초)
+                var waitTime = 0L
+                while (!connected && waitTime < 1000L) {
+                    kotlinx.coroutines.delay(50)
+                    waitTime += 50
+                }
+                
+                if (connected) {
+                    android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 연결 성공: $fixed")
+                    return
+                }
+                
+                android.util.Log.w("WebSocketStreamer", "연결 실패, 다음 URL 시도")
+            }
+            
+            if (attempt < 2) { // 마지막 시도가 아니면 대기
+                kotlinx.coroutines.delay(delayMs)
+                delayMs *= 2
+            }
+        }
+        
+        android.util.Log.e("WebSocketStreamer", "❌ WS all retries failed → switch to HTTP mode")
+        setHttpMode(true)
+        httpStreamer.startStreaming(playerPositionProvider ?: { 0L }, onJudgment)
+    }
+    
+    /** 단일 연결 시도 */
+    private fun connectOnce(request: Request, onJudgment: (WebSocketJudgmentResult) -> Unit): Boolean {
+        if (socket != null) return false
+        
+        socket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                connected = true
+                android.util.Log.d("WebSocketStreamer", "웹소켓 연결 성공: ${request.url}")
+            }
+            
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                try {
+                    android.util.Log.d("WebSocketStreamer", "웹소켓 메시지 수신: $text")
+                    
+                    // TODO: 서버에서 받는 데이터 구조가 확정되면 파싱 로직 구현
+                    // 현재는 로그만 출력하고 나중에 실제 데이터 처리 로직 추가 예정
+                    
+                } catch (e: Exception) {
+                    android.util.Log.e("WebSocketStreamer", "웹소켓 메시지 처리 실패: $text", e)
+                }
+            }
+            
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                connected = false
+                socket = null
+                android.util.Log.e("WebSocketStreamer", "FAIL url=${response?.request?.url} code=${response?.code} msg=${response?.message}", t)
+                try {
+                    android.util.Log.e("WebSocketStreamer", "HEADERS=${response?.headers}")
+                    android.util.Log.e("WebSocketStreamer", "BODY=${response?.peekBody(Long.MAX_VALUE)?.string()}")
+                } catch (_: Throwable) {}
+            }
+            
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                connected = false
+                socket = null
+                android.util.Log.d("WebSocketStreamer", "웹소켓 연결 종료: $code - $reason")
+            }
+        })
+        
+        // 연결 시도 후 즉시 true 반환 (실제 성공 여부는 onOpen/onFailure에서 처리)
+        return true
+    }
+    
+    /** 웹소켓 요청 빌더 */
+    private fun buildWsRequest(url: String, token: String, useOrigin: Boolean = false, useSubproto: Boolean = false): Request {
+        val builder = Request.Builder().url(url)
+            .addHeader("Authorization", "Bearer $token")
+        
+        if (useOrigin) {
+            builder.addHeader("Origin", "https://j13a602.p.ssafy.io")
+        }
+        if (useSubproto) {
+            builder.addHeader("Sec-WebSocket-Protocol", "json")
+        }
+        
+        return builder.build()
     }
     
     private fun buildSimilarityRequest(type: String, timestamp: Long, frames: List<FrameEntry>): SimilarityRequest {

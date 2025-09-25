@@ -721,9 +721,9 @@ fun GamePlayScreen(
                                 Text(
                                     text = previousSection?.text ?: "",
                                     color = Color(0xFF9AA3B2),
-                                    fontSize = 15.sp,
+                                    fontSize = 17.sp, // 18.sp -> 17.sp로 감소
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = 2, // 여러 줄 표시 허용
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 
@@ -743,10 +743,10 @@ fun GamePlayScreen(
                                 
                                 Text(
                                     text = highlightedText,
-                                    fontSize = 20.sp,
+                                    fontSize = 23.sp, // 24.sp -> 23.sp로 감소
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = 3, // 여러 줄 표시 허용 (현재 가사는 더 중요하므로)
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 
@@ -756,9 +756,9 @@ fun GamePlayScreen(
                                 Text(
                                     text = nextSection?.text ?: "",
                                     color = Color(0xFF6B7280),
-                                    fontSize = 15.sp,
+                                    fontSize = 17.sp, // 18.sp -> 17.sp로 감소
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = 2, // 여러 줄 표시 허용
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }

@@ -193,3 +193,5 @@ INSERT INTO user_daily_vocabulary (user_id, daily_id, correct_count) VALUES
 
 INSERT INTO game_result (music_id,user_id,score,created_at,updated_at) VALUES
 (1,1,1150,now(),now());
+
+

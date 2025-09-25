@@ -103,11 +103,13 @@ class LandmarkResultHandler(
         buffer.add(FramePack(lastTimestamp, pose, left, right))
         
         // 🔥 ViewModel에 랜드마크 결과 전달 (null 제거)
-        onLandmarks?.invoke(
-            pose.filterNotNull(),
-            left.filterNotNull(),
-            right.filterNotNull()
-        )
+        val finalPose = pose.filterNotNull()
+        val finalLeft = left.filterNotNull()
+        val finalRight = right.filterNotNull()
+        
+        android.util.Log.d("LandmarkResultHandler", "🎯 ViewModel 콜백 호출: pose=${finalPose.size}, left=${finalLeft.size}, right=${finalRight.size}")
+        
+        onLandmarks?.invoke(finalPose, finalLeft, finalRight)
 
         currentPoseResult = null
         currentHandResult = null

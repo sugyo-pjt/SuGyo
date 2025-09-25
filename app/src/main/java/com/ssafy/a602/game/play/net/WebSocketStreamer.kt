@@ -123,26 +123,32 @@ class WebSocketStreamer @Inject constructor(
 
     /** 0.3초마다 PLAY 배치 전송 */
     fun startStreaming() {
+        android.util.Log.d("WebSocketStreamer", "🚀 startStreaming 호출: useHttpMode=$useHttpMode, connected=$connected")
+        
         if (useHttpMode) {
-            // HTTP 모드에서는 httpStreamer가 처리
+            android.util.Log.d("WebSocketStreamer", "🌐 HTTP 모드: HttpStreamer가 처리")
             return
         }
         
         scope.launch {
+            android.util.Log.d("WebSocketStreamer", "🔄 전송 루프 시작")
             while (isActive) {
                 delay(300L)
                 if (!connected) { 
+                    android.util.Log.v("WebSocketStreamer", "⏸️ 연결되지 않음 - 버퍼 클리어")
                     buffer.swapAndGet().clear()
                     windowLocalIndex.set(0)
                     continue 
                 }
                 if (paused) { 
+                    android.util.Log.v("WebSocketStreamer", "⏸️ 일시정지 상태 - 버퍼 클리어")
                     buffer.swapAndGet().clear()
                     windowLocalIndex.set(0)
                     continue 
                 }
 
                 val list = buffer.swapAndGet()
+                android.util.Log.v("WebSocketStreamer", "🔄 전송 루프: bufferSize=${list.size}, connected=$connected, paused=$paused")
                 // 다음 윈도우부터 인덱스 0부터
                 windowLocalIndex.set(0)
 
@@ -182,14 +188,24 @@ class WebSocketStreamer @Inject constructor(
 
     /** 캡처 콜백에서 호출 */
     fun addFrame(pose: List<LM>, left: List<LM>, right: List<LM>) {
-        if (paused) return
-        if (pose.size != 23 || left.size != 21 || right.size != 21) return
+        android.util.Log.d("WebSocketStreamer", "📥 addFrame 호출: pose=${pose.size}, left=${left.size}, right=${right.size}, paused=$paused, useHttpMode=$useHttpMode")
+        
+        if (paused) {
+            android.util.Log.d("WebSocketStreamer", "⏸️ 일시정지 상태로 인해 프레임 무시")
+            return
+        }
+        if (pose.size != 23 || left.size != 21 || right.size != 21) {
+            android.util.Log.w("WebSocketStreamer", "⚠️ 프레임 크기 불일치: pose=${pose.size}, left=${left.size}, right=${right.size}")
+            return
+        }
         
         if (useHttpMode) {
+            android.util.Log.d("WebSocketStreamer", "🌐 HTTP 모드: HttpStreamer로 전달")
             httpStreamer.addFrame(pose, left, right)
         } else {
             val idx = windowLocalIndex.getAndIncrement()
             buffer.add(FrameEntry(idx, pose, left, right))
+            android.util.Log.d("WebSocketStreamer", "📦 프레임 버퍼에 추가: idx=$idx")
         }
     }
 

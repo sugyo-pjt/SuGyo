@@ -436,10 +436,12 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoplayer
-                    useController = true
+                    useController = false
                     setControllerShowTimeoutMs(2000)
                     // 버퍼링 인디케이터 켜기 (필드 접근 말고 setter/속성 쓰기)
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+//                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                    // 선택) 버퍼링 스피너를 아예 숨기고 싶다면 아래 줄로 변경
+                     setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                 }
             },
             update = { it.player = exoplayer },

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+HELP.md
+.gradle
+=======
 .python-version
 data
 
@@ -11,24 +15,11 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+>>>>>>> 9f34e7837076fba6add2eb68487c383dfb7697a4
 build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-venv
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -121,6 +112,17 @@ hand_lang
 #pdm.toml
 .pdm-python
 .pdm-build/
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
 
 # pixi
 #   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
@@ -132,6 +134,11 @@ hand_lang
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Celery stuff
 celerybeat-schedule
 celerybeat.pid
@@ -141,6 +148,7 @@ celerybeat.pid
 
 # Environments
 .env
+langv/
 .envrc
 .venv
 env/
@@ -194,20 +202,5 @@ cython_debug/
 #  you could uncomment the following to ignore the entire vscode folder
 # .vscode/
 
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
+### VS Code ###
+.vscode/

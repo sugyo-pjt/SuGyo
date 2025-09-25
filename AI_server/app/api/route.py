@@ -1,8 +1,15 @@
 
 from fastapi import APIRouter, HTTPException
+<<<<<<< HEAD
 from app.models.schemas import SignInput, TextInput, ChatbotOutput
 from app.services.chatbot import chatting
 from app.services.dense import classification
+=======
+from app.models.schemas import SentenceInput, SentenceResponse, WordInput, WordResponse
+from app.models.input_models import chatInput, chatOutput
+from app.services.chatbot import start_chat
+from app.services.run_model import classification
+>>>>>>> cdff0cbb47f539415c10c0ae9ddddd0c7e74200a
 import numpy as np
 
 router = APIRouter()

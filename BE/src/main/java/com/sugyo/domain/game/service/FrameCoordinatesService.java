@@ -35,19 +35,14 @@ public class FrameCoordinatesService {
         Music music = musicRepository.findById(requestDto.getMusicId())
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
-        List<FrameCoordinates> frameCoordinatesList = new ArrayList<>();
-
         for (GameActionRequest gameAction : requestDto.getAllFrames()) {
             FrameCoordinates frameCoordinates = FrameCoordinates.builder()
                     .music(music)
                     .timePassed(gameAction.timestamp())
                     .frameData(gameAction.frames())
                     .build();
-
-            frameCoordinatesList.add(frameCoordinates);
+            frameCoordinatesRepository.save(frameCoordinates);
         }
-
-        frameCoordinatesRepository.saveAll(frameCoordinatesList);
     }
 
     public double calculateSimilarity(GameActionRequest request) {

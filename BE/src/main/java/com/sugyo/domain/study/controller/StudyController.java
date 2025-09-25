@@ -1,6 +1,9 @@
 package com.sugyo.domain.study.controller;
 
 import com.sugyo.auth.dto.CustomUserDetails;
+import com.sugyo.common.exception.ApplicationException;
+import com.sugyo.common.exception.GlobalErrorCode;
+import com.sugyo.domain.study.dto.request.QuizResultRequest;
 import com.sugyo.domain.study.dto.response.SearchKeywordResponse;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
@@ -17,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -263,5 +268,69 @@ public class StudyController {
     @GetMapping("/detail/{wordId}")
     public ResponseEntity<StudyWordItemDto> getWordItem(@PathVariable long wordId) {
         return ResponseEntity.ok(studyService.getWordItem(wordId));
+    }
+
+    @Operation(
+            summary = "퀴즈 결과 저장",
+            description = "JWT 토큰을 통해 사용자의 퀴즈 결과를 저장합니다. 기존 결과가 있고 새 점수가 더 낮으면 저장하지 않습니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "퀴즈 결과 저장 성공",
+                    content = @Content(mediaType = "application/json")
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                                    """
+                                                            {
+                                                              "status": 401,
+                                                              "code": "AUTH-401-01",
+                                                              "message": "인증에 실패했습니다."
+                                                            }
+                                                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "해당 날짜를 찾을 수 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "실패 예시",
+                                            value =
+                                                    """
+                                                            {
+                                                              "status": 404,
+                                                              "code": "GLOBAL-404-01",
+                                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                                            }
+                                                            """
+                                    )
+                            }
+                    )
+            )
+    })
+    @PostMapping("/result")
+    public ResponseEntity<Void> saveQuizResult(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestBody QuizResultRequest request) {
+        Long userId = user.getId();
+
+        if (userId == null) {
+            throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
+        }
+        studyService.saveQuizResult(userId,request);
+        return ResponseEntity.ok().build();
     }
 }

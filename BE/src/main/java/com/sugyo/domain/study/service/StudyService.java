@@ -8,6 +8,7 @@ import com.sugyo.domain.study.dto.response.SearchKeywordResponse;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
+import com.sugyo.domain.study.dto.request.QuizResultRequest;
 import com.sugyo.domain.study.dto.response.StudyWordItemDto;
 import com.sugyo.domain.study.entity.Daily;
 import com.sugyo.domain.study.entity.UserDailyVocabulary;
@@ -16,11 +17,14 @@ import com.sugyo.domain.study.repository.DailyRepository;
 import com.sugyo.domain.study.repository.DailyVocabularyRepository;
 import com.sugyo.domain.study.repository.UserDailyVocabularyRepository;
 import com.sugyo.domain.study.repository.VocabularyRepository;
+import com.sugyo.domain.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -113,6 +117,33 @@ public class StudyService {
         Set<String> wordListByMotion = getWordListByMotion(vocabulary.getMotion().getId());
         wordListByMotion.remove(vocabulary.getWord());
         return StudyWordItemDto.from(vocabulary, wordListByMotion);
+    }
+
+    @Transactional
+    public void saveQuizResult(Long userId, QuizResultRequest request) {
+
+
+        Daily daily = dailyRepository.findById(request.getDayId())
+                .orElseThrow(() -> new ApplicationException(RESOURCE_NOT_FOUND));
+
+        Optional<UserDailyVocabulary> existingResult = userDailyVocabularyRepository
+                .findByUserIdAndDailyId(userId, request.getDayId());
+
+        if (existingResult.isPresent()) {
+            UserDailyVocabulary userDailyVocabulary = existingResult.get();
+            if (request.getScore() > userDailyVocabulary.getCorrectCount()) {
+                userDailyVocabulary.setCorrectCount(request.getScore());
+                userDailyVocabularyRepository.save(userDailyVocabulary);
+            }
+        } else {
+            User userEntity = User.builder().id(userId).build();
+            UserDailyVocabulary userDailyVocabulary = UserDailyVocabulary.builder()
+                    .user(userEntity)
+                    .daily(daily)
+                    .correctCount(request.getScore())
+                    .build();
+            userDailyVocabularyRepository.save(userDailyVocabulary);
+        }
     }
 
     private Set<String> getWordListByMotion(long motionId) {

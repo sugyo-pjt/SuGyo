@@ -198,7 +198,7 @@ class GamePlayViewModel @Inject constructor(
     }
     
     // MediaPipe 결과를 웹소켓으로 전송 (하드 모드일 때만)
-    fun onLandmarks(pose: List<LM>, left: List<LM>, right: List<LM>) {
+    fun onLandmarks(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
         android.util.Log.d("GamePlayViewModel", "🎯 onLandmarks 호출: gameMode=$gameMode, pose=${pose.size}, left=${left.size}, right=${right.size}")
         
         if (gameMode == GameMode.HARD) {

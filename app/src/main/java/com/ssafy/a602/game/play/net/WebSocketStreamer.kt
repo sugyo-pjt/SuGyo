@@ -187,17 +187,21 @@ class WebSocketStreamer @Inject constructor(
     }
 
     /** 캡처 콜백에서 호출 */
-    fun addFrame(pose: List<LM>, left: List<LM>, right: List<LM>) {
+    fun addFrame(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
         android.util.Log.d("WebSocketStreamer", "📥 addFrame 호출: pose=${pose.size}, left=${left.size}, right=${right.size}, paused=$paused, useHttpMode=$useHttpMode")
         
         if (paused) {
             android.util.Log.d("WebSocketStreamer", "⏸️ 일시정지 상태로 인해 프레임 무시")
             return
         }
+        // 크기 검사 (null 값 포함하여 정확한 크기 확인)
         if (pose.size != 23 || left.size != 21 || right.size != 21) {
             android.util.Log.w("WebSocketStreamer", "⚠️ 프레임 크기 불일치: pose=${pose.size}, left=${left.size}, right=${right.size}")
             return
         }
+        
+        android.util.Log.d("WebSocketStreamer", "📊 프레임 데이터: pose=${pose.size}, left=${left.size}, right=${right.size}")
+        android.util.Log.d("WebSocketStreamer", "📊 null 값 개수: pose=${pose.count { it == null }}, left=${left.count { it == null }}, right=${right.count { it == null }}")
         
         if (useHttpMode) {
             android.util.Log.d("WebSocketStreamer", "🌐 HTTP 모드: HttpStreamer로 전달")
@@ -380,35 +384,41 @@ class WebSocketStreamer @Inject constructor(
                 poses = listOf(
                     PoseBlock(
                         part = "BODY",
-                        coordinates = frameEntry.pose.map { lm ->
-                            Coordinate(
-                                x = lm.x ?: 0f,
-                                y = lm.y ?: 0f,
-                                z = lm.z ?: 0f,
-                                w = lm.w ?: 0f
-                            )
+                        coordinates = frameEntry.pose.mapNotNull { lm ->
+                            lm?.let {
+                                Coordinate(
+                                    x = it.x ?: 0f,
+                                    y = it.y ?: 0f,
+                                    z = it.z ?: 0f,
+                                    w = it.w ?: 0f
+                                )
+                            }
                         }
                     ),
                     PoseBlock(
                         part = "LEFT_HAND",
-                        coordinates = frameEntry.left.map { lm ->
-                            Coordinate(
-                                x = lm.x ?: 0f,
-                                y = lm.y ?: 0f,
-                                z = lm.z ?: 0f,
-                                w = lm.w ?: 0f
-                            )
+                        coordinates = frameEntry.left.mapNotNull { lm ->
+                            lm?.let {
+                                Coordinate(
+                                    x = it.x ?: 0f,
+                                    y = it.y ?: 0f,
+                                    z = it.z ?: 0f,
+                                    w = it.w ?: 0f
+                                )
+                            }
                         }
                     ),
                     PoseBlock(
                         part = "RIGHT_HAND",
-                        coordinates = frameEntry.right.map { lm ->
-                            Coordinate(
-                                x = lm.x ?: 0f,
-                                y = lm.y ?: 0f,
-                                z = lm.z ?: 0f,
-                                w = lm.w ?: 0f
-                            )
+                        coordinates = frameEntry.right.mapNotNull { lm ->
+                            lm?.let {
+                                Coordinate(
+                                    x = it.x ?: 0f,
+                                    y = it.y ?: 0f,
+                                    z = it.z ?: 0f,
+                                    w = it.w ?: 0f
+                                )
+                            }
                         }
                     )
                 )

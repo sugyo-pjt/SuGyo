@@ -10,9 +10,9 @@ data class LM(
 @Serializable
 data class FrameEntry(
     val frameIndex: Int,            // 윈도우(0.3s) 내 0부터 시작
-    val pose: List<LM>,             // 0~22 총 23개
-    val left: List<LM>,             // 0~20 총 21개
-    val right: List<LM>             // 0~20 총 21개
+    val pose: List<LM?>,            // 0~22 총 23개 (null 허용)
+    val left: List<LM?>,           // 0~20 총 21개 (null 허용)
+    val right: List<LM?>            // 0~20 총 21개 (null 허용)
 )
 
 @Serializable

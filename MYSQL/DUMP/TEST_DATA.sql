@@ -107,7 +107,8 @@ CREATE TABLE `game_result` (
 	`music_id`	BIGINT	NOT NULL,
 	`user_id`	BIGINT	NOT NULL,
 	`score`	INT	NOT NULL,
-	`record_time`	TIMESTAMP	NOT NULL,
+	`created_at`	TIMESTAMP	NOT NULL,
+	`updated_at`	TIMESTAMP	NOT NULL,
 	CONSTRAINT FK_music_TO_rank FOREIGN KEY (music_id) REFERENCES music(id),
 	CONSTRAINT FK_user_TO_rank FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -206,8 +207,8 @@ INSERT INTO user_daily_vocabulary (user_id, daily_id, correct_count) VALUES
 (1, 1, 6),  -- day1
 (1, 2, 10);  -- day2
 
-INSERT INTO game_result (music_id,user_id,score,record_time) VALUES
-(1,1,1150,now());
+INSERT INTO game_result (music_id,user_id,score,created_at,updated_at) VALUES
+(1,1,1150,now(),now());
 
 INSERT INTO music (id, title, singer, song_time, album_image_url,song_url ) VALUES
 (2, 'Way Back Home', '몰라', '00:01:00', NULL,'none');

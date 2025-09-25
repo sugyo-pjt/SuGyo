@@ -2,6 +2,7 @@ package com.ssafy.a602.game.play.net
 
 import com.ssafy.a602.game.play.input.*
 import com.ssafy.a602.game.play.dto.*
+import com.ssafy.a602.auth.TokenManager
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -13,13 +14,14 @@ import javax.inject.Singleton
 
 @Singleton
 class WebSocketStreamer @Inject constructor(
-    private val httpStreamer: HttpStreamer
+    private val httpStreamer: HttpStreamer,
+    private val tokenManager: TokenManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var socket: WebSocket? = null
     @Volatile private var connected = false
     @Volatile private var paused = false
-    @Volatile private var useHttpMode = true // HTTP 모드로 시작
+    @Volatile private var useHttpMode = false // 웹소켓 모드로 시작
 
     private val buffer = PingPongBuffer<FrameEntry>(initialCapacity = 10)
     private val windowLocalIndex = AtomicInteger(0)
@@ -50,8 +52,16 @@ class WebSocketStreamer @Inject constructor(
         // WebSocket 모드 사용
         if (socket != null) return
         
+        // 토큰 가져오기
+        val token = tokenManager.getAccessToken()
+        if (token.isNullOrEmpty()) {
+            android.util.Log.e("WebSocketStreamer", "인증 토큰이 없습니다")
+            return
+        }
+        
         val request = Request.Builder()
             .url(url)
+            .addHeader("Authorization", "Bearer $token")
             .build()
             
         socket = client.newWebSocket(request, object : WebSocketListener() {
@@ -62,23 +72,51 @@ class WebSocketStreamer @Inject constructor(
             
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    // HTTP 명세에 맞는 응답 형식으로 변경
-                    val result = json.decodeFromString<SimilarityResponse>(text)
-                    // SimilarityResponse를 WebSocketJudgmentResult로 변환
-                    val judgmentResult = WebSocketJudgmentResult(
-                        judgment = "PERFECT", // 서버에서 계산된 유사도에 따라 판정
-                        word = "DANCE", // 임시
-                        timestamp = result.timestamp,
-                        score = (result.similarity * 100).toInt(), // 유사도를 점수로 변환
-                        combo = 1, // 임시
-                        totalScore = null,
-                        maxCombo = null,
-                        accuracy = result.similarity,
-                        grade = null
-                    )
-                    onJudgmentReceived?.invoke(judgmentResult)
+                    android.util.Log.d("WebSocketStreamer", "웹소켓 메시지 수신: $text")
+                    
+                    // 먼저 WebSocketJudgmentResult로 파싱 시도
+                    try {
+                        val judgmentResult = json.decodeFromString<WebSocketJudgmentResult>(text)
+                        android.util.Log.d("WebSocketStreamer", "판정 결과 수신: ${judgmentResult.judgment}")
+                        onJudgmentReceived?.invoke(judgmentResult)
+                        return
+                    } catch (e: Exception) {
+                        android.util.Log.d("WebSocketStreamer", "WebSocketJudgmentResult 파싱 실패, SimilarityResponse 시도")
+                    }
+                    
+                    // SimilarityResponse로 파싱 시도
+                    try {
+                        val result = json.decodeFromString<SimilarityResponse>(text)
+                        // SimilarityResponse를 WebSocketJudgmentResult로 변환
+                        val judgmentResult = WebSocketJudgmentResult(
+                            judgment = when {
+                                result.similarity >= 0.9f -> "PERFECT"
+                                result.similarity >= 0.7f -> "GREAT"
+                                result.similarity >= 0.5f -> "GOOD"
+                                else -> "MISS"
+                            },
+                            word = "DANCE", // TODO: 서버에서 실제 단어 정보 제공
+                            timestamp = result.timestamp,
+                            score = (result.similarity * 100).toInt(),
+                            combo = 1, // TODO: 서버에서 실제 콤보 정보 제공
+                            totalScore = null,
+                            maxCombo = null,
+                            accuracy = result.similarity,
+                            grade = when {
+                                result.similarity >= 0.9f -> "S"
+                                result.similarity >= 0.8f -> "A"
+                                result.similarity >= 0.7f -> "B"
+                                result.similarity >= 0.6f -> "C"
+                                else -> "F"
+                            }
+                        )
+                        android.util.Log.d("WebSocketStreamer", "유사도 기반 판정: ${judgmentResult.judgment} (${result.similarity})")
+                        onJudgmentReceived?.invoke(judgmentResult)
+                    } catch (e: Exception) {
+                        android.util.Log.e("WebSocketStreamer", "SimilarityResponse 파싱 실패", e)
+                    }
                 } catch (e: Exception) {
-                    android.util.Log.e("WebSocketStreamer", "판정 결과 파싱 실패: $text", e)
+                    android.util.Log.e("WebSocketStreamer", "웹소켓 메시지 파싱 실패: $text", e)
                 }
             }
             

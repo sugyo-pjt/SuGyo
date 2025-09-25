@@ -6,8 +6,11 @@ import com.ssafy.a602.game.api.dto.CompleteResp
 import com.ssafy.a602.game.api.dto.MusicListItem
 import com.ssafy.a602.game.api.dto.MusicUrl
 import com.ssafy.a602.game.api.dto.RankingResp
+import com.ssafy.a602.game.play.dto.RhythmSaveRequest
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -58,4 +61,14 @@ interface RhythmApi {
     suspend fun getRanking(
         @Path("music_id") musicId: Long
     ): RankingResp
+    
+    /**
+     * 리듬게임 데이터 저장 (하드 모드)
+     * POST /api/v1/game/rhythm/save
+     */
+    @POST("/api/v1/game/rhythm/save")
+    suspend fun saveRhythm(
+        @Body request: RhythmSaveRequest,
+        @Header("Authorization") authorization: String
+    ): Response<String>
 }

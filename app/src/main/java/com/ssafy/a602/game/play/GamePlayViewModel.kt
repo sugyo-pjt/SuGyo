@@ -73,6 +73,7 @@ class GamePlayViewModel @Inject constructor(
     private var rhythmCollector: RhythmCollector? = null
 
     fun startGame(songId: String, totalWords: Int, mode: GameMode, playerPositionMs: () -> Long = { 0L }) {
+        android.util.Log.d("GamePlayViewModel", "🎮 게임 시작: songId=$songId, mode=$mode, totalWords=$totalWords")
         this.songId = songId
         this.gameMode = mode
         this.currentMusicId = songId.toLongOrNull() ?: -1L
@@ -80,20 +81,24 @@ class GamePlayViewModel @Inject constructor(
         
         // Easy 모드일 때만 프론트엔드 계산기 사용
         if (mode == GameMode.EASY) {
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산기 초기화")
             calc = GameScoreCalculator(songId = songId, totalWords = totalWords, baseScore = 100)
         }
         
         // 🔥 하드 모드일 때 리듬 수집기 초기화
         if (mode == GameMode.HARD) {
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기 초기화 시작")
             rhythmCollector = RhythmCollector(
                 musicId = currentMusicId.toInt(),
                 coroutineScope = viewModelScope
             )
             rhythmCollector?.startCollection()
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기 초기화 완료")
             
             // 🔥 게임 시작 시 PLAY 세그먼트 시작
             viewModelScope.launch {
                 rhythmCollector?.onTypeChanged(SegmentType.PLAY, 0L)
+                android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: PLAY 세그먼트 시작")
             }
         }
         
@@ -179,11 +184,13 @@ class GamePlayViewModel @Inject constructor(
     // MediaPipe 결과를 웹소켓으로 전송 (하드 모드일 때만)
     fun onLandmarks(pose: List<LM>, left: List<LM>, right: List<LM>) {
         if (gameMode == GameMode.HARD) {
+            android.util.Log.v("GamePlayViewModel", "🔥 Hard 모드: MediaPipe 데이터 수신 - pose=${pose.size}, left=${left.size}, right=${right.size}")
             webSocketStreamer.addFrame(pose, left, right)
             
             // 🔥 리듬 수집기에도 프레임 데이터 전달 (모든 프레임 즉시 수집)
             val positionMs = playerPositionProvider?.invoke() ?: 0L
             val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
+            android.util.Log.v("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기에 프레임 전달 - positionMs=$positionMs, poses=${poses.size}")
             // 모든 MediaPipe 프레임을 즉시 수집
             viewModelScope.launch {
                 rhythmCollector?.addFrameToBuffer(poses, positionMs)
@@ -239,9 +246,11 @@ class GamePlayViewModel @Inject constructor(
     }
 
     fun finishGameAndPost() {
+        android.util.Log.d("GamePlayViewModel", "🎯 게임 완료 처리 시작: mode=$gameMode")
         if (_complete.value.submitting) return // 더블탭 방지
         
         if (gameMode == GameMode.EASY) {
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산 결과 사용")
             // Easy 모드: 프론트엔드 계산 결과 사용
             val final = calc.getFinal() // 여기서 totalScore만 사용
             viewModelScope.launch {
@@ -266,19 +275,26 @@ class GamePlayViewModel @Inject constructor(
                 )
             }
         } else {
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 및 업로드 시작")
             // 🔥 Hard 모드: 리듬 데이터 수집 완료 후 업로드
-            viewModelScope.launch {
+            // viewModelScope 대신 GlobalScope 사용 (ViewModel이 이미 정리된 상태)
+            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 _complete.value = _complete.value.copy(submitting = true, submitError = null)
                 
                 try {
                     // 리듬 데이터 수집 완료
+                    android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 완료 요청")
                     val rhythmData = rhythmCollector?.onSongEnd()
+                    android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
+                    
                     if (rhythmData != null) {
+                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
                         // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
                         val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
                             request = rhythmData
                         )
                         
+                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
                         if (uploadResult.isSuccess) {
                             _complete.value = _complete.value.copy(
                                 submitting = false,
@@ -293,6 +309,7 @@ class GamePlayViewModel @Inject constructor(
                             )
                         }
                     } else {
+                        android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 실패")
                         _complete.value = _complete.value.copy(
                             submitting = false,
                             submitted = true,
@@ -300,6 +317,7 @@ class GamePlayViewModel @Inject constructor(
                         )
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 예외 발생", e)
                     _complete.value = _complete.value.copy(
                         submitting = false,
                         submitted = true,

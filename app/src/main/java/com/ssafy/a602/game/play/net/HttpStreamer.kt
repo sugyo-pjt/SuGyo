@@ -2,7 +2,7 @@ package com.ssafy.a602.game.play.net
 
 import com.ssafy.a602.game.play.input.*
 import com.ssafy.a602.game.play.dto.*
-import com.ssafy.a602.game.play.api.RhythmApi
+import com.ssafy.a602.game.api.RhythmApi
 import com.ssafy.a602.auth.TokenManager
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
@@ -91,35 +91,22 @@ class HttpStreamer @Inject constructor(
     }
     
     private suspend fun sendHttpRequest(type: String, timestamp: Long, frames: List<FrameEntry>) {
-        try {
-            val request = buildHttpRequest(type, timestamp, frames)
-            
-            // 토큰 자동 주입이 적용된 API 사용 (AuthInterceptor가 자동으로 토큰 추가)
-            val response = rhythmApi.getSimilarity(request, "") // 빈 문자열로 전달 (AuthInterceptor가 처리)
-            
-            if (response.isSuccessful) {
-                val result = response.body()
-                result?.let { 
-                    // HTTP 응답을 WebSocket 형식으로 변환
-                    val judgmentResult = WebSocketJudgmentResult(
-                        judgment = "PERFECT", // 서버에서 계산된 유사도에 따라 판정
-                        word = "DANCE", // 임시
-                        timestamp = it.timestamp,
-                        score = (it.similarity * 100).toInt(), // 유사도를 점수로 변환
-                        combo = 1, // 임시
-                        totalScore = null,
-                        maxCombo = null,
-                        accuracy = it.similarity,
-                        grade = null
-                    )
-                    onJudgmentReceived?.invoke(judgmentResult)
-                }
-            } else {
-                android.util.Log.e("HttpStreamer", "HTTP 요청 실패: ${response.code()}")
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("HttpStreamer", "HTTP 요청 중 오류 발생", e)
-        }
+        // HTTP 모드는 현재 비활성화됨 - WebSocket 모드 사용
+        android.util.Log.d("HttpStreamer", "HTTP 모드 비활성화됨 - WebSocket 모드 사용")
+        
+        // 임시로 PERFECT 판정 반환 (실제로는 WebSocket에서 처리)
+        val judgmentResult = WebSocketJudgmentResult(
+            judgment = "PERFECT",
+            word = "DANCE",
+            timestamp = timestamp,
+            score = 100,
+            combo = 1,
+            totalScore = null,
+            maxCombo = null,
+            accuracy = 1.0f,
+            grade = "S"
+        )
+        onJudgmentReceived?.invoke(judgmentResult)
     }
     
     private fun buildHttpRequest(type: String, timestamp: Long, frames: List<FrameEntry>): SimilarityRequest {

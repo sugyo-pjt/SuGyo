@@ -6,6 +6,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ExperimentalMirrorMode
 import androidx.camera.core.ImageProxy
+import androidx.media3.common.C
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -429,32 +430,34 @@ fun GamePlayScreen(
         }
     }
 
-    // 진행/완료 체크 - 곡의 실제 총 길이 사용 (전주 + 가사 + 후주 포함)
-    val totalTime = remember(currentSong) {
-        // 곡 정보의 durationText 사용 (전주부터 후주까지 전체 곡 길이)
-        currentSong?.durationText?.let {
-            try {
-                val parts = it.split(":")
-                val calculatedTime = when (parts.size) {
-                    2 -> {
-                        // MM:SS 형식
-                        (parts[0].toInt() * 60 + parts[1].toInt()).toFloat()
+    // 진행/완료 체크 - ExoPlayer의 실제 곡 길이 사용
+    val totalTime = remember(currentSong, player) {
+        // ExoPlayer에서 실제 곡 길이 가져오기
+        val durationMs = player.duration
+        if (durationMs != C.TIME_UNSET && durationMs > 0) {
+            val durationSeconds = durationMs / 1000f
+            Log.d("GamePlayScreen", "ExoPlayer 실제 곡 길이: ${durationSeconds}s (${durationMs}ms)")
+            durationSeconds
+        } else {
+            // ExoPlayer 길이를 못 가져온 경우 곡 정보 사용
+            currentSong?.durationText?.let {
+                try {
+                    val parts = it.split(":")
+                    val calculatedTime = when (parts.size) {
+                        2 -> (parts[0].toInt() * 60 + parts[1].toInt()).toFloat()
+                        3 -> (parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()).toFloat()
+                        else -> 200f
                     }
-                    3 -> {
-                        // HH:MM:SS 형식
-                        (parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()).toFloat()
-                    }
-                    else -> 200f // 기본값
+                    Log.d("GamePlayScreen", "곡 정보 기반 총 시간: ${calculatedTime}s (durationText: $it)")
+                    calculatedTime
+                } catch (_: Exception) { 
+                    Log.d("GamePlayScreen", "곡 정보 파싱 실패, 기본값 사용: 200s")
+                    200f 
                 }
-                Log.d("GamePlayScreen", "곡 전체 길이 기반 총 시간: ${calculatedTime}s (durationText: $it)")
-                calculatedTime
-            } catch (_: Exception) { 
-                Log.d("GamePlayScreen", "곡 정보 파싱 실패, 기본값 사용: 200s")
-                200f 
+            } ?: run {
+                Log.d("GamePlayScreen", "곡 정보 없음, 기본값 사용: 200s")
+                200f
             }
-        } ?: run {
-            Log.d("GamePlayScreen", "곡 정보 없음, 기본값 사용: 200s")
-            200f
         }
     }
 
@@ -469,8 +472,12 @@ fun GamePlayScreen(
         Log.d("GamePlayScreen", "게임 시간 체크: gameTime=${gameTime}s, totalTime=${totalTime}s")
         
         // 게임 완료 조건: 곡이 완전히 종료된 후 (전주 + 가사 + 후주 모두 포함)
-        if (gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f) {
-            Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s (곡 완전 종료)")
+        // ExoPlayer가 실제로 재생을 완료했는지도 확인
+        val isPlayerFinished = player.playbackState == Player.STATE_ENDED
+        val isTimeFinished = gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f
+        
+        if (isTimeFinished || isPlayerFinished) {
+            Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s, isPlayerFinished=$isPlayerFinished")
             // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
             gamePlayViewModel?.finishGameAndPost()
         }

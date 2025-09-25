@@ -1,7 +1,7 @@
 package com.ssafy.a602.game.play.service
 
 import android.util.Log
-import com.ssafy.a602.game.play.api.RhythmApi
+import com.ssafy.a602.game.api.RhythmApi
 import com.ssafy.a602.game.play.dto.RhythmSaveRequest
 import com.ssafy.a602.auth.TokenManager
 import kotlinx.coroutines.Dispatchers
@@ -17,15 +17,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class RhythmUploadService @Inject constructor(
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val rhythmApi: RhythmApi
 ) {
-    
-    private val retrofit = Retrofit.Builder()
-        .baseUrl("http://j13a602.p.ssafy.io/")
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-    
-    private val rhythmApi = retrofit.create(RhythmApi::class.java)
     
     companion object {
         private const val TAG = "RhythmUploadService"
@@ -42,6 +36,7 @@ class RhythmUploadService @Inject constructor(
     ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "리듬 데이터 업로드 시작: musicId=${request.musicId}, segments=${request.allFrames.size}")
+            Log.d(TAG, "요청 데이터 상세: segments=${request.allFrames.map { "${it.type}:${it.frames.size}개" }}")
             
             val token = tokenManager.getAccessToken()
             if (token.isNullOrEmpty()) {
@@ -49,15 +44,19 @@ class RhythmUploadService @Inject constructor(
                 return@withContext Result.failure(Exception("인증 토큰이 없습니다"))
             }
             
+            Log.d(TAG, "토큰 확인: ${token.take(20)}... (길이: ${token.length})")
+            Log.d(TAG, "API 호출: POST http://j13a602.p.ssafy.io/api/v1/game/rhythm/save")
             val response = rhythmApi.saveRhythm(request, "Bearer $token")
             
             if (response.isSuccessful) {
                 val responseBody = response.body()
-                Log.d(TAG, "리듬 데이터 업로드 성공: ${responseBody?.message}")
+                Log.d(TAG, "리듬 데이터 업로드 성공: $responseBody")
                 Result.success(true)
             } else {
+                val errorBody = response.errorBody()?.string() ?: "No error body"
                 val errorMessage = "업로드 실패: ${response.code()} ${response.message()}"
                 Log.e(TAG, errorMessage)
+                Log.e(TAG, "에러 응답 본문: $errorBody")
                 Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {

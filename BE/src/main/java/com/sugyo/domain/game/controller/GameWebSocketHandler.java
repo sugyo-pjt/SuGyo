@@ -10,7 +10,6 @@ import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.exception.WebSocketErrorCode;
 import com.sugyo.domain.game.exception.WebSocketException;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
-import com.sugyo.domain.game.service.FrameCoordinatesService;
 import com.sugyo.domain.game.service.WebSocketGameService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -24,7 +23,6 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,6 +32,7 @@ import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_MUSIC_I
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_REQUEST_FORMAT;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_URI_FORMAT;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.SESSION_NOT_FOUND;
+import static com.sugyo.domain.game.exception.WebSocketErrorCode.USER_NOT_FOUND_IN_SESSION;
 
 @Slf4j
 @Component
@@ -45,7 +44,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final WebSocketGameService gameService;
     private final FrameCoordinatesRepository frameCoordinatesRepository;
 
-    private final Map<WebSocketSession, GameSessionContext> sessions = new ConcurrentHashMap<>();
+    private final Map<String, GameSessionContext> sessions = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -56,17 +55,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             FrameCoordinates frameCoordinates = frameCoordinatesRepository.findTop1ByMusicIdOrderByTimePassedDesc(musicId)
                     .orElseThrow(() -> new WebSocketException(INVALID_MUSIC_ID));
 
-            double lastNoteTimestamp=frameCoordinates.getTimePassed();
+            double lastNoteTimestamp = frameCoordinates.getTimePassed();
 
             GameSessionContext context = new GameSessionContext(userId, musicId, session, lastNoteTimestamp);
-            sessions.put(session, context);
+            sessions.put(session.getId(), context);
             log.info("세션 시작: SessionId={}, UserId={}, MusicId={}", session.getId(), userId, musicId);
-        } catch (IllegalArgumentException e) {
-            closeSessionWithError(session, INVALID_MUSIC_ID);
+        } catch (WebSocketException e) {
+            log.warn("WebSocket 예외 발생: Code={}, Message={}", e.getErrorCode().getCode(), e.getMessage());
+            closeSessionWithError(session, e.getErrorCode());
+        } catch (Exception e) {
+            log.error("예측하지 못한 서버 오류 발생: SessionId={}", session.getId(), e);
+            closeSessionWithError(session, INTERNAL_SERVER_ERROR);
         }
     }
 
-    private Long extractMusicIdFromUri(URI uri) {
+    private Long extractMusicIdFromUri(URI uri) throws WebSocketException {
         String path = uri.getPath();
         try {
             return Long.parseLong(path.substring(path.lastIndexOf('/') + 1));
@@ -75,10 +78,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private String extractUserIdFromSession(WebSocketSession session) {
+    private String extractUserIdFromSession(WebSocketSession session) throws WebSocketException {
         String userId = (String) session.getAttributes().get("userId");
         if (userId == null) {
-            throw new WebSocketException(SESSION_NOT_FOUND);
+            throw new WebSocketException(USER_NOT_FOUND_IN_SESSION);
         }
         return userId;
     }
@@ -86,7 +89,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         try {
-            GameSessionContext context = sessions.get(session);
+            GameSessionContext context = sessions.get(session.getId());
             if (context == null) {
                 throw new WebSocketException(SESSION_NOT_FOUND);
             }
@@ -106,7 +109,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private GameActionRequest parseAndValidate(TextMessage message) {
+    private GameActionRequest parseAndValidate(TextMessage message) throws WebSocketException {
         try {
             GameActionRequest request = objectMapper.readValue(message.getPayload(), GameActionRequest.class);
             Set<ConstraintViolation<GameActionRequest>> violations;
@@ -136,7 +139,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } catch (IOException e) {
             log.error("세션 종료 중 오류 발생", e);
         } finally {
-            sessions.remove(session);
+            sessions.remove(session.getId());
         }
     }
 }

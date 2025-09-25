@@ -1,3 +1,6 @@
+DROP DATABASE IF EXISTS sugyo;
+create database sugyo;
+use sugyo;
 CREATE TABLE users
 (
 	id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -184,71 +187,9 @@ INSERT INTO `daily` (`day`, `total_count`, `sentence`) VALUES
 (9, 10, 'This is sentence for day 9'),
 (10, 10, 'This is sentence for day 10');
 
-INSERT INTO motion (description, video_url) VALUES
-	('오른 손바닥으로 주먹을 쥔 왼 팔을 쓸어내린 다음, 두 주먹을 쥐고 바닥이 아래로 향하게하여 가슴 앞에서 아래로 내린다.',
-		'http://sldict.korean.go.kr/multimedia/multimedia_files/convert/20191004/624421/MOV000244910_700X466.mp4'),
-	('두 손을 약간 구부려 손끝을 양쪽 가슴에 대고 상하로 엇갈리게 두 번 움직인다.',
-		'http://sldict.korean.go.kr/multimedia/multimedia_files/convert/20191029/632420/MOV000235261_700X466.mp4'),
-	('두 주먹의 1지를 펴서 마주 세웠다가 중앙으로 모아 마주 댄다.',
-		'http://sldict.korean.go.kr/multimedia/multimedia_files/convert/20191029/632284/MOV000252208_700X466.mp4'),
-	('오른손을 펴서 손바닥이 위로 손끝이 밖으로 향하게 하여 밖(상대방)으로 내민다.',
-		'http://sldict.korean.go.kr/multimedia/multimedia_files/convert/20200824/735063/MOV000251321_700X466.mp4'),
-	('오른 주먹의 1지를 펴서 끝이 밖으로 향하게 하여 약간 내민다.',
-		'http://sldict.korean.go.kr/multimedia/multimedia_files/convert/20191014/627265/MOV000251996_700X466.mp4'),
-	('오른 주먹의 1지를 펴서 끝이 아래로 향하게 하여 끝으로 명치 부위를 스쳐 올려 바닥이 안으로 향하게 세운 다음, 두 주먹의 4·5지를 펴서 끝이 위로 향하게 맞대고 세워 양옆으로 두 번 약간 돌리며 벌린다.',
-		'http://sldict.korean.go.kr/multimedia/multimedia_files/convert/20240118/1261124/MOV000361375_700X466.mp4');
-
-INSERT INTO vocabulary (motion_id, word) VALUES
-	(1, '안녕하세요'),
-	(1, '안녕하십니까'),
-	(1, '안녕히 가십시오'),
-	(1, '안녕히 계세요');
-
--- motion_id = 2 ('반갑다,반기다,재미,흥,흥취,희열,즐겁다,즐기다')
-INSERT INTO vocabulary (motion_id, word) VALUES
-	(2, '반갑다'),
-	(2, '반기다'),
-	(2, '재미'),
-	(2, '흥'),
-	(2, '흥취'),
-	(2, '희열'),
-	(2, '즐겁다'),
-	(2, '즐기다');
-
--- motion_id = 3 ('만나다')
-INSERT INTO vocabulary (motion_id, word) VALUES
-    (3, '만나다');
-
--- motion_id = 4 ('당신')
-INSERT INTO vocabulary (motion_id, word) VALUES
-    (4, '당신');
-
--- motion_id = 5 ('너,네,자네')
-INSERT INTO vocabulary (motion_id, word) VALUES
-	(5, '너'),
-	(5, '네'),
-	(5, '자네');
-
--- motion_id = 6 ('당사자,본인')
-INSERT INTO vocabulary (motion_id, word) VALUES
-	(6, '당사자'),
-	(6, '본인');
-
-
-INSERT INTO daily_vocabulary (daily_id, vocabulary_id) VALUES
-(1, 1),
-(1, 2),
-(1, 3),
-(1, 4),
-(1, 5),
-(1, 6);
-
 INSERT INTO user_daily_vocabulary (user_id, daily_id, correct_count) VALUES
 (1, 1, 6),
 (1, 2, 10);
 
 INSERT INTO game_result (music_id,user_id,score,created_at,updated_at) VALUES
 (1,1,1150,now(),now());
-
-INSERT INTO music (id, title, singer, song_time, album_image_url,song_url ) VALUES
-(2, 'Way Back Home', '몰라', '00:01:00', NULL,'none');

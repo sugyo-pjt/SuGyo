@@ -21,7 +21,7 @@ import static com.sugyo.domain.game.exception.WebSocketErrorCode.PAUSE_TIMEOUT;
 @Component
 @RequiredArgsConstructor
 public class SessionTimeoutScheduler {
-    private final Map<WebSocketSession, GameSessionContext> webSocketSessions;
+    private final WebSocketSessionManager sessionManager;
 
     private static final Duration PAUSE_TIMEOUT_DURATION = Duration.ofMinutes(10); // 일시정지 타임아웃: 10분
     private static final Duration IDLE_TIMEOUT_DURATION = Duration.ofMinutes(1);   // 유휴 타임아웃: 1분
@@ -30,9 +30,10 @@ public class SessionTimeoutScheduler {
     @Scheduled(fixedRate = 30_000)
     public void checkSessionTimeouts(){
         Instant now  = Instant.now();
-        log.trace("유휴 세션 검사 시작... 현재 활성 세션 수: {}", webSocketSessions.size());
+        Map<WebSocketSession, GameSessionContext> sessions = sessionManager.getSessions();
+        log.trace("유휴 세션 검사 시작... 현재 활성 세션 수: {}", sessions.size());
 
-        webSocketSessions.forEach((session, context) -> {
+        sessions.forEach((session, context) -> {
           Duration idleDuration = Duration.between(context.getLastActivityTime(), now);
 
           if(context.getGameState() == PAUSED && 0 < idleDuration.compareTo(PAUSE_TIMEOUT_DURATION)){

@@ -9,6 +9,7 @@ import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.exception.WebSocketErrorCode;
 import com.sugyo.domain.game.exception.WebSocketException;
 import com.sugyo.domain.game.service.WebSocketGameService;
+import com.sugyo.domain.game.service.WebSocketSessionManager;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +21,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INTERNAL_SERVER_ERROR;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_JSON_FORMAT;
@@ -40,7 +39,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Validator validator;
     private final WebSocketGameService gameService;
 
-    private final Map<String, GameSessionContext> sessions = new ConcurrentHashMap<>();
+    private final WebSocketSessionManager sessionManager;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -50,7 +49,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             GameSessionContext context = gameService.initializeGameSession(userId, musicId, session);
 
-            sessions.put(session.getId(), context);
+            sessionManager.addSession(session, context);
             log.info("세션 시작: SessionId={}, UserId={}, MusicId={}", session.getId(), userId, musicId);
         } catch (WebSocketException e) {
             log.warn("WebSocket 예외 발생: Code={}, Message={}", e.getErrorCode().getCode(), e.getMessage());
@@ -82,7 +81,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         try {
             log.debug("웹소켓 메시지 도착: {}", message);
-            GameSessionContext context = sessions.get(session.getId());
+            GameSessionContext context = sessionManager.getContext(session);
             if (context == null) {
                 throw new WebSocketException(SESSION_NOT_FOUND);
             }
@@ -99,7 +98,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
             if (isFinished) {
                 session.close();
-                sessions.remove(session.getId());
+                sessionManager.removeSession(session);
                 log.debug("웹소켓 연결 종료 완료: {}", session.getId());
             }
         } catch (WebSocketException e) {
@@ -141,7 +140,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } catch (IOException e) {
             log.error("세션 종료 중 오류 발생", e);
         } finally {
-            sessions.remove(session.getId());
+            sessionManager.removeSession(session);
             log.debug("세션 삭제: {}", session.getId());
         }
     }

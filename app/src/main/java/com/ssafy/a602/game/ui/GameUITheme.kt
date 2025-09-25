@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
  */
 object GameUITheme {
     
-    // 네온 색상 팔레트
+    // 네온 색상 팔레트 (더 화려한 색상 추가)
     object Colors {
         val NeonPink = Color(0xFFFF4DD2)
         val NeonBlue = Color(0xFF48E0FF)
@@ -15,6 +15,14 @@ object GameUITheme {
         val NeonLime = Color(0xFFB6FF3B)
         val NeonGold = Color(0xFFFFD700)
         val NeonRed = Color(0xFFFF5A5A)
+        
+        // 추가 화려한 색상들
+        val NeonCyan = Color(0xFF00FFFF)
+        val NeonOrange = Color(0xFFFF8C00)
+        val NeonMagenta = Color(0xFFFF00FF)
+        val NeonGreen = Color(0xFF00FF00)
+        val NeonYellow = Color(0xFFFFFF00)
+        val NeonTurquoise = Color(0xFF40E0D0)
         
         val DarkBackground = Color(0xFF0B0E13)
         val CardBackground = Color(0xFF1A1F2E)

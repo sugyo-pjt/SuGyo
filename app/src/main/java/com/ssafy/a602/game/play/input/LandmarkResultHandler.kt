@@ -6,7 +6,8 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 
 class LandmarkResultHandler(
     private val buffer: DynamicLandmarkBuffer,
-    private val mirrorCompensation: Boolean = false // 전면 미러링 입력으로 추론했다면 true
+    private val mirrorCompensation: Boolean = false, // 전면 미러링 입력으로 추론했다면 true
+    private val onLandmarks: ((List<LM>, List<LM>, List<LM>) -> Unit)? = null // 🔥 ViewModel 콜백
 ) {
     private var currentPoseResult: PoseLandmarkerResult? = null
     private var currentHandResult: HandLandmarkerResult? = null
@@ -21,7 +22,22 @@ class LandmarkResultHandler(
     }
 
     fun onHandResult(result: HandLandmarkerResult, tsMs: Long) {
-        android.util.Log.d("LandmarkResultHandler", "Hand 결과 수신: ${result.landmarks().size}개 손 감지")
+        val landmarks = result.landmarks()
+        val handedness = result.handednesses()
+        
+        android.util.Log.d("LandmarkResultHandler", "Hand 결과 수신: ${landmarks.size}개 손 감지")
+        
+        // 손 인식 상세 로그
+        if (landmarks.isEmpty()) {
+            android.util.Log.w("LandmarkResultHandler", "⚠️ 손이 인식되지 않음 - 카메라에 손이 보이는지 확인하세요")
+        } else {
+            android.util.Log.d("LandmarkResultHandler", "✅ 손 인식 성공: ${landmarks.size}개")
+            landmarks.forEachIndexed { i, hand ->
+                val handLabel = handedness.getOrNull(i)?.firstOrNull()?.categoryName() ?: "Unknown"
+                android.util.Log.d("LandmarkResultHandler", "  손 $i: $handLabel, 랜드마크 ${hand.size}개")
+            }
+        }
+        
         currentHandResult = result
         lastTimestamp = tsMs
         processResults()
@@ -69,14 +85,29 @@ class LandmarkResultHandler(
             }
         }
 
+        // 손 인식 상태 상세 로그
+        val handDetectionStatus = when {
+            handResult == null -> "손 결과 없음"
+            handResult.landmarks().isEmpty() -> "손 감지 실패"
+            else -> "손 감지 성공 (${handResult.landmarks().size}개)"
+        }
+        
         android.util.Log.d("LandmarkResultHandler",
             "랜드마크 추출 완료 - 포즈: ${poseSrc.size}, 왼손: ${leftSrc.size}, 오른손: ${rightSrc.size}")
+        android.util.Log.d("LandmarkResultHandler", "손 인식 상태: $handDetectionStatus")
 
         val pose = toLMFiltered(poseSrc, POSE_KEEP)
         val left = toLMFiltered(leftSrc, HAND_KEEP)
         val right = toLMFiltered(rightSrc, HAND_KEEP)
 
         buffer.add(FramePack(lastTimestamp, pose, left, right))
+        
+        // 🔥 ViewModel에 랜드마크 결과 전달 (null 제거)
+        onLandmarks?.invoke(
+            pose.filterNotNull(),
+            left.filterNotNull(),
+            right.filterNotNull()
+        )
 
         currentPoseResult = null
         currentHandResult = null

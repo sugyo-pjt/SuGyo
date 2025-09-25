@@ -62,6 +62,7 @@ object AuthModule {
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(RhythmApi::class.java)
     }
+    
 
     // === 디버그 전용: StudyApiService는 "강제 토큰 1개만" 붙여 호출 =========
     // → 다른 인터셉터/Authenticator 미사용 (헤더 충돌 방지)

@@ -8,7 +8,10 @@ data class JudgmentResult(
     val accuracy: Float,        // 0.0 ~ 1.0
     val score: Int,            // 획득 점수
     val combo: Int,            // 현재 콤보
-    val timestamp: Long        // 판정 시간
+    val timestamp: Long,        // 판정 시간
+    // 웹소켓 판정을 위한 추가 필드
+    val word: String? = null,   // 판정된 단어 (웹소켓에서 받은 경우)
+    val isWebSocketResult: Boolean = false  // 웹소켓에서 온 판정인지 구분
 )
 
 /**
@@ -19,4 +22,39 @@ enum class JudgmentType {
     GREAT,      // 좋음
     GOOD,       // 보통
     MISS        // 실패
+}
+
+// 웹소켓에서 받는 판정 결과를 위한 확장 함수
+fun JudgmentResult.fromWebSocket(
+    judgment: String,
+    word: String,
+    score: Int,
+    combo: Int,
+    totalScore: Int? = null,
+    maxCombo: Int? = null,
+    accuracy: Float? = null,
+    grade: String? = null
+): JudgmentResult {
+    val type = when (judgment) {
+        "PERFECT" -> JudgmentType.PERFECT
+        "GREAT" -> JudgmentType.GREAT
+        "GOOD" -> JudgmentType.GOOD
+        "MISS" -> JudgmentType.MISS
+        else -> JudgmentType.MISS
+    }
+    
+    return JudgmentResult(
+        type = type,
+        accuracy = accuracy ?: when (type) {
+            JudgmentType.PERFECT -> 0.98f
+            JudgmentType.GREAT -> 0.85f
+            JudgmentType.GOOD -> 0.70f
+            JudgmentType.MISS -> 0.0f
+        },
+        score = score,
+        combo = combo,
+        timestamp = System.currentTimeMillis(),
+        word = word,
+        isWebSocketResult = true
+    )
 }

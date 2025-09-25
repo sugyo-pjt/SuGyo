@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -276,7 +277,7 @@ fun NavGraph(
         /* ---------- Game : 플레이 화면 ---------- */
         composable("game_play/{songId}") { backStackEntry ->
             val songId = backStackEntry.arguments?.getString("songId") ?: ""
-            val gamePlayViewModel = remember { GamePlayViewModel() }
+            val gamePlayViewModel = hiltViewModel<GamePlayViewModel>()
             val gameUiState by gamePlayViewModel.ui.collectAsState()
             
             @OptIn(ExperimentalGetImage::class)

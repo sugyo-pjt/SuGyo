@@ -35,12 +35,16 @@ public class FrameCoordinatesService {
         Music music = musicRepository.findById(requestDto.getMusicId())
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
+        log.info("[save] {}", requestDto.toString());
+        log.info("[save] {}", requestDto.getAllFrames().size());
+
         for (GameActionRequest gameAction : requestDto.getAllFrames()) {
             FrameCoordinates frameCoordinates = FrameCoordinates.builder()
                     .music(music)
                     .timePassed(gameAction.timestamp())
                     .frameData(gameAction.frames())
                     .build();
+            log.info("[save] {}", frameCoordinates.getTimePassed());
             frameCoordinatesRepository.save(frameCoordinates);
         }
     }

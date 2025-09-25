@@ -11,42 +11,48 @@ object MediaPipeToRhythmConverter {
     /**
      * MediaPipe LM 리스트를 PoseDto로 변환
      */
-    fun convertToPoses(pose: List<LM>, left: List<LM>, right: List<LM>): List<PoseDto> {
+    fun convertToPoses(pose: List<LM?>, left: List<LM?>, right: List<LM?>): List<PoseDto> {
         return listOf(
             // BODY 포즈 (전체 23개 랜드마크)
             PoseDto(
                 part = Part.BODY,
-                coordinates = pose.map { lm ->
-                    CoordinateDto(
-                        x = lm.x?.toDouble(),
-                        y = lm.y?.toDouble(),
-                        z = lm.z?.toDouble(),
-                        w = lm.w?.toDouble()
-                    )
+                coordinates = pose.mapNotNull { lm ->
+                    lm?.let {
+                        CoordinateDto(
+                            x = it.x?.toDouble(),
+                            y = it.y?.toDouble(),
+                            z = it.z?.toDouble(),
+                            w = it.w?.toDouble()
+                        )
+                    }
                 }
             ),
             // LEFT_HAND 포즈 (21개 랜드마크)
             PoseDto(
                 part = Part.LEFT_HAND,
-                coordinates = left.map { lm ->
-                    CoordinateDto(
-                        x = lm.x?.toDouble(),
-                        y = lm.y?.toDouble(),
-                        z = lm.z?.toDouble(),
-                        w = lm.w?.toDouble()
-                    )
+                coordinates = left.mapNotNull { lm ->
+                    lm?.let {
+                        CoordinateDto(
+                            x = it.x?.toDouble(),
+                            y = it.y?.toDouble(),
+                            z = it.z?.toDouble(),
+                            w = it.w?.toDouble()
+                        )
+                    }
                 }
             ),
             // RIGHT_HAND 포즈 (21개 랜드마크)
             PoseDto(
                 part = Part.RIGHT_HAND,
-                coordinates = right.map { lm ->
-                    CoordinateDto(
-                        x = lm.x?.toDouble(),
-                        y = lm.y?.toDouble(),
-                        z = lm.z?.toDouble(),
-                        w = lm.w?.toDouble()
-                    )
+                coordinates = right.mapNotNull { lm ->
+                    lm?.let {
+                        CoordinateDto(
+                            x = it.x?.toDouble(),
+                            y = it.y?.toDouble(),
+                            z = it.z?.toDouble(),
+                            w = it.w?.toDouble()
+                        )
+                    }
                 }
             )
         )

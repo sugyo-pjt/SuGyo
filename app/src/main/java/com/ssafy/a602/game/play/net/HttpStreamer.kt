@@ -70,7 +70,7 @@ class HttpStreamer @Inject constructor(
     }
 
     /** 캡처 콜백에서 호출 */
-    fun addFrame(pose: List<LM>, left: List<LM>, right: List<LM>) {
+    fun addFrame(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
         if (paused) return
         if (pose.size != 23 || left.size != 21 || right.size != 21) return
         
@@ -116,35 +116,41 @@ class HttpStreamer @Inject constructor(
                 poses = listOf(
                     PoseBlock(
                         part = "BODY",
-                        coordinates = frameEntry.pose.map { lm ->
-                            Coordinate(
-                                x = lm.x ?: 0f,
-                                y = lm.y ?: 0f,
-                                z = lm.z ?: 0f,
-                                w = lm.w ?: 0f
-                            )
+                        coordinates = frameEntry.pose.mapNotNull { lm ->
+                            lm?.let {
+                                Coordinate(
+                                    x = it.x ?: 0f,
+                                    y = it.y ?: 0f,
+                                    z = it.z ?: 0f,
+                                    w = it.w ?: 0f
+                                )
+                            }
                         }
                     ),
                     PoseBlock(
                         part = "LEFT_HAND",
-                        coordinates = frameEntry.left.map { lm ->
-                            Coordinate(
-                                x = lm.x ?: 0f,
-                                y = lm.y ?: 0f,
-                                z = lm.z ?: 0f,
-                                w = lm.w ?: 0f
-                            )
+                        coordinates = frameEntry.left.mapNotNull { lm ->
+                            lm?.let {
+                                Coordinate(
+                                    x = it.x ?: 0f,
+                                    y = it.y ?: 0f,
+                                    z = it.z ?: 0f,
+                                    w = it.w ?: 0f
+                                )
+                            }
                         }
                     ),
                     PoseBlock(
                         part = "RIGHT_HAND",
-                        coordinates = frameEntry.right.map { lm ->
-                            Coordinate(
-                                x = lm.x ?: 0f,
-                                y = lm.y ?: 0f,
-                                z = lm.z ?: 0f,
-                                w = lm.w ?: 0f
-                            )
+                        coordinates = frameEntry.right.mapNotNull { lm ->
+                            lm?.let {
+                                Coordinate(
+                                    x = it.x ?: 0f,
+                                    y = it.y ?: 0f,
+                                    z = it.z ?: 0f,
+                                    w = it.w ?: 0f
+                                )
+                            }
                         }
                     )
                 )

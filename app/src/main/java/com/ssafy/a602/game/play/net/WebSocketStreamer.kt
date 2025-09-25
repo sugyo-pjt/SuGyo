@@ -10,6 +10,9 @@ import kotlinx.serialization.json.Json
 import okhttp3.*
 import okio.ByteString
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,9 +27,44 @@ class WebSocketStreamer @Inject constructor(
     @Volatile private var paused = false
     @Volatile private var useHttpMode = false // 웹소켓 모드로 시작
 
+    private var playerPositionProvider: (() -> Long)? = null
+    
+    // 하이브리드 구조: 핑퐁 버퍼 + 버킷 기반
     private val buffer = PingPongBuffer<FrameEntry>(initialCapacity = 10)
     private val windowLocalIndex = AtomicInteger(0)
-    private var playerPositionProvider: (() -> Long)? = null
+    
+    // 버킷 기반 구조
+    private val bucketMap = mutableMapOf<Long, MutableList<FrameEntry>>()
+    private var lastBucket: Long? = null
+    private val bucketMutex = Mutex()
+    private val sentBuckets = mutableSetOf<Long>() // 이미 전송된 버킷 추적
+    
+    // ExoPlayer 포지션 캐시 (스레드 안전)
+    private val lastPlayerPos = AtomicLong(0L)
+    
+    // FPS 모니터링
+    private var lastFrameTime: Long? = null
+    
+    // 송신 큐 역압 처리 (동시성 안전)
+    private val sendQueue = mutableListOf<Pair<Long, List<FrameEntry>>>()
+    private val maxQueueSize = 10 // 최대 대기열 크기
+    private val sendMutex = Mutex() // 송신 큐 동시 접근 보호
+    
+    // 포지션 업데이트 핸들러 (메인 스레드 전용)
+    private val positionHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val positionRunnable = object : Runnable {
+        override fun run() {
+            try {
+                // ExoPlayer는 반드시 메인 스레드에서만 접근
+                val position = playerPositionProvider?.invoke() ?: 0L
+                lastPlayerPos.set(position)
+                android.util.Log.v("WebSocketStreamer", "📍 포지션 업데이트: $position")
+            } catch (e: Exception) {
+                android.util.Log.e("WebSocketStreamer", "포지션 업데이트 실패", e)
+            }
+            positionHandler.postDelayed(this, 16L) // ~60Hz
+        }
+    }
     
     // OkHttpClient 재사용 - 강화된 설정
     private val client by lazy {
@@ -122,7 +160,7 @@ class WebSocketStreamer @Inject constructor(
         })
     }
 
-    /** 0.3초마다 PLAY 배치 전송 */
+    /** 버킷 기반 스트리밍 시작 */
     fun startStreaming() {
         android.util.Log.d("WebSocketStreamer", "🚀 startStreaming 호출: useHttpMode=$useHttpMode, connected=$connected")
         
@@ -131,44 +169,21 @@ class WebSocketStreamer @Inject constructor(
             return
         }
         
-        scope.launch {
-            android.util.Log.d("WebSocketStreamer", "🔄 전송 루프 시작")
-            while (isActive) {
-                delay(300L)
-                if (!connected) { 
-                    android.util.Log.v("WebSocketStreamer", "⏸️ 연결되지 않음 - 버퍼 클리어")
-                    buffer.swapAndGet().clear()
-                    windowLocalIndex.set(0)
-                    continue 
-                }
-                if (paused) { 
-                    android.util.Log.v("WebSocketStreamer", "⏸️ 일시정지 상태 - 버퍼 클리어")
-                    buffer.swapAndGet().clear()
-                    windowLocalIndex.set(0)
-                    continue 
-                }
-
-                val list = buffer.swapAndGet()
-                android.util.Log.v("WebSocketStreamer", "🔄 전송 루프: bufferSize=${list.size}, connected=$connected, paused=$paused")
-                // 다음 윈도우부터 인덱스 0부터
-                windowLocalIndex.set(0)
-
-                if (list.isNotEmpty()) {
-                    // ExoPlayer는 메인 스레드에서만 접근 가능하므로 withContext 사용
-                    val t = withContext(Dispatchers.Main) {
-                        playerPositionProvider?.invoke() ?: 0L
-                    }
-                    val request = buildSimilarityRequest("PLAY", t, list.toList())
-                    val payload = json.encodeToString(SimilarityRequest.serializer(), request)
-                    
-                    android.util.Log.d("WebSocketStreamer", "📤 웹소켓 데이터 전송 시도: frames=${list.size}, timestamp=$t")
-                    val success = socket?.send(payload) ?: false
-                    if (success) {
-                        android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 데이터 전송 성공")
-                    } else {
-                        android.util.Log.e("WebSocketStreamer", "❌ 웹소켓 데이터 전송 실패")
-                    }
-                    list.clear()
+        if (!connected) {
+            android.util.Log.w("WebSocketStreamer", "⚠️ 웹소켓이 연결되지 않음 - 스트리밍 시작 불가")
+            return
+        }
+        
+        // 포지션 업데이트 시작
+        positionHandler.post(positionRunnable)
+        android.util.Log.d("WebSocketStreamer", "📍 포지션 업데이트 시작 (60Hz)")
+        
+        // 주기적 백업 전송 (핑퐁 버퍼 보호)
+        scope.launch(Dispatchers.IO) {
+            while (isActive && connected) {
+                delay(300L) // 300ms마다 체크
+                if (!paused) {
+                    flushPingPongBuffer()
                 }
             }
         }
@@ -178,6 +193,44 @@ class WebSocketStreamer @Inject constructor(
         if (useHttpMode) {
             httpStreamer.stop()
         } else {
+            // 포지션 업데이트 중지
+            positionHandler.removeCallbacks(positionRunnable)
+            
+            // 취소 전에 잔여 데이터 플러시 (runBlocking으로 동기 처리)
+            runBlocking(Dispatchers.IO) {
+                bucketMutex.withLock {
+                    // 핑퐁 버퍼의 남은 프레임들 먼저 처리
+                    flushPingPongBuffer()
+                    
+                    // 남은 모든 버킷 순차 전송
+                    val remainingBuckets = bucketMap.keys.sorted()
+                    android.util.Log.d("WebSocketStreamer", "🔄 잔여 버킷 플러시: ${remainingBuckets.size}개")
+                    
+                    remainingBuckets.forEach { bucket ->
+                        flushBucket(bucket)
+                    }
+                    
+                    bucketMap.clear()
+                }
+                
+                // 송신 큐 완전히 비우기
+                sendFromQueue()
+                
+                // 마지막 구간도 포함하여 END 이벤트 전송
+                val finalBucket = lastBucket ?: 0L
+                if (finalBucket >= 0) {
+                    sendEndEvent(finalBucket)
+                }
+                
+                // 자료구조 정리
+                sendMutex.withLock {
+                    sentBuckets.clear()
+                    sendQueue.clear()
+                }
+                lastBucket = null
+            }
+            
+            // 이제 scope 취소
             scope.cancel()
             try { 
                 socket?.close(1000, "bye") 
@@ -185,12 +238,14 @@ class WebSocketStreamer @Inject constructor(
             socket = null
             connected = false
         }
+        
+        // 핑퐁 버퍼 정리
         buffer.clearAll()
         windowLocalIndex.set(0)
         paused = false
     }
 
-    /** 캡처 콜백에서 호출 */
+    /** 캡처 콜백에서 호출 - 버킷 기반 처리 */
     fun addFrame(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
         android.util.Log.d("WebSocketStreamer", "📥 addFrame 호출: pose=${pose.size}, left=${left.size}, right=${right.size}, paused=$paused, useHttpMode=$useHttpMode")
         
@@ -198,6 +253,12 @@ class WebSocketStreamer @Inject constructor(
             android.util.Log.d("WebSocketStreamer", "⏸️ 일시정지 상태로 인해 프레임 무시")
             return
         }
+        
+        if (!connected) {
+            android.util.Log.v("WebSocketStreamer", "❌ 연결되지 않음 - 프레임 무시")
+            return
+        }
+        
         // 크기 검사 (null 값 포함하여 정확한 크기 확인)
         if (pose.size != 23 || left.size != 21 || right.size != 21) {
             android.util.Log.w("WebSocketStreamer", "⚠️ 프레임 크기 불일치: pose=${pose.size}, left=${left.size}, right=${right.size}")
@@ -210,34 +271,201 @@ class WebSocketStreamer @Inject constructor(
         if (useHttpMode) {
             android.util.Log.d("WebSocketStreamer", "🌐 HTTP 모드: HttpStreamer로 전달")
             httpStreamer.addFrame(pose, left, right)
-        } else {
-            val idx = windowLocalIndex.getAndIncrement()
-            buffer.add(FrameEntry(idx, pose, left, right))
-            android.util.Log.d("WebSocketStreamer", "📦 프레임 버퍼에 추가: idx=$idx")
+            return
+        }
+        
+        // FrameEntry는 원본 LM 타입을 그대로 사용 (FPS 변동 대응)
+        val frameIndex = windowLocalIndex.getAndIncrement()
+        val frameEntry = FrameEntry(
+            frameIndex = frameIndex,
+            pose = pose,
+            left = left,
+            right = right
+        )
+        
+        android.util.Log.v("WebSocketStreamer", "📊 프레임 수집: idx=$frameIndex, fps=${1000L / maxOf(1L, System.currentTimeMillis() - (lastFrameTime ?: System.currentTimeMillis()))}")
+        lastFrameTime = System.currentTimeMillis()
+        
+        // 핑퐁 버퍼에 안전하게 저장
+        buffer.add(frameEntry)
+        android.util.Log.d("WebSocketStreamer", "📦 프레임 버퍼에 추가: idx=${frameEntry.frameIndex}")
+        
+        // 버킷 기반 처리 (백그라운드에서)
+        scope.launch(Dispatchers.IO) {
+            processFrameWithBucket(frameEntry)
+        }
+    }
+    
+    /** 버킷 기반 프레임 처리 */
+    private suspend fun processFrameWithBucket(frameEntry: FrameEntry) {
+        val currentPos = lastPlayerPos.get()
+        val bucket = bucketOf(currentPos)
+        
+        android.util.Log.d("WebSocketStreamer", "🪣 프레임 버킷팅: pos=$currentPos, bucket=$bucket")
+        
+        bucketMutex.withLock {
+            // 현재 버킷에 프레임 추가
+            val bucketList = bucketMap.getOrPut(bucket) { mutableListOf() }
+            bucketList.add(frameEntry)
+            
+            val prevBucket = lastBucket
+            if (prevBucket == null) {
+                // 첫 번째 프레임
+                lastBucket = bucket
+                android.util.Log.d("WebSocketStreamer", "🆕 첫 번째 버킷: $bucket")
+                return@withLock
+            }
+            
+            if (bucket > prevBucket) {
+                // 버킷이 바뀜 - 백필 처리
+                android.util.Log.d("WebSocketStreamer", "🔄 버킷 변경: $prevBucket → $bucket")
+                flushBucketsBetween(prevBucket, bucket)
+                lastBucket = bucket
+            }
+        }
+    }
+    
+    /** 300ms 구간 계산 (경계값 처리) */
+    private fun bucketOf(positionMs: Long): Long {
+        return if (positionMs < 0) 0L else (positionMs / 300) * 300
+    }
+    
+    /** 중간 버킷들 백필 처리 */
+    private suspend fun flushBucketsBetween(startBucket: Long, endBucket: Long) {
+        // 이전 버킷부터 현재 버킷 전까지 순차적으로 전송
+        var currentBucket = startBucket
+        while (currentBucket < endBucket) {
+            flushBucket(currentBucket)
+            currentBucket += 300
+        }
+    }
+    
+    /** 개별 버킷 전송 (동시성 안전) */
+    private suspend fun flushBucket(bucket: Long) {
+        // 이미 전송된 버킷은 건너뜀 (동시성 안전)
+        val alreadySent = sendMutex.withLock { sentBuckets.contains(bucket) }
+        if (alreadySent) {
+            android.util.Log.d("WebSocketStreamer", "⏭️ 이미 전송된 버킷: $bucket")
+            return
+        }
+        
+        val frames = bucketMap.remove(bucket) ?: emptyList()
+        
+        android.util.Log.d("WebSocketStreamer", "📤 버킷 전송: bucket=$bucket, frames=${frames.size}")
+        
+        // 송신 큐 동시 접근 보호
+        sendMutex.withLock {
+            // 송신 큐 역압 처리
+            if (sendQueue.size >= maxQueueSize) {
+                android.util.Log.w("WebSocketStreamer", "⚠️ 송신 큐 포화: 가장 오래된 빈 버킷 드롭")
+                // 가장 오래된 빈 버킷부터 드롭
+                val dropIdx = sendQueue.indexOfFirst { it.second.isEmpty() }.let { if (it >= 0) it else 0 }
+                sendQueue.removeAt(dropIdx)
+            }
+            
+            // 큐에 추가
+            sendQueue.add(bucket to frames)
+        }
+        
+        // 비동기 전송
+        scope.launch(Dispatchers.IO) {
+            sendFromQueue()
+        }
+    }
+    
+    /** 핑퐁 버퍼 백업 전송 (데이터 유실 방지) */
+    private suspend fun flushPingPongBuffer() {
+        val frames = buffer.swapAndGet()
+        if (frames.isNotEmpty()) {
+            val currentPos = lastPlayerPos.get()
+            val bucket = bucketOf(currentPos)
+            
+            android.util.Log.d("WebSocketStreamer", "🔄 핑퐁 버퍼 백업: frames=${frames.size}, bucket=$bucket")
+            
+            // 핑퐁 버퍼의 프레임들을 현재 버킷에 추가
+            bucketMutex.withLock {
+                val bucketList = bucketMap.getOrPut(bucket) { mutableListOf() }
+                bucketList.addAll(frames)
+            }
+            
+            // 윈도우 인덱스 리셋
+            windowLocalIndex.set(0)
+        }
+    }
+    
+    /** 송신 큐에서 순차 전송 (동시성 안전) */
+    private suspend fun sendFromQueue() {
+        while (true) {
+            val item = sendMutex.withLock { 
+                if (sendQueue.isEmpty()) null else sendQueue.removeAt(0) 
+            }
+            item ?: break
+            
+            val (bucket, frames) = item
+            
+            try {
+                val request = buildSimilarityRequest("PLAY", bucket, frames)
+                val payload = json.encodeToString(SimilarityRequest.serializer(), request)
+                
+                android.util.Log.d("WebSocketStreamer", "📤 큐에서 전송: bucket=$bucket, frames=${frames.size}")
+                val success = socket?.send(payload) ?: false
+                
+                if (success) {
+                    android.util.Log.d("WebSocketStreamer", "✅ 큐 전송 성공: $bucket")
+                    sendMutex.withLock { sentBuckets.add(bucket) } // 동일 락으로 일원화
+                } else {
+                    android.util.Log.e("WebSocketStreamer", "❌ 큐 전송 실패: $bucket")
+                    // 실패 시 재시도 (큐 앞쪽에 다시 추가)
+                    sendMutex.withLock { sendQueue.add(0, item) }
+                    delay(100L) // 재시도 전 대기
+                    break
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("WebSocketStreamer", "큐 전송 중 오류", e)
+                break
+            }
+        }
+    }
+    
+    /** 곡 종료 시 END 이벤트 전송 */
+    private suspend fun sendEndEvent(finalBucket: Long) {
+        try {
+            val request = buildSimilarityRequest("END", finalBucket, emptyList())
+            val payload = json.encodeToString(SimilarityRequest.serializer(), request)
+            
+            android.util.Log.d("WebSocketStreamer", "🏁 END 이벤트 전송: bucket=$finalBucket")
+            val success = socket?.send(payload) ?: false
+            if (success) {
+                android.util.Log.d("WebSocketStreamer", "✅ END 이벤트 전송 성공")
+            } else {
+                android.util.Log.e("WebSocketStreamer", "❌ END 이벤트 전송 실패")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("WebSocketStreamer", "END 이벤트 전송 중 오류", e)
         }
     }
 
-    /** PAUSE/RESUME 액션을 서버로 알림 (frames 비움) */
+    /** PAUSE/RESUME 액션을 서버로 알림 (재생 시간 기준) */
     fun sendPauseResume(pausedNow: Boolean) {
         paused = pausedNow
-        windowLocalIndex.set(0)
         
         if (useHttpMode) {
             httpStreamer.sendPauseResume(pausedNow)
         } else {
-            // HTTP 명세에 맞는 형식으로 변경
-            // ExoPlayer는 메인 스레드에서만 접근 가능하므로 withContext 사용
+            // 재생 시간 기준으로 타임스탬프 계산 (정지 구간 제외)
             scope.launch(Dispatchers.Main) {
-                val t = playerPositionProvider?.invoke() ?: 0L
+                val position = playerPositionProvider?.invoke() ?: 0L
+                val bucket = bucketOf(position) // 300ms 단위 정규화
                 val action = if (paused) "PAUSE" else "RESUME"
+                
                 val request = SimilarityRequest(
                     type = action,
-                    timestamp = t,
+                    timestamp = bucket,
                     frames = emptyList()
                 )
                 val text = json.encodeToString(SimilarityRequest.serializer(), request)
                 
-                android.util.Log.d("WebSocketStreamer", "📤 웹소켓 $action 전송 시도: timestamp=$t")
+                android.util.Log.d("WebSocketStreamer", "📤 웹소켓 $action 전송 시도: timestamp=$bucket (재생시간 기준)")
                 val success = socket?.send(text) ?: false
                 if (success) {
                     android.util.Log.d("WebSocketStreamer", "✅ 웹소켓 $action 전송 성공")
@@ -400,39 +628,48 @@ class WebSocketStreamer @Inject constructor(
                     PoseBlock(
                         part = "BODY",
                         coordinates = frameEntry.pose.mapNotNull { lm ->
-                            lm?.let {
-                                Coordinate(
-                                    x = it.x,
-                                    y = it.y,
-                                    z = it.z,
-                                    w = it.w
-                                )
+                            lm?.let { 
+                                // 신뢰도 0.1 이상만 사용 (데이터 정합성)
+                                if (it.w != null && it.w!! > 0.1f) {
+                                    Coordinate(
+                                        x = it.x,
+                                        y = it.y,
+                                        z = it.z,
+                                        w = it.w
+                                    )
+                                } else null
                             }
                         }
                     ),
                     PoseBlock(
                         part = "LEFT_HAND",
                         coordinates = frameEntry.left.mapNotNull { lm ->
-                            lm?.let {
-                                Coordinate(
-                                    x = it.x,
-                                    y = it.y,
-                                    z = it.z,
-                                    w = it.w
-                                )
+                            lm?.let { 
+                                // 신뢰도 0.1 이상만 사용 (데이터 정합성)
+                                if (it.w != null && it.w!! > 0.1f) {
+                                    Coordinate(
+                                        x = it.x,
+                                        y = it.y,
+                                        z = it.z,
+                                        w = it.w
+                                    )
+                                } else null
                             }
                         }
                     ),
                     PoseBlock(
                         part = "RIGHT_HAND",
                         coordinates = frameEntry.right.mapNotNull { lm ->
-                            lm?.let {
-                                Coordinate(
-                                    x = it.x,
-                                    y = it.y,
-                                    z = it.z,
-                                    w = it.w
-                                )
+                            lm?.let { 
+                                // 신뢰도 0.1 이상만 사용 (데이터 정합성)
+                                if (it.w != null && it.w!! > 0.1f) {
+                                    Coordinate(
+                                        x = it.x,
+                                        y = it.y,
+                                        z = it.z,
+                                        w = it.w
+                                    )
+                                } else null
                             }
                         }
                     )

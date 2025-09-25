@@ -128,6 +128,7 @@ class GamePlayViewModel @Inject constructor(
     private fun tryWsWithCandidates(musicId: Long) {
         val base = "wss://j13a602.p.ssafy.io"
         val url = "$base/play/hard/$musicId"
+        android.util.Log.d("GamePlayViewModel", "🔗 WebSocket 연결 시도: $url")
         webSocketStreamer.connect(url, playerPositionProvider ?: { 0L }) { judgment ->
             // 웹소켓에서 받은 판정 결과를 기존 JudgmentResult로 변환
             val judgmentResult = JudgmentResult(
@@ -172,6 +173,7 @@ class GamePlayViewModel @Inject constructor(
         }
         
         // 연결 성립 후에만 전송 시작
+        android.util.Log.d("GamePlayViewModel", "🚀 startStreaming 호출 시작")
         webSocketStreamer.startStreaming()
     }
 

@@ -49,8 +49,8 @@ class RhythmUploadService @Inject constructor(
             val response = rhythmApi.saveRhythm(request, "Bearer $token")
             
             if (response.isSuccessful) {
-                val responseBody = response.body()
-                Log.d(TAG, "리듬 데이터 업로드 성공: $responseBody")
+                // 서버에서 단순 문자열을 반환하므로 body() 호출하지 않음
+                Log.d(TAG, "리듬 데이터 업로드 성공: ${response.code()}")
                 Result.success(true)
             } else {
                 val errorBody = response.errorBody()?.string() ?: "No error body"

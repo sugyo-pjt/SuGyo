@@ -394,12 +394,15 @@ fun GamePlayScreen(
         if (t.isPlaying) logFirstTickErrorIfNeeded(t)
     }
 
-    // 현재 시간(초)
-    val gameTime = (tick?.positionMs ?: 0L) / 1000f
+    // 현재 시간(초) - ExoPlayer의 실제 재생 위치 사용 (더 정확한 계산)
+    val gameTime = remember(player.currentPosition) {
+        val positionMs = player.currentPosition
+        if (positionMs == C.TIME_UNSET) 0f else (positionMs / 1000f).coerceAtLeast(0f)
+    }
     
     // 디버깅: tick 상태 로그
     LaunchedEffect(tick) {
-        Log.d("GamePlayScreen", "Tick 상태: positionMs=${tick?.positionMs}, isPlaying=${tick?.isPlaying}, gameTime=${gameTime}s")
+        Log.d("GamePlayScreen", "Tick 상태: positionMs=${tick?.positionMs}, isPlaying=${tick?.isPlaying}, gameTime=${gameTime}s, playerPosition=${player.currentPosition}ms")
     }
     
     // 수동 테스트 코드 제거됨 - ExoPlayer가 정상 작동함
@@ -471,15 +474,15 @@ fun GamePlayScreen(
         // 디버깅 로그 추가
         Log.d("GamePlayScreen", "게임 시간 체크: gameTime=${gameTime}s, totalTime=${totalTime}s")
         
-        // 게임 완료 조건: 곡이 완전히 종료된 후 (전주 + 가사 + 후주 모두 포함)
-        // ExoPlayer가 실제로 재생을 완료했는지도 확인
+        // 게임 완료 조건: ExoPlayer 재생 완료를 우선 확인
         val isPlayerFinished = player.playbackState == Player.STATE_ENDED
         val isTimeFinished = gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f
         
-        if (isTimeFinished || isPlayerFinished) {
-            Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s, isPlayerFinished=$isPlayerFinished")
-            // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
-            // 중복 호출 방지를 위해 ViewModel에서 처리
+        if (isPlayerFinished) {
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
+            gamePlayViewModel?.finishGameAndPost()
+        } else if (isTimeFinished && !isPlayerFinished) {
+            Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
             gamePlayViewModel?.finishGameAndPost()
         }
     }
@@ -487,7 +490,6 @@ fun GamePlayScreen(
     // 게임 완료 상태 감지 (새로운 API 사용)
     LaunchedEffect(completeUi.submitted) {
         if (completeUi.submitted) {
-            Log.d("GamePlayScreen", "게임 완료 상태 감지됨 - 결과 화면으로 이동")
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,

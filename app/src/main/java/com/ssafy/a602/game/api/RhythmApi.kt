@@ -70,5 +70,5 @@ interface RhythmApi {
     suspend fun saveRhythm(
         @Body request: RhythmSaveRequest,
         @Header("Authorization") authorization: String
-    ): Response<String>
+    ): Response<Unit>
 }

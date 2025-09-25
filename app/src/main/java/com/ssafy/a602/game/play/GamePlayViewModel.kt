@@ -53,8 +53,8 @@ class GamePlayViewModel @Inject constructor(
 
     private lateinit var calc: GameScoreCalculator
     
-    // 중복 호출 방지를 위한 플래그
-    private var isGameFinished = false
+    // 중복 호출 방지 플래그
+    private var isUploading = false
     private var songId: String = ""
     private var currentMusicId: Long = -1L
     private var gameMode: GameMode = GameMode.EASY
@@ -250,23 +250,18 @@ class GamePlayViewModel @Inject constructor(
 
     fun finishGameAndPost() {
         android.util.Log.d("GamePlayViewModel", "🎯 게임 완료 처리 시작: mode=$gameMode")
+        if (_complete.value.submitting) return // 더블탭 방지
         
         // 중복 호출 방지
-        if (isGameFinished) {
-            android.util.Log.d("GamePlayViewModel", "🎯 게임 이미 완료됨 - 중복 호출 방지")
+        if (isUploading) {
+            android.util.Log.d("GamePlayViewModel", "🎯 이미 업로드 중 - 중복 호출 방지")
             return
         }
-        
-        if (_complete.value.submitting) {
-            android.util.Log.d("GamePlayViewModel", "🎯 이미 제출 중 - 중복 호출 방지")
-            return
-        }
-        
-        isGameFinished = true
         
         if (gameMode == GameMode.EASY) {
             android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산 결과 사용")
             // Easy 모드: 프론트엔드 계산 결과 사용
+            isUploading = true
             val final = calc.getFinal() // 여기서 totalScore만 사용
             viewModelScope.launch {
                 _complete.value = _complete.value.copy(submitting = true, submitError = null)
@@ -288,10 +283,12 @@ class GamePlayViewModel @Inject constructor(
                         )
                     }
                 )
+                isUploading = false
             }
         } else {
             android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 및 업로드 시작")
             // 🔥 Hard 모드: 리듬 데이터 수집 완료 후 업로드
+            isUploading = true
             // viewModelScope 대신 GlobalScope 사용 (ViewModel이 이미 정리된 상태)
             kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 _complete.value = _complete.value.copy(submitting = true, submitError = null)
@@ -323,6 +320,7 @@ class GamePlayViewModel @Inject constructor(
                                 submitError = uploadResult.exceptionOrNull()?.message ?: "리듬 데이터 업로드 실패"
                             )
                         }
+                        isUploading = false
                     } else {
                         android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 실패")
                         _complete.value = _complete.value.copy(
@@ -330,6 +328,7 @@ class GamePlayViewModel @Inject constructor(
                             submitted = true,
                             submitError = "리듬 데이터 수집 실패"
                         )
+                        isUploading = false
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 예외 발생", e)
@@ -338,6 +337,7 @@ class GamePlayViewModel @Inject constructor(
                         submitted = true,
                         submitError = e.message ?: "리듬 데이터 업로드 실패"
                     )
+                    isUploading = false
                 }
             }
         }

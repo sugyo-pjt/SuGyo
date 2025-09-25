@@ -81,16 +81,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         try {
+            log.debug("웹소켓 메시지 도착: {}", message);
             GameSessionContext context = sessions.get(session.getId());
             if (context == null) {
                 throw new WebSocketException(SESSION_NOT_FOUND);
             }
             GameActionRequest request = parseAndValidate(message);
+            log.debug("웹소켓 request type: {}", request.type());
 
+            boolean isFinished = false;
             switch (request.type()) {
-                case PLAY -> gameService.processPlay(context, request);
+                case PLAY -> {
+                    isFinished = gameService.processPlay(context, request);
+                }
                 case PAUSE -> gameService.pauseGame(context);
                 case RESUME -> gameService.resumeGame(context);
+            }
+            if (isFinished) {
+                session.close();
+                sessions.remove(session.getId());
+                log.debug("웹소켓 연결 종료 완료: {}", session.getId());
             }
         } catch (WebSocketException e) {
             log.warn("WebSocket 예외 발생: Code={}, Message={}", e.getErrorCode().getCode(), e.getMessage());
@@ -132,6 +142,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             log.error("세션 종료 중 오류 발생", e);
         } finally {
             sessions.remove(session.getId());
+            log.debug("세션 삭제: {}", session.getId());
         }
     }
 }

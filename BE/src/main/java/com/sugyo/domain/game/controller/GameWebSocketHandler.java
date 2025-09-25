@@ -79,11 +79,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     private String extractUserIdFromSession(WebSocketSession session) throws WebSocketException {
-        String userId = (String) session.getAttributes().get("userId");
+        Object userId = session.getAttributes().get("userId");
         if (userId == null) {
             throw new WebSocketException(USER_NOT_FOUND_IN_SESSION);
         }
-        return userId;
+        return String.valueOf(userId);
     }
 
     @Override

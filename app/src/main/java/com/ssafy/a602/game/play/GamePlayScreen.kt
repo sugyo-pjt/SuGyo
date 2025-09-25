@@ -479,6 +479,7 @@ fun GamePlayScreen(
         if (isTimeFinished || isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s, isPlayerFinished=$isPlayerFinished")
             // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
+            // 중복 호출 방지를 위해 ViewModel에서 처리
             gamePlayViewModel?.finishGameAndPost()
         }
     }
@@ -486,6 +487,7 @@ fun GamePlayScreen(
     // 게임 완료 상태 감지 (새로운 API 사용)
     LaunchedEffect(completeUi.submitted) {
         if (completeUi.submitted) {
+            Log.d("GamePlayScreen", "게임 완료 상태 감지됨 - 결과 화면으로 이동")
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,

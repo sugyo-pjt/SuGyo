@@ -52,6 +52,9 @@ class GamePlayViewModel @Inject constructor(
 ) : ViewModel() {
 
     private lateinit var calc: GameScoreCalculator
+    
+    // 중복 호출 방지를 위한 플래그
+    private var isGameFinished = false
     private var songId: String = ""
     private var currentMusicId: Long = -1L
     private var gameMode: GameMode = GameMode.EASY
@@ -247,7 +250,19 @@ class GamePlayViewModel @Inject constructor(
 
     fun finishGameAndPost() {
         android.util.Log.d("GamePlayViewModel", "🎯 게임 완료 처리 시작: mode=$gameMode")
-        if (_complete.value.submitting) return // 더블탭 방지
+        
+        // 중복 호출 방지
+        if (isGameFinished) {
+            android.util.Log.d("GamePlayViewModel", "🎯 게임 이미 완료됨 - 중복 호출 방지")
+            return
+        }
+        
+        if (_complete.value.submitting) {
+            android.util.Log.d("GamePlayViewModel", "🎯 이미 제출 중 - 중복 호출 방지")
+            return
+        }
+        
+        isGameFinished = true
         
         if (gameMode == GameMode.EASY) {
             android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산 결과 사용")

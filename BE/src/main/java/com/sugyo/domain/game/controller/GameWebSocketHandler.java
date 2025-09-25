@@ -6,7 +6,6 @@ import com.sugyo.domain.game.domain.GameActionType;
 import com.sugyo.domain.game.domain.GameSessionContext;
 import com.sugyo.domain.game.domain.PlayValidationGroup;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
-import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.exception.WebSocketErrorCode;
 import com.sugyo.domain.game.exception.WebSocketException;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
@@ -28,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INTERNAL_SERVER_ERROR;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_JSON_FORMAT;
-import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_MUSIC_ID;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_REQUEST_FORMAT;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_URI_FORMAT;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.SESSION_NOT_FOUND;
@@ -52,12 +50,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Long musicId = extractMusicIdFromUri(session.getUri());
             String userId = extractUserIdFromSession(session);
 
-            FrameCoordinates frameCoordinates = frameCoordinatesRepository.findTop1ByMusicIdOrderByTimePassedDesc(musicId)
-                    .orElseThrow(() -> new WebSocketException(INVALID_MUSIC_ID));
+            GameSessionContext context = gameService.initializeGameSession(userId, musicId, session);
 
-            double lastNoteTimestamp = frameCoordinates.getTimePassed();
-
-            GameSessionContext context = new GameSessionContext(userId, musicId, session, lastNoteTimestamp);
             sessions.put(session.getId(), context);
             log.info("세션 시작: SessionId={}, UserId={}, MusicId={}", session.getId(), userId, musicId);
         } catch (WebSocketException e) {

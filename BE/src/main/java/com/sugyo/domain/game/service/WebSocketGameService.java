@@ -10,6 +10,7 @@ import com.sugyo.domain.game.dto.response.GameStateResponse;
 import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.entity.Music;
+import com.sugyo.domain.game.exception.WebSocketException;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.game.repository.GameResultRepository;
 import com.sugyo.domain.game.repository.MusicRepository;
@@ -33,6 +34,7 @@ import static com.sugyo.domain.game.domain.GameState.PLAYING;
 import static com.sugyo.domain.game.domain.Judgment.GOOD;
 import static com.sugyo.domain.game.domain.Judgment.MISS;
 import static com.sugyo.domain.game.domain.Judgment.PERFECT;
+import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_MUSIC_ID;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -68,7 +70,7 @@ public class WebSocketGameService {
         List<MotionFrame> referenceFrames = frameCoordinates.getFrameData();
 
 
-        double similarRatio = isFrameSimilar(request.frames(),referenceFrames);
+        double similarRatio = isFrameSimilar(request.frames(), referenceFrames);
         Judgment judgment = judgeByRatio(similarRatio);
 
         int points = calculatePoints(judgment, context.getCombo().get());
@@ -125,6 +127,16 @@ public class WebSocketGameService {
     public void handleAbnormalTermination(GameSessionContext context) {
         log.warn("비정상 연결 종료 처리: UserId={}, SongId={}", context.getUserId(), context.getMusicId());
 
+    }
+
+    public GameSessionContext initializeGameSession(String userId, Long musicId, WebSocketSession session) throws WebSocketException {
+        log.debug("Initialize game session: UserId={}, MusicId={}", userId, musicId);
+        FrameCoordinates frameCoordinates = frameCoordinatesRepository.findTop1ByMusicIdOrderByTimePassedDesc(musicId)
+                .orElseThrow(() -> new WebSocketException(INVALID_MUSIC_ID));
+
+        double lastNoteTimestamp = frameCoordinates.getTimePassed();
+
+        return new GameSessionContext(userId, musicId, session, lastNoteTimestamp);
     }
 
     private Double isFrameSimilar(List<MotionFrame> userFrame, List<MotionFrame> referenceFrame) {

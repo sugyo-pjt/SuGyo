@@ -51,10 +51,10 @@ public class WebSocketGameService {
     private static final double PERFECT_RATIO_THRESHOLD = 0.9;
     private static final double GOOD_RATIO_THRESHOLD = 0.7;
 
-    public void processPlay(GameSessionContext context, GameActionRequest request) {
+    public boolean processPlay(GameSessionContext context, GameActionRequest request) {
         if (!context.isPlaying()) {
             log.debug("PAUSED 상태에서 동작 처리 생략 - UserId: {}", context.getUserId());
-            return;
+            return false;
         }
 
         Optional<FrameCoordinates> frameCoordinatesOpt = frameCoordinatesRepository
@@ -63,7 +63,7 @@ public class WebSocketGameService {
         if (frameCoordinatesOpt.isEmpty()) {
             log.warn("해당 타임스탬프에 대한 프레임 좌표를 찾을 수 없습니다. musicId: {}, timePassed: {}",
                     context.getMusicId(), request.timestamp());
-            return;
+            return false;
         }
 
         FrameCoordinates frameCoordinates = frameCoordinatesOpt.get();
@@ -71,7 +71,9 @@ public class WebSocketGameService {
 
 
         double similarRatio = isFrameSimilar(request.frames(), referenceFrames);
+        log.debug("웹소켓 동작 유사도: {}", similarRatio);
         Judgment judgment = judgeByRatio(similarRatio);
+        log.debug("웹소켓 동작 판정: {}", judgment);
 
         int points = calculatePoints(judgment, context.getCombo().get());
 
@@ -82,7 +84,9 @@ public class WebSocketGameService {
 
         if (context.getLastNoteTimestamp() <= request.timestamp()) {
             finishGame(context);
+            return true;
         }
+        return false;
     }
 
     public void pauseGame(GameSessionContext context) {

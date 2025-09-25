@@ -8,7 +8,6 @@ import com.sugyo.domain.game.domain.PlayValidationGroup;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.exception.WebSocketErrorCode;
 import com.sugyo.domain.game.exception.WebSocketException;
-import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.game.service.WebSocketGameService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -40,7 +39,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final WebSocketGameService gameService;
-    private final FrameCoordinatesRepository frameCoordinatesRepository;
 
     private final Map<String, GameSessionContext> sessions = new ConcurrentHashMap<>();
 

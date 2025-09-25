@@ -144,7 +144,7 @@ public class RhythmGameService {
                         .userNickName(rhythmGameRank.getUser().getNickname())
                         .userProfileUrl(rhythmGameRank.getUser().getProfileImageUrl())
                         .score(rhythmGameRank.getScore())
-                        .recordDate(rhythmGameRank.getRecordTime())
+                        .recordDate(rhythmGameRank.getUpdatedAt())
                         .build())
                 .toList();
 
@@ -157,7 +157,7 @@ public class RhythmGameService {
             myInfo = MyRankInfoDto.builder()
                     .rank(myRankPosition)
                     .score(myRank.getScore())
-                    .recordDate(myRank.getRecordTime())
+                    .recordDate(myRank.getCreatedAt())
                     .build();
         }
 

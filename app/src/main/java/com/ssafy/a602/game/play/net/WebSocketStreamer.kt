@@ -627,50 +627,41 @@ class WebSocketStreamer @Inject constructor(
                 poses = listOf(
                     PoseBlock(
                         part = "BODY",
-                        coordinates = frameEntry.pose.mapNotNull { lm ->
+                        coordinates = frameEntry.pose.map { lm ->
                             lm?.let { 
-                                // 신뢰도 0.1 이상만 사용 (데이터 정합성)
-                                if (it.w != null && it.w!! > 0.1f) {
-                                    Coordinate(
-                                        x = it.x,
-                                        y = it.y,
-                                        z = it.z,
-                                        w = it.w
-                                    )
-                                } else null
-                            }
+                                Coordinate(
+                                    x = it.x,
+                                    y = it.y,
+                                    z = it.z,
+                                    w = it.w
+                                )
+                            } ?: Coordinate(x = null, y = null, z = null, w = null)
                         }
                     ),
                     PoseBlock(
                         part = "LEFT_HAND",
-                        coordinates = frameEntry.left.mapNotNull { lm ->
+                        coordinates = frameEntry.left.map { lm ->
                             lm?.let { 
-                                // 신뢰도 0.1 이상만 사용 (데이터 정합성)
-                                if (it.w != null && it.w!! > 0.1f) {
-                                    Coordinate(
-                                        x = it.x,
-                                        y = it.y,
-                                        z = it.z,
-                                        w = it.w
-                                    )
-                                } else null
-                            }
+                                Coordinate(
+                                    x = it.x,
+                                    y = it.y,
+                                    z = it.z,
+                                    w = it.w
+                                )
+                            } ?: Coordinate(x = null, y = null, z = null, w = null)
                         }
                     ),
                     PoseBlock(
                         part = "RIGHT_HAND",
-                        coordinates = frameEntry.right.mapNotNull { lm ->
+                        coordinates = frameEntry.right.map { lm ->
                             lm?.let { 
-                                // 신뢰도 0.1 이상만 사용 (데이터 정합성)
-                                if (it.w != null && it.w!! > 0.1f) {
-                                    Coordinate(
-                                        x = it.x,
-                                        y = it.y,
-                                        z = it.z,
-                                        w = it.w
-                                    )
-                                } else null
-                            }
+                                Coordinate(
+                                    x = it.x,
+                                    y = it.y,
+                                    z = it.z,
+                                    w = it.w
+                                )
+                            } ?: Coordinate(x = null, y = null, z = null, w = null)
                         }
                     )
                 )

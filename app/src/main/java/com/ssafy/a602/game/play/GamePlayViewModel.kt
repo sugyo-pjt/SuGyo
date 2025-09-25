@@ -18,6 +18,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
 data class GameUiState(
@@ -115,8 +117,18 @@ class GamePlayViewModel @Inject constructor(
     }
     
     private fun connectWebSocket() {
-        val wsUrl = "wss://j13a602.p.ssafy.io/ws/game/rhythm"
-        webSocketStreamer.connect(wsUrl, playerPositionProvider ?: { 0L }) { judgment ->
+        if (currentMusicId <= 0) {
+            android.util.Log.e("GamePlayViewModel", "❌ invalid musicId=$currentMusicId (songId=$songId)")
+            webSocketStreamer.setHttpMode(true)
+            return
+        }
+        tryWsWithCandidates(currentMusicId)
+    }
+    
+    private fun tryWsWithCandidates(musicId: Long) {
+        val base = "wss://j13a602.p.ssafy.io"
+        val url = "$base/play/hard/$musicId"
+        webSocketStreamer.connect(url, playerPositionProvider ?: { 0L }) { judgment ->
             // 웹소켓에서 받은 판정 결과를 기존 JudgmentResult로 변환
             val judgmentResult = JudgmentResult(
                 type = when (judgment.judgment) {
@@ -159,6 +171,7 @@ class GamePlayViewModel @Inject constructor(
             }
         }
         
+        // 연결 성립 후에만 전송 시작
         webSocketStreamer.startStreaming()
     }
 
@@ -185,17 +198,28 @@ class GamePlayViewModel @Inject constructor(
     }
     
     // MediaPipe 결과를 웹소켓으로 전송 (하드 모드일 때만)
-    fun onLandmarks(pose: List<LM>, left: List<LM>, right: List<LM>) {
+    fun onLandmarks(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
+        android.util.Log.d("GamePlayViewModel", "🎯 onLandmarks 호출: gameMode=$gameMode, pose=${pose.size}, left=${left.size}, right=${right.size}")
+        
         if (gameMode == GameMode.HARD) {
-            android.util.Log.v("GamePlayViewModel", "🔥 Hard 모드: MediaPipe 데이터 수신 - pose=${pose.size}, left=${left.size}, right=${right.size}")
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: MediaPipe 데이터 수신 - pose=${pose.size}, left=${left.size}, right=${right.size}")
+            
+            // 데이터 유효성 검사
+            if (pose.isEmpty() && left.isEmpty() && right.isEmpty()) {
+                android.util.Log.w("GamePlayViewModel", "⚠️ 모든 MediaPipe 데이터가 비어있음!")
+                return
+            }
+            
             webSocketStreamer.addFrame(pose, left, right)
             
             // 🔥 리듬 수집기에도 프레임 데이터 전달 (모든 프레임 즉시 수집)
-            val positionMs = playerPositionProvider?.invoke() ?: 0L
             val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
-            android.util.Log.v("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기에 프레임 전달 - positionMs=$positionMs, poses=${poses.size}")
-            // 모든 MediaPipe 프레임을 즉시 수집
+            // ExoPlayer는 메인 스레드에서만 접근 가능하므로 withContext 사용
             viewModelScope.launch {
+                val positionMs = withContext(Dispatchers.Main) {
+                    playerPositionProvider?.invoke() ?: 0L
+                }
+                android.util.Log.v("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기에 프레임 전달 - positionMs=$positionMs, poses=${poses.size}")
                 rhythmCollector?.addFrameToBuffer(poses, positionMs)
             }
         }

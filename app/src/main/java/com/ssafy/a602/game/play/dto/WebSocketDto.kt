@@ -7,19 +7,16 @@ import kotlinx.serialization.Serializable
  * 웹소켓 통신용 DTO들
  */
 
-// 웹소켓에서 받는 판정 결과
+// 웹소켓에서 받는 판정 결과 (사용자 요청 형식에 맞춤)
 @Serializable
 data class WebSocketJudgmentResult(
-    val judgment: String,           // "PERFECT", "GREAT", "GOOD", "MISS"
-    val word: String,               // 판정된 단어
-    val timestamp: Long,            // 판정 시점
-    val score: Int,                 // 획득 점수
+    val judgment: String,           // 판정 결과 (Perfect, Good, Miss)
+    val points: Int,                // 이번 판정으로 획득한 점수
     val combo: Int,                 // 현재 콤보
-    // 서버에서 계산된 추가 정보
-    val totalScore: Int? = null,    // 누적 총 점수
-    val maxCombo: Int? = null,      // 최대 콤보
-    val accuracy: Float? = null,   // 정확도 (0.0~1.0)
-    val grade: String? = null      // 등급 (S, A, B, C, F)
+    val totalScore: Int,            // 누적 총점
+    val perfectCount: Int,          // Perfect 개수
+    val goodCount: Int,             // Good 개수
+    val missCount: Int             // Miss 개수
 )
 
 // HTTP 유사도 요청용 DTO

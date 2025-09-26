@@ -73,7 +73,10 @@ interface GameApiService {
         correctCount: Int,
         missCount: Int,
         maxCombo: Int,
-        missWords: List<String>
+        missWords: List<String>,
+        perfectCount: Int = 0,
+        goodCount: Int = 0,
+        totalJudgments: Int = 0
     ): GameResultUi
     
     /**

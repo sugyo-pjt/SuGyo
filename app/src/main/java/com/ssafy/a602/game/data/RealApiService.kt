@@ -283,7 +283,10 @@ class RealApiService @Inject constructor(
         correctCount: Int,
         missCount: Int,
         maxCombo: Int,
-        missWords: List<String>
+        missWords: List<String>,
+        perfectCount: Int,
+        goodCount: Int,
+        totalJudgments: Int
     ): GameResultUi {
         // 백엔드에서 구현되지 않은 기능 - 기본값만 반환
         val songs = getSongs()
@@ -312,7 +315,11 @@ class RealApiService @Inject constructor(
                 else -> 1.0
             },
             isNewRecord = false, // 백엔드에서 계산 필요
-            missWords = missWords
+            missWords = missWords,
+            // 웹소켓 하드 모드용 추가 필드들
+            perfectCount = perfectCount,
+            goodCount = goodCount,
+            totalJudgments = totalJudgments
         )
     }
     

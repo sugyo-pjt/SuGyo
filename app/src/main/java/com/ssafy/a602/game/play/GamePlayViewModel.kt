@@ -176,23 +176,21 @@ class GamePlayViewModel @Inject constructor(
             // 웹소켓에서 받은 판정 결과를 기존 JudgmentResult로 변환
             val judgmentResult = JudgmentResult(
                 type = when (judgment.judgment) {
-                    "PERFECT" -> JudgmentType.PERFECT
-                    "GREAT" -> JudgmentType.GREAT
-                    "GOOD" -> JudgmentType.GOOD
-                    "MISS" -> JudgmentType.MISS
+                    "Perfect" -> JudgmentType.PERFECT
+                    "Good" -> JudgmentType.GOOD
+                    "Miss" -> JudgmentType.MISS
                     else -> JudgmentType.MISS
                 },
-                accuracy = judgment.accuracy ?: when (judgment.judgment) {
-                    "PERFECT" -> 0.98f
-                    "GREAT" -> 0.85f
-                    "GOOD" -> 0.70f
-                    "MISS" -> 0.0f
+                accuracy = when (judgment.judgment) {
+                    "Perfect" -> 0.98f
+                    "Good" -> 0.70f
+                    "Miss" -> 0.0f
                     else -> 0.0f
                 },
-                score = judgment.score,
+                score = judgment.points,
                 combo = judgment.combo,
                 timestamp = System.currentTimeMillis(),
-                word = judgment.word,
+                word = null, // 새로운 형식에서는 단어 정보 없음
                 isWebSocketResult = true
             )
             
@@ -201,11 +199,14 @@ class GamePlayViewModel @Inject constructor(
             
             // 🔥 Hard 모드: 서버에서 계산된 모든 결과를 그대로 사용
             _ui.value = _ui.value.copy(
-                score = judgment.totalScore ?: _ui.value.score,
+                score = judgment.totalScore,
                 combo = judgment.combo,
-                maxCombo = judgment.maxCombo ?: _ui.value.maxCombo,
-                percent = ((judgment.accuracy ?: 0f) * 100).toInt(),
-                grade = judgment.grade ?: _ui.value.grade
+                maxCombo = maxOf(_ui.value.maxCombo, judgment.combo),
+                correctCount = judgment.perfectCount,
+                missCount = judgment.missCount,
+                percent = if (judgment.perfectCount + judgment.goodCount + judgment.missCount > 0) {
+                    ((judgment.perfectCount + judgment.goodCount) * 100) / (judgment.perfectCount + judgment.goodCount + judgment.missCount)
+                } else 0
             )
             
             // 3초 후 판정 결과 숨기기

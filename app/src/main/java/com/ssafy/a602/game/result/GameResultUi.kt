@@ -18,5 +18,9 @@ data class GameResultUi(
     val accepted: Boolean = true,
     val isPersonalBest: Boolean = false,
     val rankUpdated: Boolean = false,
-    val serverScoreEcho: Int = 0
+    val serverScoreEcho: Int = 0,
+    // 웹소켓 하드 모드용 추가 필드들
+    val perfectCount: Int = 0,   // Perfect 개수
+    val goodCount: Int = 0,      // Good 개수
+    val totalJudgments: Int = 0  // 전체 판정 개수 (perfectCount + goodCount + missCount)
 )

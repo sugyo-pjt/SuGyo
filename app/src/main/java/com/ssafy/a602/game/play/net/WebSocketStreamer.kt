@@ -135,8 +135,14 @@ class WebSocketStreamer @Inject constructor(
                 try {
                     android.util.Log.d("WebSocketStreamer", "웹소켓 메시지 수신: $text")
                     
-                    // TODO: 서버에서 받는 데이터 구조가 확정되면 파싱 로직 구현
-                    // 현재는 로그만 출력하고 나중에 실제 데이터 처리 로직 추가 예정
+                    // JSON 파싱하여 판정 결과 처리
+                    val json = Json { ignoreUnknownKeys = true }
+                    val judgmentResult = json.decodeFromString<WebSocketJudgmentResult>(text)
+                    
+                    android.util.Log.d("WebSocketStreamer", "판정 결과 파싱 성공: $judgmentResult")
+                    
+                    // 콜백으로 판정 결과 전달
+                    onJudgment(judgmentResult)
                     
                 } catch (e: Exception) {
                     android.util.Log.e("WebSocketStreamer", "웹소켓 메시지 처리 실패: $text", e)
@@ -614,67 +620,7 @@ class WebSocketStreamer @Inject constructor(
     }
     */
     
-    /** 단일 연결 시도 */
-    /*
-    private fun connectOnce(request: Request, onJudgment: (WebSocketJudgmentResult) -> Unit): Boolean {
-        if (socket != null) return false
-        
-        socket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                connected = true
-                android.util.Log.d("WebSocketStreamer", "웹소켓 연결 성공: ${request.url}")
-            }
-            
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                try {
-                    android.util.Log.d("WebSocketStreamer", "웹소켓 메시지 수신: $text")
-                    
-                    // TODO: 서버에서 받는 데이터 구조가 확정되면 파싱 로직 구현
-                    // 현재는 로그만 출력하고 나중에 실제 데이터 처리 로직 추가 예정
-                    
-                } catch (e: Exception) {
-                    android.util.Log.e("WebSocketStreamer", "웹소켓 메시지 처리 실패: $text", e)
-                }
-            }
-            
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                connected = false
-                socket = null
-                android.util.Log.e("WebSocketStreamer", "FAIL url=${response?.request?.url} code=${response?.code} msg=${response?.message}", t)
-                try {
-                    android.util.Log.e("WebSocketStreamer", "HEADERS=${response?.headers}")
-                    android.util.Log.e("WebSocketStreamer", "BODY=${response?.peekBody(Long.MAX_VALUE)?.string()}")
-                } catch (_: Throwable) {}
-            }
-            
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                connected = false
-                socket = null
-                android.util.Log.d("WebSocketStreamer", "웹소켓 연결 종료: $code - $reason")
-            }
-        })
-        
-        // 연결 시도 후 즉시 true 반환 (실제 성공 여부는 onOpen/onFailure에서 처리)
-        return true
-    }
-    */
     
-    /** 웹소켓 요청 빌더 */
-    /*
-    private fun buildWsRequest(url: String, token: String, useOrigin: Boolean = false, useSubproto: Boolean = false): Request {
-        val builder = Request.Builder().url(url)
-            .addHeader("Authorization", "Bearer $token")
-        
-        if (useOrigin) {
-            builder.addHeader("Origin", Config.WS_ORIGIN)
-        }
-        if (useSubproto) {
-            builder.addHeader("Sec-WebSocket-Protocol", "json")
-        }
-        
-        return builder.build()
-    }
-    */
     
     private fun buildSimilarityRequest(type: String, timestamp: Long, frames: List<FrameEntry>): SimilarityRequest {
         val frameBlocks = frames.mapIndexed { index, frameEntry ->

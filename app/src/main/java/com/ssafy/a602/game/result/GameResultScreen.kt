@@ -122,10 +122,12 @@ fun GameResultScreen(
                 // 통합 요약 패널
                 SummaryPanel(result = result)
 
-                // 판정 분포
+                // 판정 분포 - 하드 모드에서 웹소켓 데이터 사용
                 JudgementDistributionCard(
-                    perfect = result.correctCount,
-                    miss = result.missCount
+                    perfect = result.perfectCount,
+                    good = result.goodCount,
+                    miss = result.missCount,
+                    totalJudgments = result.totalJudgments
                 )
 
                 // 미스 단어 목록(보기 전용)
@@ -286,17 +288,25 @@ private fun SummaryPanel(result: GameResultUi) {
 
 // --- 컴포넌트: 판정 분포 ---
 @Composable
-private fun JudgementDistributionCard(perfect: Int, miss: Int) {
-    val total = (perfect + miss).coerceAtLeast(1)
+private fun JudgementDistributionCard(
+    perfect: Int, 
+    good: Int = 0, 
+    miss: Int, 
+    totalJudgments: Int = 0
+) {
+    val total = if (totalJudgments > 0) totalJudgments else (perfect + good + miss).coerceAtLeast(1)
     val perfectRatio = perfect / total.toFloat()
+    val goodRatio = good / total.toFloat()
     val missRatio = miss / total.toFloat()
 
     val perfectPct = String.format("%.1f%%", perfectRatio * 100)
+    val goodPct = String.format("%.1f%%", goodRatio * 100)
     val missPct = String.format("%.1f%%", missRatio * 100)
 
     // 팔레트(프로젝트 색상에 맞게 조정 가능)
     val perfectLabel = Color(0xFF7EB8FF)
-    val missLabel    = Color(0xFFFF7B7B)
+    val goodLabel = Color(0xFF4CAF50)
+    val missLabel = Color(0xFFFF7B7B)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -323,6 +333,18 @@ private fun JudgementDistributionCard(perfect: Int, miss: Int) {
                 barColor = PerfectBar,
                 labelColor = perfectLabel
             )
+
+            // Good 판정이 있는 경우에만 표시
+            if (good > 0) {
+                JudgmentRow(
+                    label = "GOOD",
+                    count = good,
+                    percentageText = goodPct,
+                    ratio = goodRatio,
+                    barColor = Color(0xFF4CAF50),
+                    labelColor = goodLabel
+                )
+            }
 
             JudgmentRow(
                 label = "MISS",

@@ -611,14 +611,30 @@ fun GamePlayScreen(
     LaunchedEffect(completeUi.submitted) {
         if (completeUi.submitted) {
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
-            val gameResult = GameDataManager.createGameResult(
-                songId = songId,
-                score = gameUi.score,
-                correctCount = gameUi.correctCount,
-                missCount = gameUi.missCount,
-                maxCombo = gameUi.maxCombo,
-                missWords = gameUi.missWords
-            )
+            val gameResult = if (gameMode == GameMode.HARD) {
+                // 하드 모드: 웹소켓에서 받은 데이터를 포함한 결과 생성
+                GameDataManager.createGameResult(
+                    songId = songId,
+                    score = gameUi.score,
+                    correctCount = gameUi.correctCount,
+                    missCount = gameUi.missCount,
+                    maxCombo = gameUi.maxCombo,
+                    missWords = gameUi.missWords,
+                    perfectCount = gameUi.correctCount, // perfectCount는 correctCount로 설정
+                    goodCount = 0, // goodCount는 별도로 관리되지 않으므로 0
+                    totalJudgments = gameUi.correctCount + gameUi.missCount
+                )
+            } else {
+                // 이지 모드: 기존 방식
+                GameDataManager.createGameResult(
+                    songId = songId,
+                    score = gameUi.score,
+                    correctCount = gameUi.correctCount,
+                    missCount = gameUi.missCount,
+                    maxCombo = gameUi.maxCombo,
+                    missWords = gameUi.missWords
+                )
+            }
             GameDataManager.saveGameResult(gameResult)
             onGameComplete(gameResult)
         }

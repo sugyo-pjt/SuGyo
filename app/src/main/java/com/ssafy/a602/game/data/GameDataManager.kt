@@ -310,12 +310,18 @@ object GameDataManager {
         correctCount: Int,
         missCount: Int,
         maxCombo: Int,
-        missWords: List<String>
+        missWords: List<String>,
+        perfectCount: Int = 0,
+        goodCount: Int = 0,
+        totalJudgments: Int = 0
     ): GameResultUi {
         val song = getSongById(songId) ?: throw IllegalArgumentException("Song not found: $songId")
         
         // 백엔드에서 계산된 결과를 받아와서 사용
-        return getCurrentApiService().calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
+        return getCurrentApiService().calculateGameResult(
+            songId, score, correctCount, missCount, maxCombo, missWords,
+            perfectCount, goodCount, totalJudgments
+        )
     }
     
     /**

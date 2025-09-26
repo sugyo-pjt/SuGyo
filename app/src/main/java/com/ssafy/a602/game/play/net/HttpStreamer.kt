@@ -96,15 +96,13 @@ class HttpStreamer @Inject constructor(
         
         // 임시로 PERFECT 판정 반환 (실제로는 WebSocket에서 처리)
         val judgmentResult = WebSocketJudgmentResult(
-            judgment = "PERFECT",
-            word = "DANCE",
-            timestamp = timestamp,
-            score = 100,
+            judgment = "Perfect",
+            points = 100,
             combo = 1,
-            totalScore = null,
-            maxCombo = null,
-            accuracy = 1.0f,
-            grade = "S"
+            totalScore = 100,
+            perfectCount = 1,
+            goodCount = 0,
+            missCount = 0
         )
         onJudgmentReceived?.invoke(judgmentResult)
     }

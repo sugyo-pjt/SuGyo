@@ -24,37 +24,3 @@ enum class JudgmentType {
     MISS        // 실패
 }
 
-// 웹소켓에서 받는 판정 결과를 위한 확장 함수
-fun JudgmentResult.fromWebSocket(
-    judgment: String,
-    word: String,
-    score: Int,
-    combo: Int,
-    totalScore: Int? = null,
-    maxCombo: Int? = null,
-    accuracy: Float? = null,
-    grade: String? = null
-): JudgmentResult {
-    val type = when (judgment) {
-        "PERFECT" -> JudgmentType.PERFECT
-        "GREAT" -> JudgmentType.GREAT
-        "GOOD" -> JudgmentType.GOOD
-        "MISS" -> JudgmentType.MISS
-        else -> JudgmentType.MISS
-    }
-    
-    return JudgmentResult(
-        type = type,
-        accuracy = accuracy ?: when (type) {
-            JudgmentType.PERFECT -> 0.98f
-            JudgmentType.GREAT -> 0.85f
-            JudgmentType.GOOD -> 0.70f
-            JudgmentType.MISS -> 0.0f
-        },
-        score = score,
-        combo = combo,
-        timestamp = System.currentTimeMillis(),
-        word = word,
-        isWebSocketResult = true
-    )
-}

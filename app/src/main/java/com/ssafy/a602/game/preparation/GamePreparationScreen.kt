@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ssafy.a602.game.CameraPreview
+import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.ui.GameUITheme
 import com.ssafy.a602.game.ui.modern.GameProgressBar
@@ -136,17 +139,27 @@ fun GamePreparationScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // ① 카메라: 항상 아래
-                    CameraPreview(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .zIndex(0f)
-                            .onGloballyPositioned {
-                                Log.d(TAG, "CameraPreview placed: ${it.size.width}x${it.size.height}")
-                            },
-                        lensFacing = CameraSelector.LENS_FACING_FRONT,
-                        enableAnalysis = false
-                    )
+                    // ① 카메라: 채보만들기 모드가 아닐 때만 표시
+                    val currentGameMode = GameDataManager.getCurrentGameMode()
+                    if (currentGameMode != GameMode.CHART_CREATION) {
+                        CameraPreview(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .zIndex(0f)
+                                .onGloballyPositioned {
+                                    Log.d(TAG, "CameraPreview placed: ${it.size.width}x${it.size.height}")
+                                },
+                            lensFacing = CameraSelector.LENS_FACING_FRONT,
+                            enableAnalysis = false
+                        )
+                    } else {
+                        // 채보만들기 모드에서는 검은 화면 표시
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(Color.Black)
+                        )
+                    }
 
                     // ② 오버레이: Ready 아니면 위
                     if (preparationState !is GamePreparationState.Ready) {

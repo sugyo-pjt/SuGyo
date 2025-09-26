@@ -298,9 +298,6 @@ class FullFrameCaptureController(
 
     private lateinit var processor: MediaPipeVideoProcessor
     
-    // 채보만들기 모드용 프레임 저장소
-    private val collectedFrames = mutableListOf<RawFrame>()
-    private val frameMutex = ReentrantLock()
 
     @OptIn(ExperimentalCamera2Interop::class)
     suspend fun start(lifecycleOwner: androidx.lifecycle.LifecycleOwner, fps: Int = 30) {
@@ -378,14 +375,9 @@ class FullFrameCaptureController(
             )
 
             if (isChartCreationMode) {
-                // 채보만들기 모드: 프레임 수집만 수행 (MediaPipe 처리 안함)
-                frameMutex.lock()
-                try {
-                    collectedFrames.add(rf)
-                } finally {
-                    frameMutex.unlock()
-                }
-                Log.d(TAG, "프레임 수집: ts=${tsMs}ms, 총수집=${collectedFrames.size}")
+                // 채보만들기 모드: 영상 녹화는 ChartCreationCollector에서 자동 처리
+                // 별도의 프레임 수집 로직 불필요
+                Log.d(TAG, "채보만들기 모드: 영상 녹화 중 (별도 처리 불필요)")
             } else {
                 // 실시간 모드: 기존 로직
                 val offered = frameQueue.offer(rf)
@@ -466,165 +458,5 @@ class FullFrameCaptureController(
             drained++
         }
         Log.i(TAG, "Drained $drained queued frames at stop()")
-    }
-    
-    // ---------- 채보만들기 모드: 배치 처리 ----------
-    
-    /**
-     * 채보만들기 모드에서 수집된 모든 프레임을 300ms 구간별로 그룹화하고 MediaPipe 처리
-     */
-    suspend fun processCollectedFramesForChartCreation(): List<SimilarityRequest> {
-        if (!isChartCreationMode) {
-            Log.w(TAG, "채보만들기 모드가 아닙니다")
-            return emptyList()
-        }
-        
-        val frames: List<RawFrame>
-        frameMutex.lock()
-        try {
-            frames = collectedFrames.toList()
-        } finally {
-            frameMutex.unlock()
-        }
-        
-        if (frames.isEmpty()) {
-            Log.w(TAG, "수집된 프레임이 없습니다")
-            return emptyList()
-        }
-        
-        Log.d(TAG, "채보만들기 배치 처리 시작: 총 ${frames.size}개 프레임")
-        
-        // 1. 첫 번째 프레임을 기준으로 상대적 타임스탬프 계산
-        val firstTimestamp = frames.minOf { it.tsMs }
-        
-        // 2. 300ms 구간별로 그룹화
-        val groupedFrames = frames.groupBy { frame ->
-            val relativeTimestamp = frame.tsMs - firstTimestamp
-            (relativeTimestamp / 300) * 300 // 0, 300, 600, 900... 형태로 버킷팅
-        }
-        
-        Log.d(TAG, "그룹화 완료: ${groupedFrames.size}개 구간")
-        
-        // 3. 각 구간에 대해 MediaPipe 처리
-        val segments = mutableListOf<SimilarityRequest>()
-        
-        groupedFrames.forEach { (timestampMs, framesInGroup) ->
-            val processedFrames = mutableListOf<FrameBlock>()
-            
-            framesInGroup.forEach { rawFrame ->
-                val poses = processFrameForChartCreation(rawFrame)
-                val frameDto = FrameBlock(
-                    frame = rawFrame.tsMs.toInt(), // 타임스탬프를 프레임 번호로 사용
-                    poses = poses
-                )
-                processedFrames.add(frameDto)
-            }
-            
-            if (processedFrames.isNotEmpty()) {
-                val segment = SimilarityRequest(
-                    type = "PLAY",
-                    timestamp = timestampMs,
-                    frames = processedFrames
-                )
-                segments.add(segment)
-            }
-        }
-        
-        Log.d(TAG, "채보만들기 배치 처리 완료: ${segments.size}개 세그먼트")
-        return segments
-    }
-    
-    /**
-     * 개별 프레임에 대해 MediaPipe 처리 (채보만들기용)
-     */
-    private suspend fun processFrameForChartCreation(rawFrame: RawFrame): List<PoseBlock> {
-        try {
-            val bmp = nv21ToBitmap(rawFrame.nv21, rawFrame.width, rawFrame.height)
-            val mpImage = BitmapImageBuilder(bmp).build()
-            
-            val poseResult = processor.pose.detectForVideo(mpImage, rawFrame.tsMs)
-            val handResult = processor.hand.detectForVideo(mpImage, rawFrame.tsMs)
-            
-            val poses = mutableListOf<PoseBlock>()
-            
-            // BODY 포즈 처리
-            if (poseResult.landmarks().isNotEmpty()) {
-                val landmarks = poseResult.landmarks()[0]
-                val coordinates = landmarks.map { landmark ->
-                    Coordinate(
-                        x = landmark.x(),
-                        y = landmark.y(),
-                        z = landmark.z(),
-                        w = landmark.visibility().orElse(null)
-                    )
-                }
-                poses.add(PoseBlock(
-                    part = "BODY",
-                    coordinates = coordinates
-                ))
-            } else {
-                // BODY 포즈가 없으면 null 좌표로 채움
-                poses.add(PoseBlock(
-                    part = "BODY",
-                    coordinates = (0..22).map { 
-                        Coordinate(x = null, y = null, z = null, w = null)
-                    }
-                ))
-            }
-            
-            // LEFT_HAND 처리
-            if (handResult.landmarks().isNotEmpty()) {
-                val landmarks = handResult.landmarks()[0]
-                val coordinates = landmarks.map { landmark ->
-                    Coordinate(
-                        x = landmark.x(),
-                        y = landmark.y(),
-                        z = landmark.z(),
-                        w = landmark.visibility().orElse(null)
-                    )
-                }
-                poses.add(PoseBlock(
-                    part = "LEFT_HAND",
-                    coordinates = coordinates
-                ))
-            } else {
-                poses.add(PoseBlock(
-                    part = "LEFT_HAND",
-                    coordinates = (0..20).map { 
-                        Coordinate(x = null, y = null, z = null, w = null)
-                    }
-                ))
-            }
-            
-            // RIGHT_HAND 처리 (두 번째 손이 있으면 사용, 없으면 null)
-            if (handResult.landmarks().size > 1) {
-                val landmarks = handResult.landmarks()[1]
-                val coordinates = landmarks.map { landmark ->
-                    Coordinate(
-                        x = landmark.x(),
-                        y = landmark.y(),
-                        z = landmark.z(),
-                        w = landmark.visibility().orElse(null)
-                    )
-                }
-                poses.add(PoseBlock(
-                    part = "RIGHT_HAND",
-                    coordinates = coordinates
-                ))
-            } else {
-                poses.add(PoseBlock(
-                    part = "RIGHT_HAND",
-                    coordinates = (0..20).map { 
-                        Coordinate(x = null, y = null, z = null, w = null)
-                    }
-                ))
-            }
-            
-            return poses
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "프레임 처리 실패: ts=${rawFrame.tsMs}", e)
-            return emptyList()
-        }
     }
 }

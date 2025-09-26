@@ -109,11 +109,8 @@ class GamePlayCamera(
         val mpImage = BitmapImageBuilder(rgb!!).build()
         val timestampMs = TimeUnit.NANOSECONDS.toMillis(image.imageInfo.timestamp)
         
-        // 🎵 채보만들기 모드: 원본 이미지 데이터 수집
-        val currentMode = GameDataManager.getCurrentGameMode()
-        if (currentMode == GameMode.CHART_CREATION) {
-            collectRawFrameForChartCreation(rgb!!, timestampMs, image.width, image.height)
-        }
+        // 🎵 채보만들기 모드: 영상 녹화는 ChartCreationCollector에서 자동 처리
+        // 별도의 프레임 수집 로직 불필요
         
         // 손 인식을 위한 이미지 품질 확인
         if (timestampMs % 2000 < 33) { // 2초마다 한 번
@@ -121,6 +118,7 @@ class GamePlayCamera(
         }
         
         // MediaPipe 분석 실행 (채보만들기 모드가 아닐 때만)
+        val currentMode = GameDataManager.getCurrentGameMode()
         if (currentMode != GameMode.CHART_CREATION) {
             poseLandmarker?.detectAsync(mpImage, timestampMs)
             handLandmarker?.detectAsync(mpImage, timestampMs)
@@ -141,35 +139,6 @@ class GamePlayCamera(
         // image.close()는 CameraPreview에서 자동으로 호출됨
     }
 
-    /**
-     * 🎵 채보만들기 모드: 원본 프레임 데이터 수집
-     */
-    private fun collectRawFrameForChartCreation(bitmap: Bitmap, timestampMs: Long, width: Int, height: Int) {
-        try {
-            // Bitmap을 ByteArray로 변환
-            val outputStream = java.io.ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream) // 80% 품질로 압축
-            val imageData = outputStream.toByteArray()
-            outputStream.close()
-            
-            // ViewModel을 통해 ChartCreationCollector에 전달
-            val chartCreationCollector = GameDataManager.getChartCreationCollector()
-            if (chartCreationCollector != null) {
-                // 코루틴으로 suspend 함수 호출
-                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                    chartCreationCollector.addRawFrame(imageData, timestampMs, width, height)
-                }
-            }
-            
-            // 프레임 수집 상태 로깅 (1초마다)
-            if (timestampMs % 1000 < 33) {
-                android.util.Log.d("GamePlayCamera", "🎵 프레임 수집: timestamp=${timestampMs}ms, size=${imageData.size}bytes")
-            }
-            
-        } catch (e: Exception) {
-            android.util.Log.e("GamePlayCamera", "원본 프레임 수집 실패: timestamp=${timestampMs}ms", e)
-        }
-    }
 
     /**
      * 리소스 해제

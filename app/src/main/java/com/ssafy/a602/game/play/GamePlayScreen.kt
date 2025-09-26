@@ -6,6 +6,9 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ExperimentalMirrorMode
 import androidx.camera.core.ImageProxy
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.Quality
+import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.AnnotatedString
@@ -42,6 +49,7 @@ import com.ssafy.a602.game.GameTheme
 import com.ssafy.a602.game.CameraPreview
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.GameMode
+import java.io.File
 import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.play.input.DynamicLandmarkBuffer
@@ -178,8 +186,27 @@ fun GamePlayScreen(
     // 🔥 웹소켓 판정 결과 상태 (기존 구조 활용)
     val currentJudgment by (gamePlayViewModel?.currentJudgment?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) })
     
-    // 게임 모드 확인
-    val gameMode = GameDataManager.currentGameMode.value ?: GameMode.EASY
+    // 게임 모드 확인 - StateFlow 관찰
+    val gameMode by GameDataManager.currentGameMode.collectAsState()
+
+    // 디버깅: gameMode 값 확인
+    LaunchedEffect(gameMode) {
+        Log.d("GamePlayScreen", "gameMode 변경 감지: $gameMode")
+        Log.d("GamePlayScreen", "gameMode 타입: ${gameMode?.javaClass?.simpleName}")
+        Log.d("GamePlayScreen", "gameMode == CHART_CREATION: ${gameMode == GameMode.CHART_CREATION}")
+        
+        // CHART_CREATION 모드일 때 추가 로그
+        if (gameMode == GameMode.CHART_CREATION) {
+            Log.d("GamePlayScreen", "🎵 채보만들기 모드 감지됨!")
+            Log.d("GamePlayScreen", "🎵 채보만들기 모드: ViewModel 기반 CameraX 녹화 시작")
+        }
+    }
+    
+    // 디버깅: GameDataManager 상태 확인
+    LaunchedEffect(Unit) {
+        Log.d("GamePlayScreen", "GameDataManager.currentGameMode.value: ${GameDataManager.currentGameMode.value}")
+        Log.d("GamePlayScreen", "GameDataManager.getCurrentGameMode(): ${GameDataManager.getCurrentGameMode()}")
+    }
     
     // 중복 호출 제거: GameDataManager로 이미 채보 데이터 관리됨
 
@@ -240,7 +267,7 @@ fun GamePlayScreen(
                     gamePlayViewModel?.onLandmarks(pose, left, right)
                 }
                 // 🎵 채보만들기 모드일 때는 원본 프레임 데이터 저장은 GamePlayCamera에서 처리됨
-                // (GamePlayCamera에서 직접 ChartCreationCollector에 전달)
+                // (GamePlayCamera에서 직접 ViewModel에 전달)
             }
         )
     }
@@ -270,7 +297,74 @@ fun GamePlayScreen(
             val position = player.currentPosition
             if (position == C.TIME_UNSET) 0L else position
         }
-        gamePlayViewModel?.startGame(songId, totalWords, gameMode, actualPlayerPositionMs)
+        gamePlayViewModel?.startGame(songId, totalWords, gameMode ?: GameMode.EASY, actualPlayerPositionMs)
+    }
+    
+    // LifecycleOwner를 미리 가져오기
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    // 중복 실행 방지를 위한 상태 변수 (더 강력한 체크)
+    var isChartCreationInitialized by remember { mutableStateOf(false) }
+    var chartCreationKey by remember { mutableStateOf("") }
+    
+    // 🎵 채보만들기 모드 전용 LaunchedEffect (ViewModel 기반으로 단순화)
+    LaunchedEffect(gameMode, songId) {
+        Log.d("GamePlayScreen", "LaunchedEffect 실행됨 - gameMode: $gameMode, songId: $songId")
+        
+        // 채보만들기 모드가 아닐 때 기존 Collector 정리
+        if (gameMode != GameMode.CHART_CREATION) {
+            // 상태 리셋
+            isChartCreationInitialized = false
+            chartCreationKey = ""
+            
+            // ViewModel의 CameraX 리소스 정리
+            gamePlayViewModel?.clearCameraResources()
+            
+            Log.d("GamePlayScreen", "🎵 채보만들기 모드 종료: ViewModel 리소스 정리 완료")
+            return@LaunchedEffect
+        }
+        
+        if (gameMode == GameMode.CHART_CREATION) {
+            Log.d("GamePlayScreen", "🎵 채보만들기 모드: ViewModel 기반 CameraX 녹화 시작")
+            
+            val currentKey = "${gameMode}_${songId}"
+            
+            // 강력한 중복 실행 방지
+            if (isChartCreationInitialized && chartCreationKey == currentKey) {
+                Log.w("GamePlayScreen", "🎵 채보만들기 모드: 이미 초기화됨. 중복 실행 방지 (키: $currentKey)")
+                return@LaunchedEffect
+            }
+            
+            // 키 설정
+            chartCreationKey = currentKey
+            
+            try {
+                // 🎯 핵심 변경: ViewModel에서 직접 CameraX 관리
+                Log.d("GamePlayScreen", "🎵 채보만들기 모드: ViewModel 기반 CameraX 초기화")
+                
+                // 출력 파일 생성
+                val outputFile = File(context.cacheDir, "chart_creation_${songId}.mp4")
+                Log.d("GamePlayScreen", "🎵 채보만들기 모드: 출력 파일 경로 - ${outputFile.absolutePath}")
+                
+                // ViewModel을 통한 CameraX 초기화 및 녹화 시작
+                gamePlayViewModel?.initializeCameraXAndStartRecording(
+                    context = context,
+                    lifecycleOwner = lifecycleOwner,
+                    outputFile = outputFile
+                )
+                
+                Log.d("GamePlayScreen", "🎵 채보만들기 모드: ViewModel 기반 CameraX 녹화 시작 완료")
+                
+                // 초기화 완료 상태 설정
+                isChartCreationInitialized = true
+                Log.d("GamePlayScreen", "🎵 채보만들기 모드: 초기화 완료 상태 설정됨 (키: $currentKey)")
+            } catch (e: Exception) {
+                Log.e("GamePlayScreen", "🎵 채보만들기 모드: ViewModel 기반 CameraX 녹화 시작 실패", e)
+                // 실패 시 상태 리셋
+                isChartCreationInitialized = false
+                chartCreationKey = ""
+            }
+        }
     }
     
     // 🔥 하드 모드일 때 리듬 수집기에 프레임 데이터 전달
@@ -347,7 +441,7 @@ fun GamePlayScreen(
                     val position = player.currentPosition
                     if (position == C.TIME_UNSET) 0L else position
                 }
-                vm.startGame(songId, totalWords = sections.size, mode = gameMode, playerPositionMs = actualPlayerPositionMs)
+                vm.startGame(songId, totalWords = sections.size, mode = gameMode ?: GameMode.EASY, playerPositionMs = actualPlayerPositionMs)
             } ?: Log.e("GamePlayScreen", "GamePlayViewModel이 null입니다!")
         } else {
             Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")
@@ -647,28 +741,70 @@ fun GamePlayScreen(
 
                     Spacer(Modifier.height(24.dp))
 
-                    // Camera area - 실제 카메라 프리뷰 복원 (높이 1.5배 증가)
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2E)),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+                    // Camera area - 게임 모드에 따라 조건부 렌더링
+                    if (gameMode != GameMode.CHART_CREATION) {
+                        // 일반 게임 모드: 카메라 프리뷰 표시
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2E)),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
                         ) {
-                            CameraPreview(
+                            Box(
                                 modifier = Modifier.fillMaxSize(),
-                                lensFacing = CameraSelector.LENS_FACING_FRONT,
-                                enableAnalysis = true,
-                                onFrame = { imageProxy -> 
-                                    mediaPipeCamera.analyzer.analyze(imageProxy)
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CameraPreview(
+                                    modifier = Modifier.fillMaxSize(),
+                                    lensFacing = CameraSelector.LENS_FACING_FRONT,
+                                    enableAnalysis = true,
+                                    onFrame = { imageProxy -> 
+                                        mediaPipeCamera.analyzer.analyze(imageProxy)
+                                    }
+                                )
+                                judgmentResult?.let { JudgmentOverlay(result = it) }
+                            }
+                        }
+                    } else {
+                        // 채보만들기 모드: 녹화 중임을 표시하는 플레이스홀더
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2E)),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Videocam,
+                                        contentDescription = "녹화 중",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "채보 녹화 중...",
+                                        color = Color.White,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "카메라가 녹화에 사용되고 있습니다",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp
+                                    )
                                 }
-                            )
-                            judgmentResult?.let { JudgmentOverlay(result = it) }
+                            }
                         }
                     }
 

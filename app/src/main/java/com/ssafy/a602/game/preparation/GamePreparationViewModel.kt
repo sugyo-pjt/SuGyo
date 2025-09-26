@@ -2,6 +2,7 @@ package com.ssafy.a602.game.preparation
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -11,6 +12,7 @@ import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.preparation.GamePreparationState
 import com.ssafy.a602.game.preparation.ResourceLoadingState
 import com.ssafy.a602.game.PermissionManager
+import com.ssafy.a602.game.data.GameMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -113,10 +115,17 @@ class GamePreparationViewModel : ViewModel() {
     
     fun startCameraWarmup() {
         viewModelScope.launch {
-            _preparationState.value = GamePreparationState.WarmingUpCamera
-            delay(1000) // 카메라 워밍업 시뮬레이션
-            
-            startCountdown()
+            // 채보만들기 모드에서는 카메라 워밍업 건너뛰기
+            val currentGameMode = GameDataManager.getCurrentGameMode()
+            if (currentGameMode == GameMode.CHART_CREATION) {
+                Log.d("GamePreparationViewModel", "채보만들기 모드: 카메라 워밍업 건너뛰기")
+                startCountdown()
+            } else {
+                _preparationState.value = GamePreparationState.WarmingUpCamera
+                delay(1000) // 카메라 워밍업 시뮬레이션
+                
+                startCountdown()
+            }
         }
     }
     

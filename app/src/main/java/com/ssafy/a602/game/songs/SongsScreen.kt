@@ -64,7 +64,9 @@ fun SongsScreen(
     
     // 모드 선택 후 처리
     val handleModeSelection: (GameMode) -> Unit = { mode ->
+        android.util.Log.d("SongsScreen", "handleModeSelection 호출됨 - mode: $mode")
         selectedSong?.let { song ->
+            android.util.Log.d("SongsScreen", "선택된 곡: ${song.title}, 모드: ${mode.displayName}")
             // GameDataManager에 곡과 모드 선택 저장
             GameDataManager.selectSongAndMode(song, mode)
             
@@ -311,6 +313,7 @@ fun GameModeSelectionDialog(
                     ) {
                         Button(
                             onClick = { 
+                                android.util.Log.d("SongsScreen", "채보만들기 버튼 클릭됨")
                                 onModeSelected(GameMode.CHART_CREATION)
                             },
                             colors = ButtonDefaults.buttonColors(

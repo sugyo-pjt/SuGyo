@@ -12,7 +12,6 @@ import com.ssafy.a602.game.score.JudgmentType as ScoreJudgmentType
 import com.ssafy.a602.game.play.JudgmentType
 import com.ssafy.a602.game.play.collector.RhythmCollector
 import com.ssafy.a602.game.play.collector.MediaPipeToRhythmConverter
-import com.ssafy.a602.game.play.collector.ChartCreationCollector
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.ssafy.a602.game.play.dto.*
@@ -24,6 +23,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
+// CameraX 관련 import 추가
+import androidx.camera.video.Recorder
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.FallbackStrategy
+import androidx.camera.video.Quality
+import androidx.camera.core.Preview
+import androidx.camera.core.CameraSelector
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
+import java.io.File
+import android.util.Log
+import kotlinx.coroutines.delay
 
 data class GameUiState(
     val loading: Boolean = false,
@@ -81,8 +95,22 @@ class GamePlayViewModel @Inject constructor(
     // 🔥 하드 모드 리듬 수집기
     private var rhythmCollector: RhythmCollector? = null
     
-    // 🎵 채보만들기 모드 프레임 수집기
-    private var chartCreationCollector: ChartCreationCollector? = null
+    
+    // 📹 CameraX 관련 필드 (ViewModel이 관리)
+    private var videoCapture: VideoCapture<Recorder>? = null
+    private var currentRecording: androidx.camera.video.Recording? = null
+    private var isRecording = false
+    
+    // 📹 CameraX 상태 관리
+    private val _cameraState = MutableStateFlow(CameraState())
+    val cameraState = _cameraState.asStateFlow()
+    
+    data class CameraState(
+        val isInitialized: Boolean = false,
+        val isRecording: Boolean = false,
+        val recordingPath: String? = null,
+        val error: String? = null
+    )
 
     fun startGame(songId: String, totalWords: Int, mode: GameMode, playerPositionMs: () -> Long = { 0L }) {
         android.util.Log.d("GamePlayViewModel", "🎮 게임 시작: songId=$songId, mode=$mode, totalWords=$totalWords")
@@ -120,19 +148,10 @@ class GamePlayViewModel @Inject constructor(
             connectWebSocket()
         }
         
-        // 🎵 채보만들기 모드일 때 프레임 수집기 초기화 (일괄 처리)
+        // 🎵 채보만들기 모드일 때는 별도 초기화 필요
+        // CameraX 바인딩은 Fragment/Activity에서 처리
         if (mode == GameMode.CHART_CREATION) {
-            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 프레임 수집기 초기화 시작")
-            chartCreationCollector = ChartCreationCollector(
-                musicId = currentMusicId.toInt(),
-                coroutineScope = viewModelScope,
-                context = context
-            )
-            chartCreationCollector?.startCollection()
-            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 프레임 수집기 초기화 완료")
-            
-            // GameDataManager에 ChartCreationCollector 저장
-            GameDataManager.setChartCreationCollector(chartCreationCollector)
+            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: CameraX 바인딩은 UI에서 처리")
             // 웹소켓 연결하지 않음 - HTTP로만 저장
         }
         
@@ -251,21 +270,6 @@ class GamePlayViewModel @Inject constructor(
         }
     }
     
-    // 🎵 채보만들기 모드: 원본 프레임 데이터 저장 (MediaPipe 처리 전)
-    fun addRawFrameForChartCreation(
-        imageData: ByteArray,
-        timestampMs: Long,
-        width: Int,
-        height: Int
-    ) {
-        if (gameMode == GameMode.CHART_CREATION) {
-            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 원본 프레임 저장 - timestamp=${timestampMs}ms, size=${imageData.size}bytes")
-            
-            viewModelScope.launch {
-                chartCreationCollector?.addRawFrame(imageData, timestampMs, width, height)
-            }
-        }
-    }
     
     fun togglePause() {
         val currentPaused = _ui.value.isPaused
@@ -356,8 +360,197 @@ class GamePlayViewModel @Inject constructor(
         }
     }
     
+    // 📹 CameraX 관련 메서드들 (ViewModel Scope에서 안전하게 실행)
+    
+    /**
+     * VideoCapture 인스턴스를 ViewModel에 설정
+     */
+    fun setVideoCaptureInstance(capture: VideoCapture<Recorder>) {
+        Log.d("GamePlayViewModel", "📹 VideoCapture 인스턴스 설정")
+        videoCapture = capture
+        _cameraState.value = _cameraState.value.copy(isInitialized = true)
+    }
+    
+    /**
+     * CameraX 녹화 시작 (ViewModel Scope에서 안전하게 실행)
+     */
+    fun startCameraRecording(outputFile: File) {
+        if (isRecording) {
+            Log.w("GamePlayViewModel", "📹 이미 녹화 중입니다")
+            return
+        }
+        
+        val capture = videoCapture ?: run {
+            Log.e("GamePlayViewModel", "📹 VideoCapture 인스턴스가 준비되지 않았습니다")
+            _cameraState.value = _cameraState.value.copy(error = "VideoCapture가 초기화되지 않았습니다")
+            return
+        }
+        
+        Log.d("GamePlayViewModel", "📹 CameraX 녹화 시작: ${outputFile.absolutePath}")
+        
+        try {
+            currentRecording = capture.output
+                .prepareRecording(context, FileOutputOptions.Builder(outputFile).build())
+                .start(ContextCompat.getMainExecutor(context)) { event ->
+                    when (event) {
+                        is VideoRecordEvent.Start -> {
+                            Log.d("GamePlayViewModel", "📹 ✅ 녹화 시작됨")
+                            isRecording = true
+                            _cameraState.value = _cameraState.value.copy(
+                                isRecording = true,
+                                recordingPath = outputFile.absolutePath,
+                                error = null
+                            )
+                        }
+                        is VideoRecordEvent.Finalize -> {
+                            Log.d("GamePlayViewModel", "📹 녹화 Finalize 이벤트")
+                            if (event.hasError()) {
+                                Log.e("GamePlayViewModel", "📹 ❌ 녹화 실패: ${event.error}")
+                                _cameraState.value = _cameraState.value.copy(
+                                    isRecording = false,
+                                    error = "녹화 실패: ${event.error}"
+                                )
+                            } else {
+                                Log.d("GamePlayViewModel", "📹 ✅ 녹화 완료: ${event.outputResults.outputUri}")
+                                _cameraState.value = _cameraState.value.copy(
+                                    isRecording = false,
+                                    error = null
+                                )
+                            }
+                            isRecording = false
+                            currentRecording = null
+                        }
+                        is VideoRecordEvent.Status -> {
+                            Log.d("GamePlayViewModel", "📹 녹화 상태: ${event}")
+                        }
+                        is VideoRecordEvent.Pause -> {
+                            Log.d("GamePlayViewModel", "📹 녹화 일시정지")
+                        }
+                        is VideoRecordEvent.Resume -> {
+                            Log.d("GamePlayViewModel", "📹 녹화 재개")
+                        }
+                    }
+                }
+            
+            Log.d("GamePlayViewModel", "📹 CameraX 녹화 시작 요청 완료")
+        } catch (e: Exception) {
+            Log.e("GamePlayViewModel", "📹 CameraX 녹화 시작 실패", e)
+            _cameraState.value = _cameraState.value.copy(
+                isRecording = false,
+                error = "녹화 시작 실패: ${e.message}"
+            )
+        }
+    }
+    
+    /**
+     * CameraX 녹화 중지
+     */
+    fun stopCameraRecording() {
+        if (!isRecording) {
+            Log.w("GamePlayViewModel", "📹 녹화 중이 아닙니다")
+            return
+        }
+        
+        Log.d("GamePlayViewModel", "📹 CameraX 녹화 중지")
+        currentRecording?.stop()
+        currentRecording = null
+        isRecording = false
+        _cameraState.value = _cameraState.value.copy(isRecording = false)
+    }
+    
+    /**
+     * CameraX 초기화 및 녹화 시작 (통합 메서드)
+     */
+    fun initializeCameraXAndStartRecording(
+        context: Context,
+        lifecycleOwner: androidx.lifecycle.LifecycleOwner,
+        outputFile: File
+    ) {
+        Log.d("GamePlayViewModel", "📹 CameraX 초기화 및 녹화 시작")
+        
+        try {
+            // 1. CameraX 초기화
+            initializeCameraX(context, lifecycleOwner)
+            
+            // 2. 초기화 완료 후 녹화 시작
+            viewModelScope.launch {
+                delay(2000) // 2초 대기하여 카메라 초기화 완료 보장
+                startCameraRecording(outputFile)
+            }
+        } catch (e: Exception) {
+            Log.e("GamePlayViewModel", "📹 CameraX 초기화 실패", e)
+            _cameraState.value = _cameraState.value.copy(error = "CameraX 초기화 실패: ${e.message}")
+        }
+    }
+    
+    /**
+     * CameraX 초기화 (ViewModel에서 직접 관리)
+     */
+    private fun initializeCameraX(
+        context: Context,
+        lifecycleOwner: androidx.lifecycle.LifecycleOwner
+    ) {
+        Log.d("GamePlayViewModel", "📹 CameraX 초기화 시작")
+        
+        try {
+            // ProcessCameraProvider 인스턴스 가져오기
+            val cameraProvider = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+            
+            // 기존 카메라 바인딩 해제
+            cameraProvider.unbindAll()
+            
+            // 1) 숨겨진 Preview 생성 (카메라 활성화용)
+            val preview = androidx.camera.core.Preview.Builder().build()
+            
+            // 2) VideoCapture 설정
+            val recorder = androidx.camera.video.Recorder.Builder()
+                .setQualitySelector(
+                    androidx.camera.video.QualitySelector.from(
+                        androidx.camera.video.Quality.SD,
+                        androidx.camera.video.FallbackStrategy.lowerQualityOrHigherThan(androidx.camera.video.Quality.SD)
+                    )
+                )
+                .build()
+            videoCapture = androidx.camera.video.VideoCapture.withOutput(recorder)
+            
+            Log.d("GamePlayViewModel", "📹 VideoCapture 설정 완료")
+            
+            // 3) 카메라 선택
+            val selector = androidx.camera.core.CameraSelector.DEFAULT_FRONT_CAMERA
+            
+            // 4) Preview + VideoCapture 함께 바인딩 (카메라 활성화 보장)
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                selector,
+                preview,
+                videoCapture
+            )
+            
+            Log.d("GamePlayViewModel", "📹 CameraX 바인딩 완료")
+            _cameraState.value = _cameraState.value.copy(isInitialized = true)
+            
+        } catch (e: Exception) {
+            Log.e("GamePlayViewModel", "📹 CameraX 초기화 실패", e)
+            _cameraState.value = _cameraState.value.copy(error = "CameraX 초기화 실패: ${e.message}")
+        }
+    }
+    
+    /**
+     * CameraX 리소스 정리
+     */
+    fun clearCameraResources() {
+        Log.d("GamePlayViewModel", "📹 CameraX 리소스 정리")
+        stopCameraRecording()
+        videoCapture = null
+        _cameraState.value = CameraState()
+    }
+
     override fun onCleared() {
         super.onCleared()
+        
+        // CameraX 리소스 정리
+        clearCameraResources()
+        
         when (gameMode) {
             GameMode.HARD -> {
                 // Hard 모드: 웹소켓 연결 해제
@@ -365,8 +558,8 @@ class GamePlayViewModel @Inject constructor(
                 rhythmCollector?.stopCollection()
             }
             GameMode.CHART_CREATION -> {
-                // 채보만들기 모드: 프레임 수집기 정리
-                chartCreationCollector?.stopCollection()
+                // 채보만들기 모드: CameraX 리소스 정리 (ViewModel에서 관리)
+                clearCameraResources()
             }
             else -> {
                 // Easy 모드: 특별한 정리 작업 없음

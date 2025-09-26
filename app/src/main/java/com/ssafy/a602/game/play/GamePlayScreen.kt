@@ -60,15 +60,22 @@ import com.ssafy.a602.game.api.dto.CorrectDto
 
 /**
  * 현재 시간에 해당하는 수어 하이라이팅 정보를 반환
- * 이미 시작된 수어 액션은 계속 빨간색으로 유지
+ * 하드 모드에서는 하이라이팅을 비활성화
  */
 private fun getCurrentSignHighlight(
     currentSection: SongSection?,
     currentTime: Float,
-    currentSectionIndex: Int
+    currentSectionIndex: Int,
+    gameMode: GameMode
 ): List<Pair<Int, Int>> {
     if (currentSection == null) {
         Log.d("GamePlayScreen", "getCurrentSignHighlight: currentSection is null")
+        return emptyList()
+    }
+    
+    // 하드 모드에서는 하이라이팅 비활성화
+    if (gameMode == GameMode.HARD) {
+        Log.d("GamePlayScreen", "Hard mode: 하이라이팅 비활성화")
         return emptyList()
     }
     
@@ -747,7 +754,7 @@ fun GamePlayScreen(
                                 Spacer(Modifier.height(6.dp))
                                 
                                 // 현재 가사 (메인) - 수어 하이라이팅 적용
-                                val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value)
+                                val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value, currentGameMode ?: GameMode.EASY)
                                 val highlightedText = if (currentSection != null) {
                                     createHighlightedLyrics(currentSection.text, currentHighlights)
                                 } else {

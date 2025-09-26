@@ -62,7 +62,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status){
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessionManager.removeSession(session);
     }
 
@@ -104,7 +104,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
             if (isFinished) {
                 session.close();
-                sessionManager.removeSession(session);
                 log.debug("웹소켓 연결 종료 완료: {}", session.getId());
             }
         } catch (WebSocketException e) {

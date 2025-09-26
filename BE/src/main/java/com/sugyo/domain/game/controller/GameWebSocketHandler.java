@@ -64,6 +64,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessionManager.removeSession(session);
+        log.debug("세션 종료: {}", session.getId());
     }
 
     private Long extractMusicIdFromUri(URI uri) throws WebSocketException {

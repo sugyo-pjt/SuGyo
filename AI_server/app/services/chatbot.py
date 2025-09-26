@@ -1,6 +1,6 @@
 import os
 import asyncio
-from typing import Optional
+from typing import Dict, List
 import httpx
 from dotenv import load_dotenv
 load_dotenv()
@@ -33,27 +33,32 @@ USER_PROMPT_TEMPLATE = (
     "챗봇: 안녕하세요. 오늘 하루는 어떠셨어요?\n"
     "사용자: 오늘 비 슬프다.\n"
     "챗봇: 오늘 비가 와서 마음이 가라앉았군요. 지금은 조금 괜찮으세요?\n"
-    "사용자: 저녁 된장찌개\n"
-    "챗봇: 저녁에 된장찌개 드셨군요. 맛있었나요?\n"
 )
 
-async def chatting(sentence: str) -> str:
-    # 환경변수 확인
-    print(CHAT_LLM_URL)
-    
+# --- 메모리 기반 히스토리 저장 ---
+chat_histories: Dict[str, List[Dict[str, str]]] = {}
+
+
+#LLM 호출 + 히스토리 저장
+async def chatting(user_id: str, sentence: str) -> str:
+    if user_id not in chat_histories:
+        chat_histories[user_id] = []
+
+    # 사용자 메시지 기록
+    chat_histories[user_id].append({"role": "user", "content": sentence})
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(chat_histories[user_id][-5:])  # 최근 5턴만 context로 전달
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {GMS_KEY}",
     }
-
     payload = {
         "model": "gpt-4.1-mini",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(sentence=sentence.strip())},
-        ],
-        "max_tokens": 400,     # 짧은 응답만 필요
-        "temperature": 0.5,    # 안정적 출력
+        "messages": messages,
+        "max_tokens": 400,
+        "temperature": 0.5,
         "top_p": 0.9,
     }
 
@@ -62,18 +67,22 @@ async def chatting(sentence: str) -> str:
         resp.raise_for_status()
         data = resp.json()
 
-    content = (
+    reply = (
         data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content")
-    ) or data.get("output") or data.get("text") or ""
+        .get("message", {})
+        .get("content", "")
+        .strip()
+    )
 
-    content = content.strip()
-    if not content:
-        raise ValueError("LLM 응답이 비어 있습니다.")
+    if not reply:
+        reply = "죄송해요. 응답을 생성하지 못 했습니다. 다시 한 번 질문해주세요."
 
-    return content  # ✅ 문자열만 반환
+    # 챗봇 메시지 기록
+    chat_histories[user_id].append({"role": "assistant", "content": reply})
+    print(chat_histories[user_id])
 
-# --- 사용 예시 ---
+    return reply, chat_histories[user_id]
+
+# 서버 안열고 사용해보려면 아래 주석풀고 해보믄 됨
 # import asyncio
 # print(asyncio.run(chatting("오늘 비")))

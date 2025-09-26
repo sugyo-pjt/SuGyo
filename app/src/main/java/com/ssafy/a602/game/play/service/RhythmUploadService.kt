@@ -38,6 +38,13 @@ class RhythmUploadService @Inject constructor(
             Log.d(TAG, "리듬 데이터 업로드 시작: musicId=${request.musicId}, segments=${request.allFrames.size}")
             Log.d(TAG, "요청 데이터 상세: segments=${request.allFrames.map { "${it.type}:${it.frames.size}개" }}")
             
+            // 🔍 실제 전송되는 JSON 전체 내용 로그
+            val jsonString = kotlinx.serialization.json.Json.encodeToString(RhythmSaveRequest.serializer(), request)
+            Log.d(TAG, "🔍 POST 전송 JSON 전체 내용:")
+            Log.d(TAG, "=".repeat(80))
+            Log.d(TAG, jsonString)
+            Log.d(TAG, "=".repeat(80))
+            
             val token = tokenManager.getAccessToken()
             if (token.isNullOrEmpty()) {
                 Log.e(TAG, "인증 토큰이 없습니다")

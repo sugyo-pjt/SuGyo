@@ -17,8 +17,17 @@ data class RhythmSaveRequest(
  */
 @Serializable
 data class SegmentDto(
-    val type: SegmentType,
-    val timestamp: Long,  // ExoPlayer positionMs 기준
+    val type: String,     // "PLAY", "PAUSE", "RESUME"
+    val timestamp: Long,  // 0, 300, 600, 900... (300ms 단위)
+    val frames: List<FrameDto>
+)
+
+/**
+ * 300ms 단위 프레임 묶음
+ */
+@Serializable
+data class FrameBundle(
+    val timestamp: Long,  // 0, 300, 600, 900... (300ms 단위)
     val frames: List<FrameDto>
 )
 
@@ -36,7 +45,7 @@ data class FrameDto(
  */
 @Serializable
 data class PoseDto(
-    val part: Part,
+    val part: String,     // "BODY", "LEFT_HAND", "RIGHT_HAND"
     val coordinates: List<CoordinateDto>
 )
 
@@ -45,28 +54,9 @@ data class PoseDto(
  */
 @Serializable
 data class CoordinateDto(
-    val x: Double?,
-    val y: Double?,
-    val z: Double?,
-    val w: Double?
+    val x: Float?,
+    val y: Float?,
+    val z: Float?,
+    val w: Float?
 )
 
-/**
- * 세그먼트 타입
- */
-@Serializable
-enum class SegmentType {
-    PLAY,
-    PAUSE,
-    RESUME
-}
-
-/**
- * 신체 부위
- */
-@Serializable
-enum class Part {
-    BODY,
-    LEFT_HAND,
-    RIGHT_HAND
-}

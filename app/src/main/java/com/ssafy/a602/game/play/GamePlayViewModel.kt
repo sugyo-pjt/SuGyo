@@ -102,7 +102,7 @@ class GamePlayViewModel @Inject constructor(
             
             // 🔥 게임 시작 시 PLAY 세그먼트 시작
             viewModelScope.launch {
-                rhythmCollector?.onTypeChanged(SegmentType.PLAY, 0L)
+                rhythmCollector?.onTypeChanged("PLAY", 0L)
                 android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: PLAY 세그먼트 시작")
             }
         }
@@ -237,7 +237,7 @@ class GamePlayViewModel @Inject constructor(
             
             // 🔥 리듬 수집기에 세그먼트 타입 변경 알림
             val positionMs = playerPositionProvider?.invoke() ?: 0L
-            val segmentType = if (currentPaused) SegmentType.PAUSE else SegmentType.RESUME
+            val segmentType = if (currentPaused) "PAUSE" else "RESUME"
             viewModelScope.launch {
                 rhythmCollector?.onTypeChanged(segmentType, positionMs)
             }

@@ -15,44 +15,44 @@ object MediaPipeToRhythmConverter {
         return listOf(
             // BODY 포즈 (전체 23개 랜드마크)
             PoseDto(
-                part = Part.BODY,
-                coordinates = pose.mapNotNull { lm ->
+                part = "BODY",
+                coordinates = pose.map { lm ->
                     lm?.let {
                         CoordinateDto(
-                            x = it.x?.toDouble(),
-                            y = it.y?.toDouble(),
-                            z = it.z?.toDouble(),
-                            w = it.w?.toDouble()
+                            x = it.x?.toFloat(),
+                            y = it.y?.toFloat(),
+                            z = it.z?.toFloat(),
+                            w = it.w?.toFloat()
                         )
-                    }
+                    } ?: CoordinateDto(x = null, y = null, z = null, w = null)
                 }
             ),
             // LEFT_HAND 포즈 (21개 랜드마크)
             PoseDto(
-                part = Part.LEFT_HAND,
-                coordinates = left.mapNotNull { lm ->
+                part = "LEFT_HAND",
+                coordinates = left.map { lm ->
                     lm?.let {
                         CoordinateDto(
-                            x = it.x?.toDouble(),
-                            y = it.y?.toDouble(),
-                            z = it.z?.toDouble(),
-                            w = it.w?.toDouble()
+                            x = it.x?.toFloat(),
+                            y = it.y?.toFloat(),
+                            z = it.z?.toFloat(),
+                            w = it.w?.toFloat()
                         )
-                    }
+                    } ?: CoordinateDto(x = null, y = null, z = null, w = null)
                 }
             ),
             // RIGHT_HAND 포즈 (21개 랜드마크)
             PoseDto(
-                part = Part.RIGHT_HAND,
-                coordinates = right.mapNotNull { lm ->
+                part = "RIGHT_HAND",
+                coordinates = right.map { lm ->
                     lm?.let {
                         CoordinateDto(
-                            x = it.x?.toDouble(),
-                            y = it.y?.toDouble(),
-                            z = it.z?.toDouble(),
-                            w = it.w?.toDouble()
+                            x = it.x?.toFloat(),
+                            y = it.y?.toFloat(),
+                            z = it.z?.toFloat(),
+                            w = it.w?.toFloat()
                         )
-                    }
+                    } ?: CoordinateDto(x = null, y = null, z = null, w = null)
                 }
             )
         )

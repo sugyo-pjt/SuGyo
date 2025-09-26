@@ -15,6 +15,7 @@ import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -60,6 +61,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        sessionManager.removeSession(session);
+    }
+
     private Long extractMusicIdFromUri(URI uri) throws WebSocketException {
         String path = uri.getPath();
         try {
@@ -98,7 +104,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
             if (isFinished) {
                 session.close();
-                sessionManager.removeSession(session);
                 log.debug("웹소켓 연결 종료 완료: {}", session.getId());
             }
         } catch (WebSocketException e) {

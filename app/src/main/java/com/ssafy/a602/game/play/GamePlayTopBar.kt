@@ -60,6 +60,7 @@ fun TopBarSection(
                         color = when (mode) {
                             GameMode.EASY -> Color(0xFF10B981)
                             GameMode.HARD -> Color(0xFFEF4444)
+                            GameMode.CHART_CREATION -> Color(0xFF8B5CF6)
                         }
                     )
                 )

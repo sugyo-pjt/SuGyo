@@ -25,11 +25,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
 import com.ssafy.a602.game.songs.SongsViewModel
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.PermissionManager
+import com.ssafy.a602.auth.TokenManager
 import coil.compose.AsyncImage
 
 @Composable
@@ -41,6 +43,11 @@ fun SongsScreen(
     val vm: SongsViewModel = viewModel()
     val state by vm.state.collectAsState()
     val permissionState by PermissionManager.permissionState.collectAsState()
+    
+    // 사용자 ID 확인
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+    val currentUserId by remember { mutableStateOf(tokenManager.getUserId()) }
     
     // 권한 요청 후 대기 중인 노래를 저장
     var pendingSong by remember { mutableStateOf<SongItem?>(null) }
@@ -136,6 +143,7 @@ fun SongsScreen(
     if (showModeDialog && selectedSong != null) {
         GameModeSelectionDialog(
             song = selectedSong!!,
+            currentUserId = currentUserId,
             onModeSelected = handleModeSelection,
             onDismiss = { 
                 showModeDialog = false
@@ -229,6 +237,7 @@ fun SongCard(
 @Composable
 fun GameModeSelectionDialog(
     song: SongItem,
+    currentUserId: Long?,
     onModeSelected: (GameMode) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -258,45 +267,82 @@ fun GameModeSelectionDialog(
             }
         },
         confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Easy 모드 버튼
-                Button(
-                    onClick = { onModeSelected(GameMode.EASY) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = GameMode.EASY.displayName,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    // Easy 모드 버튼
+                    Button(
+                        onClick = { onModeSelected(GameMode.EASY) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = GameMode.EASY.displayName,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    // Hard 모드 버튼
+                    Button(
+                        onClick = { onModeSelected(GameMode.HARD) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEF4444)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = GameMode.HARD.displayName,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
                 
-                // Hard 모드 버튼
-                Button(
-                    onClick = { onModeSelected(GameMode.HARD) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFEF4444)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = GameMode.HARD.displayName,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                // userId가 1인 경우에만 채보만들기 버튼과 취소 버튼을 컬럼으로 묶기
+                if (currentUserId == 1L) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { 
+                                onModeSelected(GameMode.CHART_CREATION)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF8B5CF6)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "채보만들기",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        
+                        TextButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("취소")
+                        }
+                    }
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
+        dismissButton = if (currentUserId != 1L) {
+            {
+                TextButton(onClick = onDismiss) {
+                    Text("취소")
+                }
             }
-        },
+        } else null,
         shape = RoundedCornerShape(16.dp)
     )
 }

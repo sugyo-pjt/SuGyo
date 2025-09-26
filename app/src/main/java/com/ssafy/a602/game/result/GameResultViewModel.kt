@@ -21,7 +21,7 @@ class GameResultViewModel @Inject constructor(
     }
     
     /**
-     * Hard 모드일 때 리듬 데이터 업로드
+     * Hard 모드와 채보만들기 모드일 때 리듬 데이터 업로드
      */
     fun uploadHardModeData() {
         viewModelScope.launch {
@@ -30,24 +30,24 @@ class GameResultViewModel @Inject constructor(
                 val currentMode = GameDataManager.getCurrentGameMode()
                 Log.d(TAG, "게임 결과 화면: 현재 모드 = $currentMode")
                 
-                if (currentMode == GameMode.HARD) {
+                if (currentMode == GameMode.CHART_CREATION) {
                     val rhythmCollector = GameDataManager.getRhythmCollector()
                     if (rhythmCollector != null) {
-                        Log.d(TAG, "🔥 Hard 모드: 리듬 데이터 수집 및 업로드 시작")
+                        Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 수집 및 업로드 시작")
                         
                         // 리듬 데이터 수집 완료
                         val rhythmData = rhythmCollector.onSongEnd()
-                        Log.d(TAG, "🔥 Hard 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
+                        Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
                         
                         if (rhythmData != null) {
-                            Log.d(TAG, "🔥 Hard 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
+                            Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
                             
                             // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
                             val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
                                 request = rhythmData
                             )
                             
-                            Log.d(TAG, "🔥 Hard 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
+                            Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
                             if (uploadResult.isFailure) {
                                 Log.e(TAG, "리듬 데이터 업로드 실패", uploadResult.exceptionOrNull())
                             }
@@ -58,7 +58,7 @@ class GameResultViewModel @Inject constructor(
                         Log.d(TAG, "RhythmCollector가 null - 업로드 건너뜀")
                     }
                 } else {
-                    Log.d(TAG, "Easy 모드 - 업로드 건너뜀")
+                    Log.d(TAG, "${currentMode?.displayName ?: "알 수 없는"} 모드 - 업로드 건너뜀")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "리듬 데이터 업로드 중 오류 발생", e)

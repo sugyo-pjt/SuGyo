@@ -73,9 +73,9 @@ private fun getCurrentSignHighlight(
         return emptyList()
     }
     
-    // 하드 모드에서는 하이라이팅 비활성화
-    if (gameMode == GameMode.HARD) {
-        Log.d("GamePlayScreen", "Hard mode: 하이라이팅 비활성화")
+    // 하드 모드와 채보만들기 모드에서는 하이라이팅 비활성화
+    if (gameMode == GameMode.HARD || gameMode == GameMode.CHART_CREATION) {
+        Log.d("GamePlayScreen", "${gameMode.displayName} mode: 하이라이팅 비활성화")
         return emptyList()
     }
     
@@ -937,7 +937,7 @@ fun GamePlayScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 
-                // 🔥 하드 모드일 때만 웹소켓 판정 결과 표시 (기존 GameJudgmentToast 활용)
+                // 🔥 하드 모드일 때만 웹소켓 판정 결과 표시 (채보만들기 모드에서는 제외)
                 if (gameMode == GameMode.HARD) {
                     GameJudgmentToast(
                         result = currentJudgment,

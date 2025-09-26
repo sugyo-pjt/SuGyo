@@ -90,7 +90,7 @@ class GamePlayViewModel @Inject constructor(
             calc = GameScoreCalculator(songId = songId, totalWords = totalWords, baseScore = 100)
         }
         
-        // 🔥 하드 모드일 때 리듬 수집기 초기화
+        // 🔥 하드 모드일 때 리듬 수집기 초기화 (웹소켓 연결)
         if (mode == GameMode.HARD) {
             android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기 초기화 시작")
             rhythmCollector = RhythmCollector(
@@ -108,15 +108,34 @@ class GamePlayViewModel @Inject constructor(
                 rhythmCollector?.onTypeChanged("PLAY", 0L)
                 android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: PLAY 세그먼트 시작")
             }
+            
+            // 하드 모드일 때만 웹소켓 연결
+            connectWebSocket()
+        }
+        
+        // 🎵 채보만들기 모드일 때 리듬 수집기 초기화 (웹소켓 연결 없음)
+        if (mode == GameMode.CHART_CREATION) {
+            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 리듬 수집기 초기화 시작")
+            rhythmCollector = RhythmCollector(
+                musicId = currentMusicId.toInt(),
+                coroutineScope = viewModelScope
+            )
+            rhythmCollector?.startCollection()
+            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 리듬 수집기 초기화 완료")
+            
+            // GameDataManager에 RhythmCollector 저장
+            GameDataManager.setRhythmCollector(rhythmCollector)
+            
+            // 게임 시작 시 PLAY 세그먼트 시작
+            viewModelScope.launch {
+                rhythmCollector?.onTypeChanged("PLAY", 0L)
+                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: PLAY 세그먼트 시작")
+            }
+            // 웹소켓 연결하지 않음 - HTTP로만 저장
         }
         
         _ui.value = GameUiState()
         _complete.value = CompleteUiState()
-        
-        // 하드 모드일 때만 웹소켓 연결
-        if (mode == GameMode.HARD) {
-            connectWebSocket()
-        }
     }
     
     private fun connectWebSocket() {
@@ -286,49 +305,54 @@ class GamePlayViewModel @Inject constructor(
             return
         }
         
-        if (gameMode == GameMode.EASY) {
-            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산 결과 사용")
-            // Easy 모드: 프론트엔드 계산 결과 사용
-            isUploading = true
-            val final = calc.getFinal() // 여기서 totalScore만 사용
-            viewModelScope.launch {
-                _complete.value = _complete.value.copy(submitting = true, submitError = null)
-                val result = GameDataManager.completeGame(currentMusicId, final.totalScore)
-                _complete.value = result.fold(
-                    onSuccess = { response ->
-                        _complete.value.copy(
-                            submitting = false,
-                            submitted = true,
-                            isBestRecord = response.isBestRecord
-                        )
-                    },
-                    onFailure = { e ->
-                        // API 호출 실패해도 게임 결과 화면으로 넘어가도록 submitted = true로 설정
-                        _complete.value.copy(
-                            submitting = false,
-                            submitted = true, // 실패해도 결과 화면으로 이동
-                            submitError = e.message ?: "전송 실패"
-                        )
-                    }
+        when (gameMode) {
+            GameMode.EASY -> {
+                android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 게임 완료 처리 (save API 호출 없음)")
+                // Easy 모드: save API 호출 없이 게임 완료 처리
+                _complete.value = _complete.value.copy(
+                    submitting = false,
+                    submitted = true,
+                    isBestRecord = false
                 )
-                isUploading = false
             }
-        } else {
-            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 게임 완료 처리 (POST 요청은 결과화면에서 처리)")
-            // 🔥 Hard 모드: POST 요청은 GameResultScreen에서 처리
-            _complete.value = _complete.value.copy(
-                submitting = false,
-                submitted = true,
-                isBestRecord = false
-            )
+            
+            GameMode.HARD -> {
+                android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 게임 완료 처리 (POST 요청은 결과화면에서 처리)")
+                // 🔥 Hard 모드: POST 요청은 GameResultScreen에서 처리
+                _complete.value = _complete.value.copy(
+                    submitting = false,
+                    submitted = true,
+                    isBestRecord = false
+                )
+            }
+            
+            GameMode.CHART_CREATION -> {
+                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 게임 완료 처리 (POST 요청은 결과화면에서 처리)")
+                // 🎵 채보만들기 모드: POST 요청은 GameResultScreen에서 처리
+                _complete.value = _complete.value.copy(
+                    submitting = false,
+                    submitted = true,
+                    isBestRecord = false
+                )
+            }
         }
     }
     
     override fun onCleared() {
         super.onCleared()
-        if (gameMode == GameMode.HARD) {
-            webSocketStreamer.stop()
-            rhythmCollector?.stopCollection()
+        when (gameMode) {
+            GameMode.HARD -> {
+                // Hard 모드: 웹소켓 연결 해제
+                webSocketStreamer.stop()
+                rhythmCollector?.stopCollection()
+            }
+            GameMode.CHART_CREATION -> {
+                // 채보만들기 모드: 리듬 수집기만 정리 (웹소켓 없음)
+                rhythmCollector?.stopCollection()
+            }
+            else -> {
+                // Easy 모드: 특별한 정리 작업 없음
+            }
         }
     }
     

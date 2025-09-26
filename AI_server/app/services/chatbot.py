@@ -38,7 +38,7 @@ USER_PROMPT_TEMPLATE = (
 )
 
 async def chatting(sentence: str) -> str:
-    # 환경변수 확인
+    # 환경변수 확인. 싸피에서 이거 자꾸 바꿈
     print(CHAT_LLM_URL)
     
     headers = {
@@ -52,8 +52,8 @@ async def chatting(sentence: str) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": USER_PROMPT_TEMPLATE.format(sentence=sentence.strip())},
         ],
-        "max_tokens": 400,     # 짧은 응답만 필요
-        "temperature": 0.5,    # 안정적 출력
+        "max_tokens": 400,     
+        "temperature": 0.5,    # 무작위성 보정정
         "top_p": 0.9,
     }
 
@@ -72,7 +72,7 @@ async def chatting(sentence: str) -> str:
     if not content:
         raise ValueError("LLM 응답이 비어 있습니다.")
 
-    return content  # ✅ 문자열만 반환
+    return content  # 문자열
 
 # --- 사용 예시 ---
 # import asyncio

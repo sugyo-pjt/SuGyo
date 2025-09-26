@@ -100,6 +100,9 @@ class GamePlayViewModel @Inject constructor(
             rhythmCollector?.startCollection()
             android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기 초기화 완료")
             
+            // 🔥 GameDataManager에 RhythmCollector 저장
+            GameDataManager.setRhythmCollector(rhythmCollector)
+            
             // 🔥 게임 시작 시 PLAY 세그먼트 시작
             viewModelScope.launch {
                 rhythmCollector?.onTypeChanged("PLAY", 0L)
@@ -276,11 +279,10 @@ class GamePlayViewModel @Inject constructor(
 
     fun finishGameAndPost() {
         android.util.Log.d("GamePlayViewModel", "🎯 게임 완료 처리 시작: mode=$gameMode")
-        if (_complete.value.submitting) return // 더블탭 방지
         
-        // 중복 호출 방지
-        if (isUploading) {
-            android.util.Log.d("GamePlayViewModel", "🎯 이미 업로드 중 - 중복 호출 방지")
+        // 중복 호출 방지 강화
+        if (_complete.value.submitting || isUploading || _complete.value.submitted) {
+            android.util.Log.d("GamePlayViewModel", "🎯 이미 처리 중 또는 완료됨 - 중복 호출 방지")
             return
         }
         
@@ -312,60 +314,13 @@ class GamePlayViewModel @Inject constructor(
                 isUploading = false
             }
         } else {
-            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 및 업로드 시작")
-            // 🔥 Hard 모드: 리듬 데이터 수집 완료 후 업로드
-            isUploading = true
-            // viewModelScope 대신 GlobalScope 사용 (ViewModel이 이미 정리된 상태)
-            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                _complete.value = _complete.value.copy(submitting = true, submitError = null)
-                
-                try {
-                    // 리듬 데이터 수집 완료
-                    android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 완료 요청")
-                    val rhythmData = rhythmCollector?.onSongEnd()
-                    android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
-                    
-                    if (rhythmData != null) {
-                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
-                        // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
-                        val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
-                            request = rhythmData
-                        )
-                        
-                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
-                        if (uploadResult.isSuccess) {
-                            _complete.value = _complete.value.copy(
-                                submitting = false,
-                                submitted = true,
-                                isBestRecord = false // TODO: 서버 응답에서 확인
-                            )
-                        } else {
-                            _complete.value = _complete.value.copy(
-                                submitting = false,
-                                submitted = true,
-                                submitError = uploadResult.exceptionOrNull()?.message ?: "리듬 데이터 업로드 실패"
-                            )
-                        }
-                        isUploading = false
-                    } else {
-                        android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 실패")
-                        _complete.value = _complete.value.copy(
-                            submitting = false,
-                            submitted = true,
-                            submitError = "리듬 데이터 수집 실패"
-                        )
-                        isUploading = false
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 예외 발생", e)
-                    _complete.value = _complete.value.copy(
-                        submitting = false,
-                        submitted = true,
-                        submitError = e.message ?: "리듬 데이터 업로드 실패"
-                    )
-                    isUploading = false
-                }
-            }
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 게임 완료 처리 (POST 요청은 결과화면에서 처리)")
+            // 🔥 Hard 모드: POST 요청은 GameResultScreen에서 처리
+            _complete.value = _complete.value.copy(
+                submitting = false,
+                submitted = true,
+                isBestRecord = false
+            )
         }
     }
     

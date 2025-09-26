@@ -474,6 +474,9 @@ fun GamePlayScreen(
         }
     }
 
+    // 게임 완료 상태 추적
+    var isGameFinished by remember { mutableStateOf(false) }
+    
     // 게임 진행 상태 업데이트 및 완료 체크 (통합)
     LaunchedEffect(gameTime, totalTime, isScreenVisible) {
         if (!isScreenVisible) return@LaunchedEffect
@@ -484,15 +487,19 @@ fun GamePlayScreen(
         // 디버깅 로그 추가
         Log.d("GamePlayScreen", "게임 시간 체크: gameTime=${gameTime}s, totalTime=${totalTime}s")
         
+        // 이미 완료된 경우 중복 호출 방지
+        if (isGameFinished) {
+            Log.d("GamePlayScreen", "게임 이미 완료됨 - 중복 호출 방지")
+            return@LaunchedEffect
+        }
+        
         // 게임 완료 조건: ExoPlayer 재생 완료를 우선 확인
         val isPlayerFinished = player.playbackState == Player.STATE_ENDED
         val isTimeFinished = gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f
         
-        if (isPlayerFinished) {
-            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
-            gamePlayViewModel?.finishGameAndPost()
-        } else if (isTimeFinished && !isPlayerFinished) {
-            Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
+        if (isPlayerFinished || isTimeFinished) {
+            isGameFinished = true
+            Log.d("GamePlayScreen", "게임 완료: ${if (isPlayerFinished) "ExoPlayer 재생 완료" else "시간 조건 만족"} (gameTime=${gameTime}s, totalTime=${totalTime}s)")
             gamePlayViewModel?.finishGameAndPost()
         }
     }

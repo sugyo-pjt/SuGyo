@@ -3,10 +3,14 @@ package com.ssafy.a602.game.di
 import com.ssafy.a602.game.play.net.WebSocketStreamer
 import com.ssafy.a602.game.play.net.HttpStreamer
 import com.ssafy.a602.auth.TokenManager
+import com.ssafy.a602.game.play.collector.RhythmCollector
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
 @Module
@@ -18,4 +22,5 @@ object GameModule {
     fun provideWebSocketStreamer(httpStreamer: HttpStreamer, tokenManager: TokenManager): WebSocketStreamer {
         return WebSocketStreamer(httpStreamer, tokenManager)
     }
+    
 }

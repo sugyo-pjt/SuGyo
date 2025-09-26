@@ -27,6 +27,24 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlin.math.max
 import com.ssafy.a602.game.GameTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ssafy.a602.game.data.GameMode
+import com.ssafy.a602.game.play.GamePlayViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import com.ssafy.a602.game.play.service.RhythmUploadService
+import com.ssafy.a602.game.play.collector.RhythmCollector
+import android.util.Log
 
 // 색상 팔레트 (GameTheme 사용)
 private val BackgroundGradient = GameTheme.Colors.BackgroundGradient
@@ -52,6 +70,12 @@ fun GameResultScreen(
     onSubmitRanking: () -> Unit,
     onBackToList: () -> Unit
 ) {
+    val gameResultViewModel: GameResultViewModel = hiltViewModel()
+    
+    // Hard 모드일 때 POST 요청 전송
+    LaunchedEffect(Unit) {
+        gameResultViewModel.uploadHardModeData()
+    }
     Scaffold(
         topBar = {
             // 고정 높이의 커스텀 상단바

@@ -58,7 +58,14 @@ object AuthModule {
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: TokenAuthenticator
     ): RhythmApi {
+        val loggingInterceptor = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        
         val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
+            .newBuilder()
+            .addInterceptor(loggingInterceptor)
+            .build()
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(RhythmApi::class.java)
     }

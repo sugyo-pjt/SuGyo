@@ -31,6 +31,7 @@ class RhythmCollector(
     private val frameBundles = mutableListOf<FrameBundle>()
     private var currentBundle: MutableList<FrameDto>? = null
     private var currentBundleTimestamp: Long = 0L
+    private var globalTimestamp: Long = 0L  // 전역 타임스탬프 (초기화되지 않음)
     
     // 수집 상태
     private var isCollecting = false
@@ -166,9 +167,11 @@ class RhythmCollector(
      * 새 묶음 시작 (300ms 단위)
      */
     private fun startNewBundle() {
-        currentBundleTimestamp = (frameBundles.size * 300L)
+        // 전역 타임스탬프 사용 (초기화되지 않음)
+        currentBundleTimestamp = globalTimestamp
+        globalTimestamp += 300L  // 다음 묶음을 위해 300ms 증가
         currentBundle = mutableListOf()
-        Log.d(TAG, "새 묶음 시작: timestamp=${currentBundleTimestamp}ms")
+        Log.d(TAG, "새 묶음 시작: timestamp=${currentBundleTimestamp}ms (전역: ${globalTimestamp}ms)")
     }
     
     /**

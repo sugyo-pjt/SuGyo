@@ -26,7 +26,9 @@ public enum CommonErrorCode implements ErrorCode {
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE-500-02", "스토리지에 파일을 업로드하는 데 실패했습니다."),
     FILE_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE-500-03", "스토리지에서 파일을 삭제하는 데 실패했습니다."),
 
-    FAILED_TO_EXTRACT_PATH(HttpStatus.INTERNAL_SERVER_ERROR, "URL-500-02", "URL에서 경로를 추출하는 데 실패했습니다.");
+    FAILED_TO_EXTRACT_PATH(HttpStatus.INTERNAL_SERVER_ERROR, "URL-500-02", "URL에서 경로를 추출하는 데 실패했습니다."),
+
+    ALREADY_EXIST_MUSIC(HttpStatus.INTERNAL_SERVER_ERROR, "MUSIC-500-01", "이미 존재하는 채보입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

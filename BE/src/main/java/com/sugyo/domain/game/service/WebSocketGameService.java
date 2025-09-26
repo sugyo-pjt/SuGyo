@@ -167,6 +167,7 @@ public class WebSocketGameService {
         try {
             if (session != null && session.isOpen()) {
                 String jsonPayload = objectMapper.writeValueAsString(payload);
+                log.debug("클라이언트에 메시지 전송: sessionId={}, message={}", session.getId(), jsonPayload);
                 session.sendMessage(new TextMessage(jsonPayload));
             }
         } catch (IOException e) {

@@ -15,6 +15,7 @@ import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -58,6 +59,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             log.error("예측하지 못한 서버 오류 발생: SessionId={}", session.getId(), e);
             closeSessionWithError(session, INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status){
+        sessionManager.removeSession(session);
     }
 
     private Long extractMusicIdFromUri(URI uri) throws WebSocketException {

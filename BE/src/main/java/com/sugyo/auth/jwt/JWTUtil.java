@@ -40,11 +40,12 @@ public class JWTUtil {
                 .getPayload();
     }
 
-    public String createAccessToken(String userId, String userEmail, String userNickname, Long expiredMs) {
+    public String createAccessToken(String userId, String userEmail, String userNickname, Long expiredMs, String role) {
         return Jwts.builder()
                 .claim("user_id", userId)
                 .claim("user_email", userEmail)
                 .claim("user_nickname", userNickname)
+                .claim("role", role)
                 .issuedAt(convertLocalDateTimeToDate(LocalDateTime.now()))
                 .expiration(convertLocalDateTimeToDate(getExpiredAt(expiredMs)))
                 .signWith(secretKey)

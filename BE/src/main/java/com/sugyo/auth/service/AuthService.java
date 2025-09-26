@@ -81,7 +81,8 @@ public class AuthService {
                 String.valueOf(user.getId()),
                 user.getEmail(),
                 user.getNickname(),
-                jwtProperties.getAccessTokenValidityInMs());
+                jwtProperties.getAccessTokenValidityInMs(),
+                user.getRole().toString());
     }
 
     private String createRefreshToken(User user) {
@@ -131,7 +132,7 @@ public class AuthService {
                 .build());
     }
 
-    private void validateRefreshToken(RefreshToken refreshToken, Long userId, Long userIdOfToken){
+    private void validateRefreshToken(RefreshToken refreshToken, Long userId, Long userIdOfToken) {
         // 만료 시간 변조 가능성
         // 요청 유저가 토큰 식별자와 일치하는지 확인
         if (refreshToken.isExpired() || !userId.equals(userIdOfToken)) {

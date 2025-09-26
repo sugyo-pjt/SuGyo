@@ -44,6 +44,7 @@ public class SecurityConfig {
         // 로그인, 회원가입, 메인 외에는 로그인해야 접근 가능, swagger는 예외
         http.authorizeHttpRequests((auth) -> auth
                 .requestMatchers(AUTH_WHITELIST).permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated());
 
         http.addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);

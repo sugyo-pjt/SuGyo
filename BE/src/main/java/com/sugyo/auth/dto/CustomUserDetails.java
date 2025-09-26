@@ -2,6 +2,7 @@ package com.sugyo.auth.dto;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
@@ -13,6 +14,7 @@ public class CustomUserDetails implements UserDetails {
     private final String userId;
     private final String userEmail;
     private final String userNickname;
+    private final String role;
 
     public Long getId() {
         return Long.valueOf(userId);
@@ -30,7 +32,8 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.emptyList();
+
+        return Collections.singleton(new SimpleGrantedAuthority("ROLE_" + role));
     }
 
 }

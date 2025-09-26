@@ -3,6 +3,8 @@ package com.ssafy.a602.learning.api
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.POST
+import retrofit2.http.Body
 
 // ───────────────────────────────────────────────────────────────
 // [1] 메인 화면: 진행도 요약 (progressDay만 필요)
@@ -65,6 +67,23 @@ data class DayItemDto(
 )
 
 // ───────────────────────────────────────────────────────────────
+// [4] 퀴즈 결과 저장
+//    요청 바디: { "dayId": 1, "score": 6 }
+//    응답: 200 OK (본문 없음 가정)
+//    Authorization 헤더는 AuthInterceptor가 자동 부착
+// ───────────────────────────────────────────────────────────────
+data class QuizResultRequest(
+    val dayId: Int,
+    val score: Int
+)
+
+@JvmInline
+value class EmptyBody private constructor(val nothing: String = "")
+
+
+
+
+// ───────────────────────────────────────────────────────────────
 // Retrofit 인터페이스
 //  - BASE_URL 뒤에 그대로 붙습니다(앞에 슬래시 X)
 //  - Authorization은 AuthInterceptor가 자동 부착
@@ -84,4 +103,10 @@ interface StudyApiService {
     suspend fun getDayDetail(
         @Path("dayId") dayId: Int
     ): Response<DayItemsResponse>
+
+    /** [4] 퀴즈 결과 저장 */
+    @POST("api/v1/study/result")
+    suspend fun postQuizResult(
+        @Body body: QuizResultRequest
+    ): Response<Unit> // 200 OK 예상
 }

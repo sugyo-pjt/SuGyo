@@ -18,6 +18,7 @@ async def text_chat(input_data: ChatRequest):
     try:
         reply, history = await chatting(input_data.user_id, input_data.sentence)
         return ChatbotOutput(
+            user_id = input_data.user_id,
             result=reply,
             history=[ChatMessage(**h) for h in history[-5:]]  # 최근 5개만 반환. 사실 이거 5개까지도 애매하긴 한데 그래도 문맥 파악하려면..
         )

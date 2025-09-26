@@ -18,7 +18,8 @@ public enum UserErrorCode implements ErrorCode {
 
     // 409
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER-409-01", "이미 사용 중인 이메일입니다."),
-    DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "USER-409-02", "이미 사용 중인 닉네임입니다.");
+    DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "USER-409-02", "이미 사용 중인 닉네임입니다."),
+    INVALID_ADMIN_KEY(HttpStatus.CONFLICT, "USER-409-03", "존재하지 않는 admin key입니다.");
 
 
     private final HttpStatus httpStatus;

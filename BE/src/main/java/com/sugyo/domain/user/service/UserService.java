@@ -10,8 +10,10 @@ import com.sugyo.domain.term.repository.TermRepository;
 import com.sugyo.domain.user.domain.User;
 import com.sugyo.domain.user.domain.UserAgreement;
 import com.sugyo.domain.user.domain.UserAgreementId;
+import com.sugyo.domain.user.dto.SignUpAdminRequest;
 import com.sugyo.domain.user.dto.SignUpRequest;
 import com.sugyo.domain.user.dto.SignUpTermAgreement;
+import com.sugyo.domain.user.repository.AdminKeyRepository;
 import com.sugyo.domain.user.repository.UserAgreementRepository;
 import com.sugyo.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +30,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.sugyo.common.util.UriPathExtractor.getUriPath;
+import static com.sugyo.domain.user.domain.Role.ADMIN;
+import static com.sugyo.domain.user.domain.Role.USER;
 import static com.sugyo.domain.user.exception.UserErrorCode.DUPLICATE_EMAIL;
 import static com.sugyo.domain.user.exception.UserErrorCode.DUPLICATE_NICKNAME;
 import static com.sugyo.domain.user.exception.UserErrorCode.DUPLICATE_TERM_IN_REQUEST;
+import static com.sugyo.domain.user.exception.UserErrorCode.INVALID_ADMIN_KEY;
 import static com.sugyo.domain.user.exception.UserErrorCode.REQUIRED_TERM_NOT_AGREED;
 import static com.sugyo.domain.user.exception.UserErrorCode.TERM_SET_MISMATCH;
 
@@ -42,6 +47,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final TermRepository termRepository;
     private final UserAgreementRepository userAgreementRepository;
+    private final AdminKeyRepository adminKeyRepository;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
     private final ApplicationEventPublisher eventPublisher;
@@ -158,6 +164,7 @@ public class UserService {
                 .nickname(request.getNickname())
                 .profileImageUrl(profileImageUrl)
                 .selfIntroduction(request.getSelfIntroduction())
+                .role(USER)
                 .build();
     }
 
@@ -176,5 +183,49 @@ public class UserService {
                 })
                 .collect(Collectors.toList());
         userAgreementRepository.saveAll(entities);
+    }
+
+    @DistributedLock(keys = {"#request.email", "#request.nickname"})
+    public void signUpAdmin(SignUpAdminRequest request, MultipartFile profileImage) {
+
+        String requestKey = request.getAdminKey();
+
+
+        // unique 필드 1차 검증
+        String email = request.getEmail();
+        String nickname = request.getNickname();
+
+        validateEmailIsUnique(email);
+        validateNicknameIsUnique(nickname);
+
+        List<Term> terms = termRepository.findAll();
+        Map<Long, Term> termMap = terms.stream()
+                .collect(Collectors.toMap(Term::getId, term -> term));
+
+        // 요청된 약관 유효성 검증
+        List<SignUpTermAgreement> reqSignUpTermAgreements = request.getSignUpTermAgreements();
+        validateRequestedAgreements(reqSignUpTermAgreements, termMap);
+
+        // 필수 약관 동의 검증
+        validateAllRequiredTermsAgreed(reqSignUpTermAgreements, terms);
+
+        User admin = createAdmin(request);
+        userRepository.save(admin);
+        saveUserAgreements(admin, reqSignUpTermAgreements, termMap);
+    }
+
+    private void validateAdminKey(String requestKey){
+        if(!adminKeyRepository.existsByKey(requestKey)){
+            throw new ApplicationException(INVALID_ADMIN_KEY);
+        }
+    }
+
+    private User createAdmin(SignUpAdminRequest request) {
+        return User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .nickname(request.getNickname())
+                .role(ADMIN)
+                .build();
     }
 }

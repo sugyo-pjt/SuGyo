@@ -12,6 +12,9 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.ssafy.a602.game.play.input.LandmarkResultHandler
 import com.ssafy.a602.game.play.input.WordWindowUploader
+import com.ssafy.a602.game.data.GameMode
+import com.ssafy.a602.game.data.GameDataManager
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
@@ -106,23 +109,66 @@ class GamePlayCamera(
         val mpImage = BitmapImageBuilder(rgb!!).build()
         val timestampMs = TimeUnit.NANOSECONDS.toMillis(image.imageInfo.timestamp)
         
+        // 🎵 채보만들기 모드: 원본 이미지 데이터 수집
+        val currentMode = GameDataManager.getCurrentGameMode()
+        if (currentMode == GameMode.CHART_CREATION) {
+            collectRawFrameForChartCreation(rgb!!, timestampMs, image.width, image.height)
+        }
+        
         // 손 인식을 위한 이미지 품질 확인
         if (timestampMs % 2000 < 33) { // 2초마다 한 번
             android.util.Log.d("GamePlayCamera", "이미지 품질 확인: ${rgb!!.width}x${rgb!!.height}, 포맷: ${rgb!!.config}")
         }
         
-        // MediaPipe 분석 실행
-        poseLandmarker?.detectAsync(mpImage, timestampMs)
-        handLandmarker?.detectAsync(mpImage, timestampMs)
-        
-        // 디버그: 분석 실행 확인 (너무 많은 로그를 방지하기 위해 30프레임마다)
-        if (timestampMs % 1000 < 33) { // 약 1초마다
-            android.util.Log.d("GamePlayCamera", "MediaPipe 분석 실행 중... timestamp: $timestampMs")
-            android.util.Log.d("GamePlayCamera", "  - Pose Landmarker: ${if (poseLandmarker != null) "활성" else "비활성"}")
-            android.util.Log.d("GamePlayCamera", "  - Hand Landmarker: ${if (handLandmarker != null) "활성" else "비활성"}")
+        // MediaPipe 분석 실행 (채보만들기 모드가 아닐 때만)
+        if (currentMode != GameMode.CHART_CREATION) {
+            poseLandmarker?.detectAsync(mpImage, timestampMs)
+            handLandmarker?.detectAsync(mpImage, timestampMs)
+            
+            // 디버그: 분석 실행 확인 (너무 많은 로그를 방지하기 위해 30프레임마다)
+            if (timestampMs % 1000 < 33) { // 약 1초마다
+                android.util.Log.d("GamePlayCamera", "MediaPipe 분석 실행 중... timestamp: $timestampMs")
+                android.util.Log.d("GamePlayCamera", "  - Pose Landmarker: ${if (poseLandmarker != null) "활성" else "비활성"}")
+                android.util.Log.d("GamePlayCamera", "  - Hand Landmarker: ${if (handLandmarker != null) "활성" else "비활성"}")
+            }
+        } else {
+            // 채보만들기 모드: MediaPipe 분석 건너뛰기 (일괄 처리)
+            if (timestampMs % 2000 < 33) { // 2초마다 한 번
+                android.util.Log.d("GamePlayCamera", "🎵 채보만들기 모드: MediaPipe 분석 건너뛰기 - 원본 이미지 수집 중")
+            }
         }
         
         // image.close()는 CameraPreview에서 자동으로 호출됨
+    }
+
+    /**
+     * 🎵 채보만들기 모드: 원본 프레임 데이터 수집
+     */
+    private fun collectRawFrameForChartCreation(bitmap: Bitmap, timestampMs: Long, width: Int, height: Int) {
+        try {
+            // Bitmap을 ByteArray로 변환
+            val outputStream = java.io.ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream) // 80% 품질로 압축
+            val imageData = outputStream.toByteArray()
+            outputStream.close()
+            
+            // ViewModel을 통해 ChartCreationCollector에 전달
+            val chartCreationCollector = GameDataManager.getChartCreationCollector()
+            if (chartCreationCollector != null) {
+                // 코루틴으로 suspend 함수 호출
+                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    chartCreationCollector.addRawFrame(imageData, timestampMs, width, height)
+                }
+            }
+            
+            // 프레임 수집 상태 로깅 (1초마다)
+            if (timestampMs % 1000 < 33) {
+                android.util.Log.d("GamePlayCamera", "🎵 프레임 수집: timestamp=${timestampMs}ms, size=${imageData.size}bytes")
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("GamePlayCamera", "원본 프레임 수집 실패: timestamp=${timestampMs}ms", e)
+        }
     }
 
     /**

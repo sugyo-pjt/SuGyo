@@ -8,6 +8,7 @@ import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.score.GameResultRequest
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.play.collector.RhythmCollector
+import com.ssafy.a602.game.play.collector.ChartCreationCollector
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,6 +53,9 @@ object GameDataManager {
     // 현재 RhythmCollector (Hard 모드일 때만 사용)
     private var _currentRhythmCollector: RhythmCollector? = null
     
+    // 현재 ChartCreationCollector (채보만들기 모드일 때만 사용)
+    private var _currentChartCreationCollector: ChartCreationCollector? = null
+    
     /**
      * 현재 게임 모드 반환
      */
@@ -71,6 +75,20 @@ object GameDataManager {
      */
     fun getRhythmCollector(): RhythmCollector? {
         return _currentRhythmCollector
+    }
+    
+    /**
+     * ChartCreationCollector 설정 (채보만들기 모드일 때 호출)
+     */
+    fun setChartCreationCollector(collector: ChartCreationCollector?) {
+        _currentChartCreationCollector = collector
+    }
+    
+    /**
+     * ChartCreationCollector 반환
+     */
+    fun getChartCreationCollector(): ChartCreationCollector? {
+        return _currentChartCreationCollector
     }
     
     // 현재 게임 진행 상태

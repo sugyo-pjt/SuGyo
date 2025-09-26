@@ -239,6 +239,8 @@ fun GamePlayScreen(
                 if (gameMode == GameMode.HARD) {
                     gamePlayViewModel?.onLandmarks(pose, left, right)
                 }
+                // 🎵 채보만들기 모드일 때는 원본 프레임 데이터 저장은 GamePlayCamera에서 처리됨
+                // (GamePlayCamera에서 직접 ChartCreationCollector에 전달)
             }
         )
     }

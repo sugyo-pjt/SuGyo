@@ -31,31 +31,25 @@ class GameResultViewModel @Inject constructor(
                 Log.d(TAG, "게임 결과 화면: 현재 모드 = $currentMode")
                 
                 if (currentMode == GameMode.CHART_CREATION) {
-                    val rhythmCollector = GameDataManager.getRhythmCollector()
-                    if (rhythmCollector != null) {
-                        Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 수집 및 업로드 시작")
+                    val chartCreationCollector = GameDataManager.getChartCreationCollector()
+                    if (chartCreationCollector != null) {
+                        Log.d(TAG, "🎵 채보만들기 모드: 일괄 MediaPipe 처리 및 업로드 시작")
                         
-                        // 리듬 데이터 수집 완료
-                        val rhythmData = rhythmCollector.onSongEnd()
-                        Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
+                        // 모든 프레임에 대해 MediaPipe 처리 후 리듬 데이터 생성
+                        val rhythmData = chartCreationCollector.processAllFramesAndCreateRequest()
+                        Log.d(TAG, "🎵 채보만들기 모드: 일괄 처리 완료 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
                         
-                        if (rhythmData != null) {
-                            Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
-                            
-                            // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
-                            val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
-                                request = rhythmData
-                            )
-                            
-                            Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
-                            if (uploadResult.isFailure) {
-                                Log.e(TAG, "리듬 데이터 업로드 실패", uploadResult.exceptionOrNull())
-                            }
-                        } else {
-                            Log.e(TAG, "리듬 데이터 수집 실패")
+                        // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
+                        val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
+                            request = rhythmData
+                        )
+                        
+                        Log.d(TAG, "🎵 채보만들기 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
+                        if (uploadResult.isFailure) {
+                            Log.e(TAG, "리듬 데이터 업로드 실패", uploadResult.exceptionOrNull())
                         }
                     } else {
-                        Log.d(TAG, "RhythmCollector가 null - 업로드 건너뜀")
+                        Log.d(TAG, "ChartCreationCollector가 null - 업로드 건너뜀")
                     }
                 } else {
                     Log.d(TAG, "${currentMode?.displayName ?: "알 수 없는"} 모드 - 업로드 건너뜀")

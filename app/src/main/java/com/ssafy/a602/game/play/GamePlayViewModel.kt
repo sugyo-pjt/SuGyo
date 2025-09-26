@@ -12,6 +12,9 @@ import com.ssafy.a602.game.score.JudgmentType as ScoreJudgmentType
 import com.ssafy.a602.game.play.JudgmentType
 import com.ssafy.a602.game.play.collector.RhythmCollector
 import com.ssafy.a602.game.play.collector.MediaPipeToRhythmConverter
+import com.ssafy.a602.game.play.collector.ChartCreationCollector
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.ssafy.a602.game.play.dto.*
 import com.ssafy.a602.game.play.service.RhythmUploadService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,7 +53,8 @@ data class CompleteUiState(
 @HiltViewModel
 class GamePlayViewModel @Inject constructor(
     private val webSocketStreamer: WebSocketStreamer,
-    private val rhythmUploadService: RhythmUploadService
+    private val rhythmUploadService: RhythmUploadService,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private lateinit var calc: GameScoreCalculator
@@ -76,6 +80,9 @@ class GamePlayViewModel @Inject constructor(
     
     // 🔥 하드 모드 리듬 수집기
     private var rhythmCollector: RhythmCollector? = null
+    
+    // 🎵 채보만들기 모드 프레임 수집기
+    private var chartCreationCollector: ChartCreationCollector? = null
 
     fun startGame(songId: String, totalWords: Int, mode: GameMode, playerPositionMs: () -> Long = { 0L }) {
         android.util.Log.d("GamePlayViewModel", "🎮 게임 시작: songId=$songId, mode=$mode, totalWords=$totalWords")
@@ -113,24 +120,19 @@ class GamePlayViewModel @Inject constructor(
             connectWebSocket()
         }
         
-        // 🎵 채보만들기 모드일 때 리듬 수집기 초기화 (웹소켓 연결 없음)
+        // 🎵 채보만들기 모드일 때 프레임 수집기 초기화 (일괄 처리)
         if (mode == GameMode.CHART_CREATION) {
-            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 리듬 수집기 초기화 시작")
-            rhythmCollector = RhythmCollector(
+            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 프레임 수집기 초기화 시작")
+            chartCreationCollector = ChartCreationCollector(
                 musicId = currentMusicId.toInt(),
-                coroutineScope = viewModelScope
+                coroutineScope = viewModelScope,
+                context = context
             )
-            rhythmCollector?.startCollection()
-            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 리듬 수집기 초기화 완료")
+            chartCreationCollector?.startCollection()
+            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 프레임 수집기 초기화 완료")
             
-            // GameDataManager에 RhythmCollector 저장
-            GameDataManager.setRhythmCollector(rhythmCollector)
-            
-            // 게임 시작 시 PLAY 세그먼트 시작
-            viewModelScope.launch {
-                rhythmCollector?.onTypeChanged("PLAY", 0L)
-                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: PLAY 세그먼트 시작")
-            }
+            // GameDataManager에 ChartCreationCollector 저장
+            GameDataManager.setChartCreationCollector(chartCreationCollector)
             // 웹소켓 연결하지 않음 - HTTP로만 저장
         }
         
@@ -249,6 +251,22 @@ class GamePlayViewModel @Inject constructor(
         }
     }
     
+    // 🎵 채보만들기 모드: 원본 프레임 데이터 저장 (MediaPipe 처리 전)
+    fun addRawFrameForChartCreation(
+        imageData: ByteArray,
+        timestampMs: Long,
+        width: Int,
+        height: Int
+    ) {
+        if (gameMode == GameMode.CHART_CREATION) {
+            android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 원본 프레임 저장 - timestamp=${timestampMs}ms, size=${imageData.size}bytes")
+            
+            viewModelScope.launch {
+                chartCreationCollector?.addRawFrame(imageData, timestampMs, width, height)
+            }
+        }
+    }
+    
     fun togglePause() {
         val currentPaused = _ui.value.isPaused
         _ui.value = _ui.value.copy(isPaused = !currentPaused)
@@ -327,8 +345,8 @@ class GamePlayViewModel @Inject constructor(
             }
             
             GameMode.CHART_CREATION -> {
-                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 게임 완료 처리 (POST 요청은 결과화면에서 처리)")
-                // 🎵 채보만들기 모드: POST 요청은 GameResultScreen에서 처리
+                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 게임 완료 처리 (일괄 MediaPipe 처리 후 POST 요청)")
+                // 🎵 채보만들기 모드: 일괄 처리 후 POST 요청은 GameResultScreen에서 처리
                 _complete.value = _complete.value.copy(
                     submitting = false,
                     submitted = true,
@@ -347,8 +365,8 @@ class GamePlayViewModel @Inject constructor(
                 rhythmCollector?.stopCollection()
             }
             GameMode.CHART_CREATION -> {
-                // 채보만들기 모드: 리듬 수집기만 정리 (웹소켓 없음)
-                rhythmCollector?.stopCollection()
+                // 채보만들기 모드: 프레임 수집기 정리
+                chartCreationCollector?.stopCollection()
             }
             else -> {
                 // Easy 모드: 특별한 정리 작업 없음

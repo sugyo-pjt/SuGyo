@@ -350,8 +350,16 @@ class GamePlayViewModel @Inject constructor(
             }
             
             GameMode.CHART_CREATION -> {
-                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 게임 완료 처리 (일괄 MediaPipe 처리 후 POST 요청)")
-                // 🎵 채보만들기 모드: 일괄 처리 후 POST 요청은 GameResultScreen에서 처리
+                android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 게임 완료 처리 (녹화 중지 후 일괄 MediaPipe 처리)")
+                // 🎵 채보만들기 모드: 녹화 중지 후 일괄 처리
+                stopCameraRecording()
+                
+                // 녹화 중지 후 파일 저장 완료를 위한 대기
+                viewModelScope.launch {
+                    delay(2000) // 2초 대기하여 녹화 파일이 완전히 저장되도록 함
+                    android.util.Log.d("GamePlayViewModel", "🎵 채보만들기 모드: 녹화 파일 저장 완료 대기 완료")
+                }
+                
                 _complete.value = _complete.value.copy(
                     submitting = false,
                     submitted = true,
@@ -453,10 +461,15 @@ class GamePlayViewModel @Inject constructor(
         }
         
         Log.d("GamePlayViewModel", "📹 CameraX 녹화 중지")
-        currentRecording?.stop()
-        currentRecording = null
-        isRecording = false
-        _cameraState.value = _cameraState.value.copy(isRecording = false)
+        try {
+            currentRecording?.stop()
+        } catch (e: Exception) {
+            Log.w("GamePlayViewModel", "📹 녹화 중지 중 오류 발생", e)
+        } finally {
+            currentRecording = null
+            isRecording = false
+            _cameraState.value = _cameraState.value.copy(isRecording = false)
+        }
     }
     
     /**
@@ -498,7 +511,11 @@ class GamePlayViewModel @Inject constructor(
             val cameraProvider = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
             
             // 기존 카메라 바인딩 해제
-            cameraProvider.unbindAll()
+            try {
+                cameraProvider.unbindAll()
+            } catch (e: Exception) {
+                Log.w("GamePlayViewModel", "📹 기존 카메라 바인딩 해제 중 오류", e)
+            }
             
             // 1) 숨겨진 Preview 생성 (카메라 활성화용)
             val preview = androidx.camera.core.Preview.Builder().build()
@@ -520,15 +537,20 @@ class GamePlayViewModel @Inject constructor(
             val selector = androidx.camera.core.CameraSelector.DEFAULT_FRONT_CAMERA
             
             // 4) Preview + VideoCapture 함께 바인딩 (카메라 활성화 보장)
-            cameraProvider.bindToLifecycle(
-                lifecycleOwner,
-                selector,
-                preview,
-                videoCapture
-            )
-            
-            Log.d("GamePlayViewModel", "📹 CameraX 바인딩 완료")
-            _cameraState.value = _cameraState.value.copy(isInitialized = true)
+            try {
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    selector,
+                    preview,
+                    videoCapture
+                )
+                
+                Log.d("GamePlayViewModel", "📹 CameraX 바인딩 완료")
+                _cameraState.value = _cameraState.value.copy(isInitialized = true)
+            } catch (e: Exception) {
+                Log.e("GamePlayViewModel", "📹 CameraX 바인딩 실패", e)
+                _cameraState.value = _cameraState.value.copy(error = "CameraX 바인딩 실패: ${e.message}")
+            }
             
         } catch (e: Exception) {
             Log.e("GamePlayViewModel", "📹 CameraX 초기화 실패", e)
@@ -541,30 +563,48 @@ class GamePlayViewModel @Inject constructor(
      */
     fun clearCameraResources() {
         Log.d("GamePlayViewModel", "📹 CameraX 리소스 정리")
-        stopCameraRecording()
-        videoCapture = null
+        try {
+            stopCameraRecording()
+        } catch (e: Exception) {
+            Log.w("GamePlayViewModel", "📹 녹화 중지 중 오류 발생", e)
+        }
+        
+        try {
+            videoCapture = null
+        } catch (e: Exception) {
+            Log.w("GamePlayViewModel", "📹 VideoCapture 정리 중 오류 발생", e)
+        }
+        
         _cameraState.value = CameraState()
     }
 
     override fun onCleared() {
         super.onCleared()
         
-        // CameraX 리소스 정리
-        clearCameraResources()
+        try {
+            // CameraX 리소스 정리
+            clearCameraResources()
+        } catch (e: Exception) {
+            Log.e("GamePlayViewModel", "📹 CameraX 리소스 정리 중 오류 발생", e)
+        }
         
-        when (gameMode) {
-            GameMode.HARD -> {
-                // Hard 모드: 웹소켓 연결 해제
-                webSocketStreamer.stop()
-                rhythmCollector?.stopCollection()
+        try {
+            when (gameMode) {
+                GameMode.HARD -> {
+                    // Hard 모드: 웹소켓 연결 해제
+                    webSocketStreamer.stop()
+                    rhythmCollector?.stopCollection()
+                }
+                GameMode.CHART_CREATION -> {
+                    // 채보만들기 모드: CameraX 리소스 정리 (ViewModel에서 관리)
+                    clearCameraResources()
+                }
+                else -> {
+                    // Easy 모드: 특별한 정리 작업 없음
+                }
             }
-            GameMode.CHART_CREATION -> {
-                // 채보만들기 모드: CameraX 리소스 정리 (ViewModel에서 관리)
-                clearCameraResources()
-            }
-            else -> {
-                // Easy 모드: 특별한 정리 작업 없음
-            }
+        } catch (e: Exception) {
+            Log.e("GamePlayViewModel", "🎮 게임 모드별 리소스 정리 중 오류 발생", e)
         }
     }
     

@@ -7,34 +7,37 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 
 class LandmarkerManager(
-  context: Context,
-  poseModelAsset: String = "models/pose_landmarker_lite.task",
-  handModelAsset: String = "models/hand_landmarker.task"
-) {
+    context: Context,
+    poseModelAsset: String = "models/pose_landmarker_lite.task",
+    handModelAsset: String = "models/hand_landmarker.task"
+) : AutoCloseable {
   val pose: PoseLandmarker
   val hand: HandLandmarker
 
-  init {
-    val poseBase = BaseOptions.builder().setModelAssetPath(poseModelAsset).build()
-    val handBase = BaseOptions.builder().setModelAssetPath(handModelAsset).build()
-
-    pose = PoseLandmarker.createFromOptions(
-      context,
-      PoseLandmarker.PoseLandmarkerOptions.builder()
-        .setBaseOptions(poseBase)
-        .setRunningMode(RunningMode.VIDEO) // ⭐️ VIDEO 모드
-        .setNumPoses(1)
-        .build()
-    )
-    hand = HandLandmarker.createFromOptions(
-      context,
-      HandLandmarker.HandLandmarkerOptions.builder()
-        .setBaseOptions(handBase)
-        .setRunningMode(RunningMode.VIDEO) // ⭐️ VIDEO 모드
-        .setNumHands(2)
-        .build()
-    )
-  }
+    init {
+        val poseBase = com.google.mediapipe.tasks.core.BaseOptions.builder()
+            .setModelAssetPath(poseModelAsset)
+            .build()
+        val handBase = com.google.mediapipe.tasks.core.BaseOptions.builder()
+            .setModelAssetPath(handModelAsset)
+            .build()
+        pose = PoseLandmarker.createFromOptions(
+            context,
+            PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(poseBase)
+                .setRunningMode(com.google.mediapipe.tasks.vision.core.RunningMode.VIDEO)
+                .setNumPoses(1)
+                .build()
+        )
+        hand = HandLandmarker.createFromOptions(
+            context,
+            HandLandmarker.HandLandmarkerOptions.builder()
+                .setBaseOptions(handBase)
+                .setRunningMode(com.google.mediapipe.tasks.vision.core.RunningMode.VIDEO)
+                .setNumHands(2)
+                .build()
+        )
+    }
 
   data class LM(val x: Float, val y: Float, val z: Float = 0f, val v: Float = 0f)
 
@@ -57,5 +60,16 @@ class LandmarkerManager(
     return left to right
   }
 
-  fun close() { try { pose.close() } catch(_:Exception){}; try { hand.close() } catch(_:Exception){} }
+    override fun close() {
+        try { 
+            pose.close() 
+        } catch (e: Exception) {
+            android.util.Log.w("LandmarkerManager", "PoseLandmarker close 중 오류", e)
+        }
+        try { 
+            hand.close() 
+        } catch (e: Exception) {
+            android.util.Log.w("LandmarkerManager", "HandLandmarker close 중 오류", e)
+        }
+    }
 }

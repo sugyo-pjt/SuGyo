@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.play.collector.RhythmCollector
+import com.ssafy.a602.game.play.dto.RhythmSaveRequest
 import com.ssafy.a602.game.play.service.RhythmUploadService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -99,13 +100,26 @@ class GameResultViewModel @Inject constructor(
             
             val landmarker = com.ssafy.a602.game.play.capture.LandmarkerManager(getApplication())
             
-            // ViewModel 기반 MediaCodec 분석 (임시로 기본 데이터 생성)
-            Log.d(TAG, "🎵 채보만들기 모드: MediaCodec 분석 기능은 추후 구현 예정")
+            // ViewModel 기반 MediaCodec 분석 (실제 구현)
+            Log.d(TAG, "🎵 채보만들기 모드: MediaCodec 분석 시작")
             
-            // 임시로 기본 리듬 데이터 생성 (RhythmSaveRequest 사용)
-            val rhythmData = com.ssafy.a602.game.play.dto.RhythmSaveRequest(
+            // 실제 MediaCodecFrameAnalyzer 사용
+            val analyzer = com.ssafy.a602.game.play.capture.MediaCodecFrameAnalyzer()
+            
+            val segments = analyzer.extractAndAnalyzeWithMediaCodec(
+                context = getApplication(),
+                videoUri = videoUri,
+                poseLandmarker = landmarker.pose,
+                handLandmarker = landmarker.hand,
+                onProgress = { count, ms -> 
+                    Log.d(TAG, "프레임 분석 진행: $count, ${ms}ms")
+                }
+            )
+            
+            // RhythmSaveRequest 생성
+            val rhythmData = RhythmSaveRequest(
                 musicId = musicId,
-                allFrames = emptyList() // 추후 MediaCodec 분석으로 대체
+                allFrames = segments
             )
             
             landmarker.close()

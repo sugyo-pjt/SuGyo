@@ -7,25 +7,47 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.util.Log
+import androidx.annotation.OptIn
 import androidx.camera.camera2.interop.Camera2Interop
-import androidx.camera.core.*
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.core.content.ContextCompat
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
-import kotlinx.coroutines.*
-import java.io.*
-import java.nio.ByteBuffer
+import com.ssafy.a602.game.play.dto.Coordinate
+import com.ssafy.a602.game.play.dto.FrameBlock
+import com.ssafy.a602.game.play.dto.PoseBlock
+import com.ssafy.a602.game.play.dto.SimilarityRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.ByteArrayOutputStream
+import java.io.Closeable
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.EOFException
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.min
-import com.ssafy.a602.game.play.dto.*
 
 /**
  * 1) 목표: "노래가 재생되는 동안 들어온 모든 카메라 프레임"을 100% 보존하고
@@ -280,6 +302,7 @@ class FullFrameCaptureController(
     private val collectedFrames = mutableListOf<RawFrame>()
     private val frameMutex = ReentrantLock()
 
+    @OptIn(ExperimentalCamera2Interop::class)
     suspend fun start(lifecycleOwner: androidx.lifecycle.LifecycleOwner, fps: Int = 30) {
         processor = MediaPipeVideoProcessor(context, onPose, onHand)
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -339,6 +362,7 @@ class FullFrameCaptureController(
     override fun close() { stop() }
 
     // ---------- Analyzer: '복사만' 하고 즉시 종료 ----------
+    @OptIn(ExperimentalGetImage::class)
     override fun analyze(image: ImageProxy) {
         try {
             val img = image.image ?: return

@@ -9,11 +9,11 @@ import com.sugyo.domain.game.dto.response.GameActionResponse;
 import com.sugyo.domain.game.dto.response.GameStateResponse;
 import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.entity.GameResult;
-import com.sugyo.domain.game.entity.Music;
+import com.sugyo.domain.music.domain.Music;
 import com.sugyo.domain.game.exception.WebSocketException;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.game.repository.GameResultRepository;
-import com.sugyo.domain.game.repository.MusicRepository;
+import com.sugyo.domain.music.repository.MusicRepository;
 import com.sugyo.domain.user.domain.User;
 import com.sugyo.domain.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -167,6 +167,7 @@ public class WebSocketGameService {
         try {
             if (session != null && session.isOpen()) {
                 String jsonPayload = objectMapper.writeValueAsString(payload);
+                log.debug("클라이언트에 메시지 전송: sessionId={}, message={}", session.getId(), jsonPayload);
                 session.sendMessage(new TextMessage(jsonPayload));
             }
         } catch (IOException e) {

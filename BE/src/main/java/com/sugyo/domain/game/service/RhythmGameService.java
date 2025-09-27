@@ -5,26 +5,30 @@ import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.common.repository.ObjectStorageRepository;
 import com.sugyo.domain.game.dto.EasyGameMotionFrame;
+import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
 import com.sugyo.domain.game.dto.MotionFrame;
 import com.sugyo.domain.game.dto.Pose;
 import com.sugyo.domain.game.domain.BodyPart;
 import com.sugyo.domain.game.entity.Chart;
 import com.sugyo.domain.game.entity.ChartAnswer;
 import com.sugyo.domain.game.entity.FrameCoordinates;
-import com.sugyo.domain.game.entity.Music;
 import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
+import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
 import com.sugyo.domain.game.dto.response.MusicWithScoreDto;
-import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
-import com.sugyo.domain.game.dto.response.RankingUserDto;
 import com.sugyo.domain.game.dto.response.MyRankInfoDto;
-import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
+import com.sugyo.domain.game.dto.response.RankingUserDto;
+import com.sugyo.domain.game.entity.Chart;
+import com.sugyo.domain.game.entity.ChartAnswer;
+import com.sugyo.domain.game.entity.FrameCoordinates;
+import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.repository.ChartAnswerRepository;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
-import com.sugyo.domain.game.repository.MusicRepository;
 import com.sugyo.domain.game.repository.RankRepository;
+import com.sugyo.domain.music.domain.Music;
+import com.sugyo.domain.music.repository.MusicRepository;
 import com.sugyo.domain.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -80,7 +84,7 @@ public class RhythmGameService {
                             .title(musicWithScore.getTitle())
                             .singer(musicWithScore.getSinger())
                             .songTime(musicWithScore.getSongTime())
-                            .albumImageUrl(musicWithScore.getAlbumImageUrl() !=null ? imageUrl : null)
+                            .albumImageUrl(musicWithScore.getAlbumImageUrl() != null ? imageUrl : null)
                             .myScore(musicWithScore.getMyScore() != null ? musicWithScore.getMyScore().longValue() : null)
                             .build();
                 })
@@ -89,14 +93,14 @@ public class RhythmGameService {
 
     @Transactional
     public MusicUrlResponseDto getMusic(Long musicId) {
-            Music music = musicRepository.findById(musicId)
-                    .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+        Music  music = musicRepository.findById(musicId)
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
-            String musicUrl = objectStorageRepository.getDownloadUrl(music.getSongUrl());
+        String musicUrl = objectStorageRepository.getDownloadUrl(music.getSongUrl());
 
-            return MusicUrlResponseDto.builder()
-                    .musicUrl(musicUrl)
-                    .build();
+        return MusicUrlResponseDto.builder()
+                .musicUrl(musicUrl)
+                .build();
 
     }
 
@@ -135,7 +139,7 @@ public class RhythmGameService {
 
     @Transactional
     public MusicRankingResponseDto getMusicRanking(Long musicId, Long userId) {
-        if(userId == null){
+        if (userId == null) {
             throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
         }
         // 음악 존재 확인

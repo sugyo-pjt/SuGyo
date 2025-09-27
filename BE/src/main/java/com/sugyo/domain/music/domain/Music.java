@@ -1,6 +1,9 @@
-package com.sugyo.domain.game.entity;
+package com.sugyo.domain.music.domain;
 
+import com.sugyo.domain.game.entity.Chart;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,10 +12,10 @@ import java.time.LocalTime;
 import java.util.List;
 
 @Entity
-@Table(name = "music")
 @Getter
-@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Music {
     
     @Id

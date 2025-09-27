@@ -1,6 +1,6 @@
-package com.sugyo.domain.game.repository;
+package com.sugyo.domain.music.repository;
 
-import com.sugyo.domain.game.entity.Music;
+import com.sugyo.domain.music.domain.Music;
 import com.sugyo.domain.game.dto.response.MusicWithScoreDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

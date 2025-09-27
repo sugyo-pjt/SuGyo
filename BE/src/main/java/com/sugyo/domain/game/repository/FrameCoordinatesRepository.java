@@ -1,7 +1,7 @@
 package com.sugyo.domain.game.repository;
 
 import com.sugyo.domain.game.entity.FrameCoordinates;
-import com.sugyo.domain.game.entity.Music;
+import com.sugyo.domain.music.domain.Music;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +17,8 @@ public interface FrameCoordinatesRepository extends JpaRepository<FrameCoordinat
     Optional<FrameCoordinates> findByMusicIdAndTimePassed(@Param("musicId") Long musicId, @Param("timePassed") Double timePassed);
 
     @Query("SELECT fc FROM FrameCoordinates fc WHERE fc.music.id = :musicId " +
-           "AND fc.timePassed >= :startTime AND fc.timePassed <= :endTime " +
-           "ORDER BY fc.timePassed ASC")
+            "AND fc.timePassed >= :startTime AND fc.timePassed <= :endTime " +
+            "ORDER BY fc.timePassed ASC")
     List<FrameCoordinates> findByMusicIdAndTimeRange(
             @Param("musicId") Long musicId,
             @Param("startTime") Double startTime,

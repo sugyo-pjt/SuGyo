@@ -1,18 +1,16 @@
 package com.sugyo.domain.game.controller;
 
 import com.sugyo.auth.dto.CustomUserDetails;
-import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
-import com.sugyo.domain.game.dto.response.MusicListResponseDto;
-import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
-import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
-import com.sugyo.domain.game.dto.request.GameResultRequestDto;
-import com.sugyo.domain.game.dto.response.GameResultResponseDto;
-import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
 import com.sugyo.domain.game.dto.request.FrameSaveRequestDto;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
+import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
 import com.sugyo.domain.game.dto.response.GameSimilarityResponseDto;
-import com.sugyo.domain.game.service.RhythmGameService;
+import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
+import com.sugyo.domain.game.dto.response.MusicListResponseDto;
+import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
+import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
 import com.sugyo.domain.game.service.FrameCoordinatesService;
+import com.sugyo.domain.game.service.RhythmGameService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -21,7 +19,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -45,25 +48,25 @@ public class RhythmGameController {
                             mediaType = "application/json",
                             examples = {
                                     @ExampleObject(
-                                    name = "성공 예시",
-                                    value =
-                                    """
-                                    {
-                                       "musicUrl": "https://surocksang.s3.us-east-1.amazonaws.com/jinglebell"
-                                    }
-                                    """
+                                            name = "성공 예시",
+                                            value =
+                                                    """
+                                                            {
+                                                               "musicUrl": "https://surocksang.s3.us-east-1.amazonaws.com/jinglebell"
+                                                            }
+                                                            """
                                     ),
                                     @ExampleObject(
-                                    name = "실패 예시",
-                                    value =
-                                    """
-                                   {
-                                     "status": 404,
-                                     "code": "GLOBAL-404-01",
-                                     "message": "요청한 리소스를 찾을 수 없습니다."
-                                   }
-                                   """
-                                   )
+                                            name = "실패 예시",
+                                            value =
+                                                    """
+                                                            {
+                                                              "status": 404,
+                                                              "code": "GLOBAL-404-01",
+                                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                                            }
+                                                            """
+                                    )
                             }
                     )
             )
@@ -88,18 +91,18 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "성공 예시",
                                             value =
-                                            """
-                                            [
-                                              {
-                                                "id": 1,
-                                                "title": "징글벨",
-                                                "singer": "김진환",
-                                                "songTime": "00:01:00",
-                                                "albumImageUrl": "https://surocksang.s3.us-east-1.amazonaws.com/null",
-                                                "myScore": 123123
-                                              }
-                                            ]
-                                            """
+                                                    """
+                                                            [
+                                                              {
+                                                                "id": 1,
+                                                                "title": "징글벨",
+                                                                "singer": "김진환",
+                                                                "songTime": "00:01:00",
+                                                                "albumImageUrl": "https://surocksang.s3.us-east-1.amazonaws.com/null",
+                                                                "myScore": 123123
+                                                              }
+                                                            ]
+                                                            """
                                     )
                             }
                     )
@@ -113,13 +116,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "실패 예시",
                                             value =
-                                            """
-                                            {
-                                              "status": 401,
-                                              "code": "AUTH-401-01",
-                                              "message": "인증에 실패했습니다."
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "status": 401,
+                                                              "code": "AUTH-401-01",
+                                                              "message": "인증에 실패했습니다."
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -145,24 +148,24 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "성공 예시",
                                             value =
-                                            """
-                                            [
-                                              {
-                                                "segment": 1,
-                                                "barStartedAt": "00:00:00",
-                                                "barEndedAt": "00:00:10",
-                                                "lyrics": "떳다 떳다 비행기",
-                                                "correct": [
-                                                  {
-                                                    "correctStartedIndex": 0,
-                                                    "correctEndedIndex": 1,
-                                                    "actionStartedAt": "00:00:03.123",
-                                                    "actionEndedAt": "00:00:04.123"
-                                                  }
-                                                ]
-                                              }
-                                            ]
-                                            """
+                                                    """
+                                                            [
+                                                              {
+                                                                "segment": 1,
+                                                                "barStartedAt": "00:00:00",
+                                                                "barEndedAt": "00:00:10",
+                                                                "lyrics": "떳다 떳다 비행기",
+                                                                "correct": [
+                                                                  {
+                                                                    "correctStartedIndex": 0,
+                                                                    "correctEndedIndex": 1,
+                                                                    "actionStartedAt": "00:00:03.123",
+                                                                    "actionEndedAt": "00:00:04.123"
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                            """
                                     )
                             }
                     )
@@ -176,13 +179,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "실패 예시",
                                             value =
-                                            """
-                                            {
-                                              "status": 404,
-                                              "code": "GLOBAL-404-01",
-                                              "message": "요청한 리소스를 찾을 수 없습니다."
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "status": 404,
+                                                              "code": "GLOBAL-404-01",
+                                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -208,27 +211,27 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "성공 예시",
                                             value =
-                                            """
-                                            {
-                                              "musicId": 123,
-                                              "musicTitle": "Hello Rhythm",
-                                              "ranking": [
-                                                {
-                                                  "rank": 1,
-                                                  "userId": 42,
-                                                  "userNickName": "Alice",
-                                                  "userProfileUrl": "https://example.com/alice.jpg",
-                                                  "score": 98000,
-                                                  "recordDate": "2025-09-12T10:30:00"
-                                                }
-                                              ],
-                                              "myInfo": {
-                                                "rank": 2,
-                                                "score": 96000,
-                                                "recordDate": "2025-09-12T11:00:00"
-                                              }
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "musicId": 123,
+                                                              "musicTitle": "Hello Rhythm",
+                                                              "ranking": [
+                                                                {
+                                                                  "rank": 1,
+                                                                  "userId": 42,
+                                                                  "userNickName": "Alice",
+                                                                  "userProfileUrl": "https://example.com/alice.jpg",
+                                                                  "score": 98000,
+                                                                  "recordDate": "2025-09-12T10:30:00"
+                                                                }
+                                                              ],
+                                                              "myInfo": {
+                                                                "rank": 2,
+                                                                "score": 96000,
+                                                                "recordDate": "2025-09-12T11:00:00"
+                                                              }
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -242,13 +245,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "실패 예시",
                                             value =
-                                            """
-                                            {
-                                              "status": 401,
-                                              "code": "AUTH-401-01",
-                                              "message": "인증에 실패했습니다."
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "status": 401,
+                                                              "code": "AUTH-401-01",
+                                                              "message": "인증에 실패했습니다."
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -262,13 +265,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "실패 예시",
                                             value =
-                                            """
-                                            {
-                                              "status": 404,
-                                              "code": "GLOBAL-404-01",
-                                              "message": "요청한 리소스를 찾을 수 없습니다."
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "status": 404,
+                                                              "code": "GLOBAL-404-01",
+                                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -276,7 +279,7 @@ public class RhythmGameController {
     })
     @GetMapping("/rank/{musicId}")
     public ResponseEntity<MusicRankingResponseDto> getMusicRanking(
-            @PathVariable Long musicId, 
+            @PathVariable Long musicId,
             @AuthenticationPrincipal CustomUserDetails user) {
         MusicRankingResponseDto rankingData = rhythmGameService.getMusicRanking(musicId, user.getId());
         return ResponseEntity.ok(rankingData);
@@ -365,7 +368,7 @@ public class RhythmGameController {
 //        return ResponseEntity.ok(result);
 //    }
 
-//    @Operation(
+    //    @Operation(
 //            summary = "게임 플레이 데이터 처리",
 //            description = "JWT 토큰을 통해 사용자 인증 후 게임 플레이 중 발생하는 데이터를 처리합니다."
 //    )
@@ -459,13 +462,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "실패 예시",
                                             value =
-                                            """
-                                            {
-                                              "status": 404,
-                                              "code": "GLOBAL-404-01",
-                                              "message": "요청한 리소스를 찾을 수 없습니다."
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "status": 404,
+                                                              "code": "GLOBAL-404-01",
+                                                              "message": "요청한 리소스를 찾을 수 없습니다."
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -492,13 +495,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "성공 예시",
                                             value =
-                                            """
-                                            {
-                                              "similarity": 0.8547,
-                                              "timestamp": 1663843200300.0,
-                                              "musicId": 1
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "similarity": 0.8547,
+                                                              "timestamp": 1663843200300.0,
+                                                              "musicId": 1
+                                                            }
+                                                            """
                                     )
                             }
                     )
@@ -512,13 +515,13 @@ public class RhythmGameController {
                                     @ExampleObject(
                                             name = "실패 예시",
                                             value =
-                                            """
-                                            {
-                                              "similarity": 0.0,
-                                              "timestamp": 300.0,
-                                              "musicId": 1
-                                            }
-                                            """
+                                                    """
+                                                            {
+                                                              "similarity": 0.0,
+                                                              "timestamp": 300.0,
+                                                              "musicId": 1
+                                                            }
+                                                            """
                                     )
                             }
                     )

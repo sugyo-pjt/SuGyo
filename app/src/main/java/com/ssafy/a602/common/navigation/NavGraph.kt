@@ -206,7 +206,7 @@ fun NavGraph(
         ) { backStackEntry ->
             val songId = backStackEntry.arguments?.getString(Screen.SongStudyDetail.ARG_ID)!!
             SongStudyDetailScreen(
-                songId = songId,
+                musicId = songId,
                 onBack = { navController.popBackStack() }
             )
         }

@@ -56,12 +56,21 @@ data class DayItemsResponse(
     val items: List<DayItemDto>
 )
 
+
 /** 일차 상세의 개별 아이템(단어/영상) */
 data class DayItemDto(
     val wordId: Long,
     val word: String,
     val description: String?,   // UI에서 안 쓸 수도 있어 nullable
     val videoUrl: String?       // 영상이 없을 수도 있어 nullable
+)
+
+data class SongItemDto(
+    val wordId: Int,
+    val word: String,
+    val description: String?,
+    val videoUrl: String?,
+    val sameMotionWord: List<String>
 )
 
 // ───────────────────────────────────────────────────────────────
@@ -84,4 +93,10 @@ interface StudyApiService {
     suspend fun getDayDetail(
         @Path("dayId") dayId: Int
     ): Response<DayItemsResponse>
+
+    /** [4] 노래학습 상세(단어/영상): SongStudyScreen */
+    @GET("api/v1/study/music/{musicId}")
+    suspend fun getSongStudy(
+        @Path("musicId") musicId: Int
+    ): Response<List<SongItemDto>>
 }

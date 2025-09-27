@@ -24,6 +24,9 @@ import com.ssafy.a602.game.play.judge.Pose
 import com.ssafy.a602.game.play.judge.Coordinate
 import com.ssafy.a602.game.play.judge.BodyPart
 import com.ssafy.a602.game.api.RhythmVerifyApi
+import com.ssafy.a602.game.api.RhythmResultApi
+import com.ssafy.a602.game.play.recorder.CoordinatesRecorder
+import com.ssafy.a602.game.play.converter.MediaPipeToVec4Converter
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +76,7 @@ data class GameStats(
 class GamePlayViewModel @Inject constructor(
     private val rhythmUploadService: RhythmUploadService,
     private val rhythmVerifyApi: RhythmVerifyApi,
+    private val rhythmResultApi: RhythmResultApi,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -105,6 +109,10 @@ class GamePlayViewModel @Inject constructor(
     private var playerClock: PlayerClock? = null
     private var featureBuffer: FeatureRingBuffer? = null
     private var localJudgeEngine: LocalJudgeEngine? = null
+    
+    // 🎯 좌표 수집기 (서버 전송용)
+    private var coordinatesRecorder: CoordinatesRecorder? = null
+    private var gameStartedAtMs: Long = 0L
     
     // 게임 통계
     private var gameStats = GameStats()
@@ -144,6 +152,9 @@ class GamePlayViewModel @Inject constructor(
         if (mode == GameMode.HARD) {
             android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 새로운 판정 시스템 초기화 시작")
             
+            // 게임 시작 시간 기록
+            gameStartedAtMs = System.currentTimeMillis()
+            
             // PlayerClock 초기화
             playerClock = PlayerClock().apply {
                 setPlayerPositionProvider(playerPositionMs)
@@ -155,6 +166,11 @@ class GamePlayViewModel @Inject constructor(
             
             // LocalJudgeEngine 초기화
             localJudgeEngine = LocalJudgeEngine()
+            
+            // 🎯 좌표 수집기 초기화 (서버 전송용)
+            coordinatesRecorder = CoordinatesRecorder(currentMusicId).apply {
+                startSession(gameStartedAtMs)
+            }
             
             // AnswerTimeline 로드
             viewModelScope.launch {
@@ -241,6 +257,17 @@ class GamePlayViewModel @Inject constructor(
             // Hard 모드: 새로운 판정 시스템에 프레임 추가
             val currentTime = playerClock?.nowMs() ?: 0L
             featureBuffer?.addFrame(pose, left, right, currentTime)
+            
+            // 🎯 좌표 수집기에 데이터 추가 (서버 전송용)
+            val nowAbs = System.currentTimeMillis()
+            val (body, leftHand, rightHand) = MediaPipeToVec4Converter.convertForServer(
+                bodyLm = pose,
+                leftLm = left,
+                rightLm = right,
+                mirrorX = true,
+                swapHands = false
+            )
+            coordinatesRecorder?.appendFrame(nowAbs, body, leftHand, rightHand)
             
             // 기존 리듬 수집기도 유지 (호환성)
             val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
@@ -635,6 +662,46 @@ class GamePlayViewModel @Inject constructor(
         )
     }
     
+    /**
+     * 게임 종료 시 서버로 결과 전송
+     */
+    fun finishAndSendResult() = viewModelScope.launch {
+        if (gameMode != GameMode.HARD || coordinatesRecorder == null) {
+            android.util.Log.w("GamePlayViewModel", "HARD 모드가 아니거나 좌표 수집기가 없음")
+            return@launch
+        }
+        
+        try {
+            android.util.Log.d("GamePlayViewModel", "🎯 게임 결과 서버 전송 시작")
+            
+            // 좌표 데이터 DTO 생성
+            val coordinatesDto = coordinatesRecorder!!.buildDto()
+            
+            // 결과 요청 생성
+            val request = RhythmResultRequest(
+                clientCoordinates = listOf(coordinatesDto),
+                clientCalculateScore = gameStats.totalScore
+            )
+            
+            android.util.Log.d("GamePlayViewModel", "📤 서버 전송: musicId=${coordinatesDto.musicId}, segments=${coordinatesDto.allFrames.size}, score=${request.clientCalculateScore}")
+            
+            // 서버로 전송 (인증은 인터셉터에서 자동 처리)
+            val response = rhythmResultApi.postResult("", request)
+            
+            if (response.isSuccessful) {
+                android.util.Log.d("GamePlayViewModel", "✅ 서버 전송 성공")
+                _ui.value = _ui.value.copy(submitted = true)
+            } else {
+                android.util.Log.e("GamePlayViewModel", "❌ 서버 전송 실패: ${response.code()} ${response.message()}")
+                _ui.value = _ui.value.copy(error = "서버 전송 실패: ${response.code()}")
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("GamePlayViewModel", "❌ 서버 전송 오류", e)
+            _ui.value = _ui.value.copy(error = "서버 전송 오류: ${e.message}")
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
         
@@ -645,6 +712,7 @@ class GamePlayViewModel @Inject constructor(
             // 새로운 판정 시스템 정리
             playerClock?.stop()
             featureBuffer?.clear()
+            coordinatesRecorder?.reset()
         }
     }
     

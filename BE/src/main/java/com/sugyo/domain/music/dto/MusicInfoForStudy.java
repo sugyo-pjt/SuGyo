@@ -25,12 +25,16 @@ public class MusicInfoForStudy {
     @Schema(description = "앨범 사진 url", example = "null")
     private String albumImageUrl;
 
-    public static MusicInfoForStudy from(Music music){
+    @Schema(description = "학습 가능한 단어 개수", example = "17")
+    private long countWord;
+
+    public static MusicInfoForStudy from(Music music, long countWord){
         return MusicInfoForStudy.builder()
                 .musicId(music.getId())
                 .title(music.getTitle())
                 .singer(music.getSinger())
                 .albumImageUrl(music.getAlbumImageUrl())
+                .countWord(countWord)
                 .build();
     }
 }

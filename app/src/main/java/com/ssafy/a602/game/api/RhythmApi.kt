@@ -63,15 +63,11 @@ interface RhythmApi {
     ): RankingResp
     
     /**
-     * 리듬게임 데이터 저장 (하드 모드) - 주석 처리됨
-     * POST /api/v1/game/rhythm/save
-     * TODO: 검증 API로 변경 예정
+     * 리듬게임 데이터 저장 (EASY/HARD 모드)
+     * POST /api/v1/game/rhythm/play
      */
-    /*
-    @POST("/api/v1/game/rhythm/save")
+    @POST("/api/v1/game/rhythm/play")
     suspend fun saveRhythm(
-        @Body request: RhythmSaveRequest,
-        @Header("Authorization") authorization: String
+        @Body request: RhythmSaveRequest
     ): Response<Unit>
-    */
 }

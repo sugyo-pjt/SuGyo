@@ -228,10 +228,8 @@ fun GamePlayScreen(
         LandmarkResultHandler(
             buffer = buffer,
             onLandmarks = { pose, left, right ->
-                // 🔥 하드 모드일 때 ViewModel에 랜드마크 결과 전달
-                if (gameMode == GameMode.HARD) {
-                    gamePlayViewModel?.onLandmarks(pose, left, right)
-                }
+                // 모든 모드에서 ViewModel에 랜드마크 결과 전달
+                gamePlayViewModel?.onLandmarks(pose, left, right)
             }
         )
     }

@@ -152,23 +152,20 @@ class GamePlayViewModel @Inject constructor(
             }
         }
         
-        // 🔥 하드 모드일 때 새로운 판정 시스템 초기화
+        // 🔥 하드 모드일 때 새로운 판정 시스템 초기화 (백그라운드에서 점진적 처리)
         if (mode == GameMode.HARD) {
             android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 새로운 판정 시스템 초기화 시작")
             
             // 게임 시작 시간 기록
             gameStartedAtMs = System.currentTimeMillis()
             
-            // PlayerClock 초기화
+            // 즉시 필요한 컴포넌트들만 초기화 (UI 블로킹 방지)
             playerClock = PlayerClock().apply {
                 setPlayerPositionProvider(playerPositionMs)
                 start()
             }
             
-            // FeatureRingBuffer 초기화
             featureBuffer = FeatureRingBuffer()
-            
-            // LocalJudgeEngine 초기화
             localJudgeEngine = LocalJudgeEngine()
             
             // 🎯 좌표 수집기 초기화 (서버 전송용)
@@ -176,13 +173,17 @@ class GamePlayViewModel @Inject constructor(
                 startSession(0L) // 음악 재생 시작을 0으로 설정
             }
             
-            // AnswerTimeline 로드
-            viewModelScope.launch {
+            // AnswerTimeline 로드는 백그라운드에서 처리
+            viewModelScope.launch(Dispatchers.IO) {
                 try {
+                    android.util.Log.d("GamePlayViewModel", "🔥 백그라운드에서 AnswerTimeline 로드 시작")
                     answerTimeline = AnswerLoader.load(context, currentMusicId)
                     if (answerTimeline != null) {
                         android.util.Log.d("GamePlayViewModel", "✅ 정답 타임라인 로드 성공: ${answerTimeline!!.frames.size}개 프레임")
-                        startRealTimeLoop()
+                        // 메인 스레드에서 실시간 루프 시작
+                        withContext(Dispatchers.Main) {
+                            startRealTimeLoop()
+                        }
                     } else {
                         android.util.Log.e("GamePlayViewModel", "❌ 정답 타임라인 로드 실패")
                     }

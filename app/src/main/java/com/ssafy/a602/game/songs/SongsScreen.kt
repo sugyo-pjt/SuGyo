@@ -238,7 +238,8 @@ fun GameModeSelectionDialog(
             Text(
                 text = "게임 모드 선택",
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFE7ECF3)
             )
         },
         text = {
@@ -247,32 +248,34 @@ fun GameModeSelectionDialog(
                     text = "\"${song.title}\"",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF3B82F6)
+                    color = Color(0xFF7BB8FF)
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "플레이할 게임 모드를 선택해주세요.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7280)
+                    color = Color(0xFF9AA3B2)
                 )
             }
         },
         confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Easy 모드 버튼
                 Button(
                     onClick = { onModeSelected(GameMode.EASY) },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981)
+                        containerColor = Color(0xFF4CAF50)
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = GameMode.EASY.displayName,
                         color = Color.White,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
                 
@@ -280,24 +283,36 @@ fun GameModeSelectionDialog(
                 Button(
                     onClick = { onModeSelected(GameMode.HARD) },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFEF4444)
+                        containerColor = Color(0xFFFF5A5A)
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = GameMode.HARD.displayName,
                         color = Color.White,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                
+                // 취소 버튼
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "취소",
+                        color = Color(0xFF9AA3B2),
+                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        },
-        shape = RoundedCornerShape(16.dp)
+        dismissButton = null,
+        containerColor = Color(0xFF1B2454),
+        shape = RoundedCornerShape(20.dp)
     )
 }
 

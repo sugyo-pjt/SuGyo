@@ -3,6 +3,7 @@ package com.sugyo.domain.game.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sugyo.common.exception.ApplicationException;
+import com.sugyo.common.exception.CommonErrorCode;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.domain.game.dto.MotionFrame;
 import com.sugyo.domain.game.dto.request.FrameSaveRequestDto;
@@ -37,15 +38,12 @@ public class FrameCoordinatesService {
     public void saveFrameCoordinates(FrameSaveRequestDto requestDto) {
         Music music = musicRepository.findById(requestDto.getMusicId())
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
-        try{
-            String jsonString = objectMapper.writeValueAsString(requestDto);
-            log.info("[save] {}", jsonString);
-        }catch (JsonProcessingException e) {
-            log.info("[save] {}", e.getMessage());
-            return;
+
+        int isMusicExist = frameCoordinatesRepository.findByMusic(music).size();
+        if (isMusicExist != 0) {
+            throw new ApplicationException(CommonErrorCode.ALREADY_EXIST_MUSIC);
         }
 
-        log.info("[save] {}", requestDto.getAllFrames().size());
 
         for (GameActionRequest gameAction : requestDto.getAllFrames()) {
             FrameCoordinates frameCoordinates = FrameCoordinates.builder()
@@ -53,7 +51,7 @@ public class FrameCoordinatesService {
                     .timePassed(gameAction.timestamp())
                     .frameData(gameAction.frames())
                     .build();
-            log.info("[save] {}", frameCoordinates.getTimePassed());
+            log.debug("[save] {}", frameCoordinates.getTimePassed());
             frameCoordinatesRepository.save(frameCoordinates);
         }
     }

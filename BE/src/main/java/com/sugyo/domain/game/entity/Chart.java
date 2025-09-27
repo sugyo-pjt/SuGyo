@@ -28,7 +28,10 @@ public class Chart {
     @Column(nullable = false)
     private LocalTime startedAt;
 
-    @OneToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chart_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "music_id", nullable = false)
+    private Music music;
+
+    @OneToMany(mappedBy = "chart", fetch = FetchType.LAZY)
     private List<ChartAnswer> chartAnswers;
 }

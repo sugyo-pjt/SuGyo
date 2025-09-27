@@ -31,7 +31,15 @@ data class FrameDataJson(
 @kotlinx.serialization.Serializable
 data class PoseJson(
     val part: String,
-    val coordinates: List<Float>
+    val coordinates: List<CoordinateJson>
+)
+
+@kotlinx.serialization.Serializable
+data class CoordinateJson(
+    val x: Float,
+    val y: Float,
+    val z: Float,
+    val w: Float
 )
 
 /**
@@ -67,10 +75,10 @@ object AnswerLoader {
      */
     private fun loadJsonFromAssets(context: Context, musicId: Long): String? {
         return try {
-            val fileName = "charts/answer_${musicId}.json"
+            val fileName = "charts/music_${musicId}.json"
             context.assets.open(fileName).bufferedReader().use { it.readText() }
         } catch (e: IOException) {
-            Log.e(TAG, "assets 파일 로드 실패: charts/answer_${musicId}.json", e)
+            Log.e(TAG, "assets 파일 로드 실패: charts/music_${musicId}.json", e)
             null
         }
     }
@@ -152,17 +160,24 @@ object AnswerLoader {
      */
     private fun extractPoseFeatures(poses: List<PoseJson>, part: String): FloatArray {
         val targetPose = poses.find { it.part == part }
-        return if (targetPose != null && targetPose.coordinates.size >= 3) {
-            // 좌표 (x, y, z)만 추출하여 평탄화
-            val coords = targetPose.coordinates
-            floatArrayOf(
-                coords.getOrNull(0) ?: 0f,
-                coords.getOrNull(1) ?: 0f,
-                coords.getOrNull(2) ?: 0f
-            )
+        return if (targetPose != null && targetPose.coordinates.isNotEmpty()) {
+            // coordinates는 CoordinateDto 객체들의 리스트
+            val features = mutableListOf<Float>()
+            targetPose.coordinates.forEach { coord ->
+                features.add(coord.x ?: 0f)
+                features.add(coord.y ?: 0f) 
+                features.add(coord.z ?: 0f)
+                features.add(coord.w ?: 0f)
+            }
+            features.toFloatArray()
         } else {
-            // 데이터가 없으면 0으로 채움
-            floatArrayOf(0f, 0f, 0f)
+            // 데이터가 없으면 0으로 채움 (기본 크기: 4 * 23 = 92 for BODY)
+            val defaultSize = when (part) {
+                "BODY" -> 4 * 23  // 23개 랜드마크 * 4개 좌표
+                "LEFT_HAND", "RIGHT_HAND" -> 4 * 21  // 21개 랜드마크 * 4개 좌표
+                else -> 12
+            }
+            FloatArray(defaultSize) { 0f }
         }
     }
 }

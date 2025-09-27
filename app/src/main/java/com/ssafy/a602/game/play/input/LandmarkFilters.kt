@@ -5,8 +5,7 @@ import kotlinx.serialization.Serializable
 val POSE_KEEP = (0..22).toSet()
 val HAND_KEEP = (0..20).toSet()
 
-@Serializable
-data class LM(val x: Float, val y: Float, val z: Float?, val w: Float? = null)
+// LM 클래스는 FramesBatch.kt에서 정의됨
 
 fun toLMFiltered(
     src: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
@@ -20,7 +19,7 @@ fun toLMFiltered(
     return keep.map { i ->
         if (i in 0..max) {
             val lm = src[i]
-            LM(lm.x(), lm.y(), lm.z(), lm.visibility().orElse(null))
+            LM(lm.x(), lm.y(), lm.z(), lm.visibility().orElse(0.0f))
         } else {
             null // 인식되지 않은 랜드마크는 null로 반환
         }

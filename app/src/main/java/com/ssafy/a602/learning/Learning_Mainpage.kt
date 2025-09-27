@@ -28,11 +28,12 @@ fun LearningMainPage(
     viewModel: LearningViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val displayDay = (uiState.progressDay ?: 0) + 1
 
     val dayText = when {
         uiState.isLoading     -> "로딩중..."
         uiState.error != null -> "불러오기 실패"
-        else                  -> "Day ${uiState.progressDay ?: 0}"
+        else                  -> "Day $displayDay"
     }
 
     Column(
@@ -209,7 +210,7 @@ fun LearningMainPage(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "까지 완료했습니다",
+                            text = "학습을 진행해주십시오",
                             style = MaterialTheme.typography.labelLarge,
                             color = Color(0xFF2E7D32)
                         )

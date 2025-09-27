@@ -3,6 +3,7 @@ package com.ssafy.a602.learning
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.learning.api.DayItemDto
+import com.ssafy.a602.learning.api.QuizResultRequest
 import com.ssafy.a602.learning.api.StudyApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,12 +34,20 @@ class DailyQuizViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<QuizUiState>(QuizUiState.Loading)
     val uiState: StateFlow<QuizUiState> = _uiState
 
-    fun load(day: Int) {
+    /** 마지막으로 불러온 dayId(=서버에 보낼 값). load(dayId) 호출 시 보관 */
+    private var lastRequestedDayId: Int? = null
+
+    /**
+     * 일차 상세 불러오기
+     * @param dayId 서버에 Path로 보내는 값(백엔드 스펙이 day 번호=PK라면 이 값이 그대로 전송 대상)
+     */
+    fun load(dayId: Int) {
+        lastRequestedDayId = dayId
         _uiState.value = QuizUiState.Loading
+
         viewModelScope.launch {
             try {
-                // ✅ 네 인터페이스 그대로 사용
-                val res = api.getDayDetail(day)
+                val res = api.getDayDetail(dayId)
                 if (!res.isSuccessful) {
                     _uiState.value = QuizUiState.Error("HTTP ${res.code()} ${res.message()}")
                     return@launch
@@ -57,6 +66,29 @@ class DailyQuizViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 퀴즈 결과 전송 (dayId 명시형)
+     * @param dayId POST 바디의 dayId
+     * @param score 맞춘 개수
+     */
+    suspend fun submitResult(dayId: Int, score: Int): Boolean {
+        return try {
+            val res = api.postQuizResult(QuizResultRequest(dayId = dayId, score = score))
+            res.isSuccessful
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * 퀴즈 결과 전송 (load 이후 저장된 dayId 사용)
+     * @param score 맞춘 개수
+     */
+    suspend fun submitResult(score: Int): Boolean {
+        val id = lastRequestedDayId ?: return false
+        return submitResult(dayId = id, score = score)
+    }
+
     /** "안녕하세요,안녕히 계세요" → "안녕하세요" 처럼 대표어만 추출 */
     private fun primaryLabel(raw: String): String =
         raw.split(',', '·', '/', ';').firstOrNull()?.trim().orEmpty()
@@ -68,7 +100,6 @@ class DailyQuizViewModel @Inject constructor(
     ): List<Question> {
         if (items.isEmpty()) return emptyList()
 
-        // 전체 보기 개수는 최소 2, 최대 items 수
         val optCount = optionsPerQuestion.coerceIn(2, items.size)
 
         return items.shuffled().map { correct ->
@@ -78,9 +109,9 @@ class DailyQuizViewModel @Inject constructor(
             val distractorPool = items
                 .filter { it.wordId != correct.wordId }
                 .map { primaryLabel(it.word) }
-                .distinct() // 동의어가 달라도 대표어가 같을 수 있으니 중복 제거
+                .distinct()
 
-            // 오답 3개(혹은 optCount-1) 랜덤 추출
+            // 오답 (optCount-1)개 랜덤 추출
             val needed = (optCount - 1).coerceAtLeast(1)
             val distractors = distractorPool.shuffled().take(needed)
 

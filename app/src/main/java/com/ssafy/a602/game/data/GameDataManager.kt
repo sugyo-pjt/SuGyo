@@ -44,6 +44,10 @@ object GameDataManager {
     private val _currentSong = MutableStateFlow<SongItem?>(null)
     val currentSong: StateFlow<SongItem?> = _currentSong.asStateFlow()
     
+    // 현재 게임 모드
+    private val _currentGameMode = MutableStateFlow<GameMode?>(null)
+    val currentGameMode: StateFlow<GameMode?> = _currentGameMode.asStateFlow()
+    
     // 현재 게임 진행 상태
     private val _gameProgress = MutableStateFlow<SongProgress?>(null)
     val gameProgress: StateFlow<SongProgress?> = _gameProgress.asStateFlow()
@@ -63,6 +67,23 @@ object GameDataManager {
         _currentSong.value = song
         _isGameActive.value = false
         _gameProgress.value = null
+    }
+    
+    /**
+     * 게임 모드 선택
+     */
+    fun selectGameMode(mode: GameMode) {
+        _currentGameMode.value = mode
+        android.util.Log.d("GameDataManager", "게임 모드 선택: ${mode.displayName}")
+    }
+    
+    /**
+     * 곡과 모드 함께 선택
+     */
+    fun selectSongAndMode(song: SongItem, mode: GameMode) {
+        selectSong(song)
+        selectGameMode(mode)
+        android.util.Log.d("GameDataManager", "곡과 모드 선택: ${song.title} - ${mode.displayName}")
     }
     
     /**

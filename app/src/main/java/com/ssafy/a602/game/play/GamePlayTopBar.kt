@@ -19,8 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.ssafy.a602.game.GameTheme
+import com.ssafy.a602.game.data.GameMode
 
 @Composable
 fun TopBarSection(
@@ -30,7 +32,8 @@ fun TopBarSection(
     isPaused: Boolean,
     onTogglePause: () -> Unit,
     onOpenSettings: () -> Unit = {}, // 기본값으로 빈 함수
-    showPauseButton: Boolean = true // 기본값을 true로 변경
+    showPauseButton: Boolean = true, // 기본값을 true로 변경
+    gameMode: GameMode? = null // 게임 모드 추가
 ) {
     Row(
         modifier = Modifier
@@ -38,11 +41,30 @@ fun TopBarSection(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            title,
-            style = GameTheme.Typography.ScreenTitle,
+        // 노래 제목과 모드 표시
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                title,
+                style = GameTheme.Typography.ScreenTitle
+            )
+            
+            // 게임 모드 표시
+            gameMode?.let { mode ->
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = mode.displayName,
+                    style = GameTheme.Typography.CardTitle.copy(
+                        color = when (mode) {
+                            GameMode.EASY -> Color(0xFF10B981)
+                            GameMode.HARD -> Color(0xFFEF4444)
+                        }
+                    )
+                )
+            }
+        }
         Text(
             formatClock(currentTime.toInt()),
             style = GameTheme.Typography.CardTitle

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -32,8 +33,6 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /* ───────────────────────── 내부 전용 유틸/모델 ───────────────────────── */
 
@@ -91,13 +90,13 @@ private fun buildQuestionsFromCache(
 
 @Composable
 fun DailyQuizScreen(
-    day: Int,
+    day: Int, // ⚠️ 서버 PK(dayId)와 동일한 값인지 확인. 표시용 번호라면 PK를 넘기도록 수정 필요.
     onBack: () -> Unit = {},
     onGoStudy: (Int) -> Unit = {},
-    onGoRoadmap: () -> Unit = {}
+    onGoRoadmap: () -> Unit = {},
+    viewModel: DailyQuizViewModel = hiltViewModel()
 ) {
     val bg = Brush.verticalGradient(listOf(Color(0xFFEFFAF2), Color.White))
-    val scope = rememberCoroutineScope()
 
     // 학습 화면에서 저장해둔 캐시 읽기
     val cached = remember(day) { LearningMemCache.get(day) }
@@ -130,9 +129,10 @@ fun DailyQuizScreen(
     var score by remember { mutableStateOf(0) }
     var finished by remember { mutableStateOf(false) }
 
-    // 점수 저장 상태(데모)
+    // 점수 저장 상태
     var submitInProgress by remember { mutableStateOf(false) }
     var submitOk by remember { mutableStateOf<Boolean?>(null) }
+    var submittedOnce by remember { mutableStateOf(false) } // ✅ 중복 전송 방지
 
     val current = questions.getOrNull(index)
 
@@ -274,23 +274,30 @@ fun DailyQuizScreen(
                         index += 1
                     } else {
                         finished = true
-                        submitInProgress = true
-                        submitOk = null
-                        scope.launch {
-                            val ok = try {
-                                submitClientScore(day, score, total = questions.size)
-                            } catch (_: Throwable) {
-                                false
-                            }
-                            submitOk = ok
-                            submitInProgress = false
-                        }
+                        // 전송은 LaunchedEffect에서 1회만 처리
                     }
                 }
             )
         }
 
-        // 완료 다이얼로그
+        // ✅ 완료 후 1회만 결과 전송
+        LaunchedEffect(finished) {
+            if (finished && !submittedOnce) {
+                submittedOnce = true
+                submitInProgress = true
+                submitOk = null
+                val ok = try {
+                    // ⚠️ day가 표시용 번호라면 실제 PK(dayId)로 바꿔서 넣어주세요.
+                    viewModel.submitResult(dayId = day, score = score)
+                } catch (_: Throwable) {
+                    false
+                }
+                submitOk = ok
+                submitInProgress = false
+            }
+        }
+
+        // 완료 다이얼로그 + 상태 표시
         if (finished) {
             FinishDialog(
                 day = day,
@@ -305,6 +312,7 @@ fun DailyQuizScreen(
                     finished = false
                     submitInProgress = false
                     submitOk = null
+                    submittedOnce = false
                 },
                 onGoRoadmap = onGoRoadmap
             )
@@ -556,15 +564,4 @@ private fun VideoPlayerManualPlayQuiz(url: String, modifier: Modifier = Modifier
             }
         }
     }
-}
-
-/* ───────── 서버 전송 (Demo) ───────── */
-private suspend fun submitClientScore(
-    day: Int,
-    score: Int,
-    total: Int
-): Boolean {
-    // TODO: Retrofit/ktor로 교체
-    delay(400)
-    return true
 }

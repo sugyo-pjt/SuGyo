@@ -61,6 +61,7 @@ fun CameraPreview(
                     val analysis: ImageAnalysis? =
                         if (enableAnalysis && onFrame != null) {
                             ImageAnalysis.Builder()
+                                .setTargetResolution(android.util.Size(640, 480)) // 손 인식을 위한 적절한 해상도
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build().apply {
                                     setAnalyzer(cameraExecutor) { proxy ->

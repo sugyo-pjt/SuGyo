@@ -58,6 +58,7 @@ data class DayItemsResponse(
     val items: List<DayItemDto>
 )
 
+
 /** 일차 상세의 개별 아이템(단어/영상) */
 data class DayItemDto(
     val wordId: Long,
@@ -83,6 +84,14 @@ value class EmptyBody private constructor(val nothing: String = "")
 
 
 
+data class SongItemDto(
+    val wordId: Int,
+    val word: String,
+    val description: String?,
+    val videoUrl: String?,
+    val sameMotionWord: List<String>
+)
+
 // ───────────────────────────────────────────────────────────────
 // Retrofit 인터페이스
 //  - BASE_URL 뒤에 그대로 붙습니다(앞에 슬래시 X)
@@ -104,7 +113,13 @@ interface StudyApiService {
         @Path("dayId") dayId: Int
     ): Response<DayItemsResponse>
 
-    /** [4] 퀴즈 결과 저장 */
+    /** [4] 노래학습 상세(단어/영상): SongStudyScreen */
+    @GET("api/v1/study/music/{musicId}")
+    suspend fun getSongStudy(
+        @Path("musicId") musicId: Int
+    ): Response<List<SongItemDto>>
+
+    /** [5] 퀴즈 결과 저장 */
     @POST("api/v1/study/result")
     suspend fun postQuizResult(
         @Body body: QuizResultRequest

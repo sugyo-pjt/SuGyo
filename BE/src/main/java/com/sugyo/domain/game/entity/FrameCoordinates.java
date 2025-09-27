@@ -1,6 +1,7 @@
 package com.sugyo.domain.game.entity;
 
 import com.sugyo.domain.game.dto.MotionFrame;
+import com.sugyo.domain.music.domain.Music;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;

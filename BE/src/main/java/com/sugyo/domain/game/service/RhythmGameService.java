@@ -3,30 +3,26 @@ package com.sugyo.domain.game.service;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.common.repository.ObjectStorageRepository;
-import com.sugyo.domain.game.entity.Chart;
-import com.sugyo.domain.game.entity.Music;
-import com.sugyo.domain.game.entity.GameResult;
+import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
+import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
 import com.sugyo.domain.game.dto.response.MusicWithScoreDto;
-import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
-import com.sugyo.domain.game.dto.response.RankingUserDto;
 import com.sugyo.domain.game.dto.response.MyRankInfoDto;
-import com.sugyo.domain.game.dto.request.GameResultRequestDto;
-import com.sugyo.domain.game.dto.response.GameResultResponseDto;
-import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
-import com.sugyo.domain.game.repository.MusicRepository;
+import com.sugyo.domain.game.dto.response.RankingUserDto;
+import com.sugyo.domain.game.entity.Chart;
+import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.repository.RankRepository;
+import com.sugyo.domain.music.domain.Music;
+import com.sugyo.domain.music.repository.MusicRepository;
 import com.sugyo.domain.user.repository.UserRepository;
-import com.sugyo.domain.user.domain.User;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,22 +38,18 @@ public class RhythmGameService {
     private final UserRepository userRepository;
     private final WebClient webClient;
 
-//    @Transactional
-//    public List<MusicListResponseDto> getAllMusic() {
-//        List<Music> musicList = musicRepository.findAll();
-//        return musicList.stream()
-//                .map(music -> {
-//                    String imageUrl = objectStorageRepository.getDownloadUrl(music.getAlbumImageUrl());
-//                    return MusicListResponseDto.builder()
-//                            .id(music.getId())
-//                            .title(music.getTitle())
-//                            .singer(music.getSinger())
-//                            .songTime(music.getSongTime())
-//                            .albumImageUrl(imageUrl)
-//                            .build();
-//                })
-//            .toList();
-//    }
+    @Transactional
+    public MusicUrlResponseDto getMusic(Long musicId) {
+        Music music = musicRepository.findById(musicId)
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+
+        String musicUrl = objectStorageRepository.getDownloadUrl(music.getSongUrl());
+
+        return MusicUrlResponseDto.builder()
+                .musicUrl(musicUrl)
+                .build();
+
+    }
 
     @Transactional
     public List<MusicListResponseDto> getAllMusicWithScore(Long userId) {
@@ -70,24 +62,11 @@ public class RhythmGameService {
                             .title(musicWithScore.getTitle())
                             .singer(musicWithScore.getSinger())
                             .songTime(musicWithScore.getSongTime())
-                            .albumImageUrl(musicWithScore.getAlbumImageUrl() !=null ? imageUrl : null)
+                            .albumImageUrl(musicWithScore.getAlbumImageUrl() != null ? imageUrl : null)
                             .myScore(musicWithScore.getMyScore() != null ? musicWithScore.getMyScore().longValue() : null)
                             .build();
                 })
                 .toList();
-    }
-
-    @Transactional
-    public MusicUrlResponseDto getMusic(Long musicId) {
-            Music music = musicRepository.findById(musicId)
-                    .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
-
-            String musicUrl = objectStorageRepository.getDownloadUrl(music.getSongUrl());
-
-            return MusicUrlResponseDto.builder()
-                    .musicUrl(musicUrl)
-                    .build();
-
     }
 
     @Transactional
@@ -125,7 +104,7 @@ public class RhythmGameService {
 
     @Transactional
     public MusicRankingResponseDto getMusicRanking(Long musicId, Long userId) {
-        if(userId == null){
+        if (userId == null) {
             throw new ApplicationException(GlobalErrorCode.UNAUTHORIZED);
         }
         // 음악 존재 확인

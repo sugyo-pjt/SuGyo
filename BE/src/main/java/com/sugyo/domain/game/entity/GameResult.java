@@ -1,7 +1,7 @@
 package com.sugyo.domain.game.entity;
 
 import com.sugyo.common.domain.BaseTimeEntity;
-import com.sugyo.common.domain.CreatedOnlyEntity;
+import com.sugyo.domain.music.domain.Music;
 import com.sugyo.domain.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -9,9 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "game_result")

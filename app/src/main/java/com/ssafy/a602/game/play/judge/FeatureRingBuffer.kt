@@ -80,9 +80,18 @@ class FeatureRingBuffer(
         landmarks.forEach { landmark ->
             if (landmark != null) {
                 // x, y, z 좌표 추출
-                features.add(landmark.x ?: 0f)
-                features.add(landmark.y ?: 0f)
-                features.add(landmark.z ?: 0f)
+                val x = landmark.x ?: 0f
+                val y = landmark.y ?: 0f
+                val z = landmark.z ?: 0f
+                
+                // 디버깅: 첫 번째 랜드마크만 로그 출력
+                if (features.isEmpty()) {
+                    Log.d(TAG, "🔍 첫 번째 랜드마크: x=$x, y=$y, z=$z")
+                }
+                
+                features.add(x)
+                features.add(y)
+                features.add(z)
             } else {
                 // null인 경우 0으로 채움
                 features.add(0f)

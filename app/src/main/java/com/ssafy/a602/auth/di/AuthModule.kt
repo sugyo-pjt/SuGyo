@@ -5,7 +5,6 @@ import com.ssafy.a602.auth.interceptor.AuthInterceptor
 import com.ssafy.a602.auth.interceptor.TokenAuthenticator
 import com.ssafy.a602.game.api.RetrofitClient
 import com.ssafy.a602.game.api.RhythmApi
-import com.ssafy.a602.game.api.RhythmVerifyApi
 import com.ssafy.a602.game.api.RhythmResultApi
 import com.ssafy.a602.learning.api.StudyApiService
 import com.ssafy.a602.term.data.remote.TermApi
@@ -65,17 +64,6 @@ object AuthModule {
         return retrofit.create(RhythmApi::class.java)
     }
 
-    @Provides
-    @Singleton
-    fun provideRhythmVerifyApi(
-        authInterceptor: AuthInterceptor,
-        tokenAuthenticator: TokenAuthenticator
-    ): RhythmVerifyApi {
-        val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
-        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
-        return retrofit.create(RhythmVerifyApi::class.java)
-    }
-    
     @Provides
     @Singleton
     fun provideRhythmResultApi(

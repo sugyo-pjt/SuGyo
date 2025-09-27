@@ -40,11 +40,26 @@ fun CameraPreview(
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 scaleType = PreviewView.ScaleType.FILL_CENTER
 
-                // 전면카메라 미러링은 뷰 레벨에서만
-                scaleX = if (lensFacing == CameraSelector.LENS_FACING_FRONT) -1f else 1f
+                // 전면카메라 미러링 강제 적용
+                if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                    scaleX = -1f
+                    android.util.Log.d("CameraPreview", "거울모드 적용: scaleX = -1f")
+                } else {
+                    scaleX = 1f
+                    android.util.Log.d("CameraPreview", "일반모드 적용: scaleX = 1f")
+                }
             }
         },
         update = { previewView ->
+            // 거울모드 재적용 (update 시에도)
+            if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                previewView.scaleX = -1f
+                android.util.Log.d("CameraPreview", "Update: 거울모드 재적용")
+            } else {
+                previewView.scaleX = 1f
+                android.util.Log.d("CameraPreview", "Update: 일반모드 재적용")
+            }
+            
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
                 runCatching {

@@ -242,9 +242,14 @@ fun GamePlayScreen(
     }
 
     LaunchedEffect(Unit) {
-        Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
-        mediaPipeCamera.init(context)
-        Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+        try {
+            Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
+            mediaPipeCamera.init(context)
+            Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+        } catch (e: Exception) {
+            Log.e("GamePlayScreen", "MediaPipe 초기화 실패: ${e.message}", e)
+            // MediaPipe 초기화 실패해도 게임은 계속 진행 (카메라만 비활성화)
+        }
     }
     
     // 🔥 게임 시작 시 플레이어 위치 제공자 설정
@@ -664,9 +669,34 @@ fun GamePlayScreen(
                                 lensFacing = CameraSelector.LENS_FACING_FRONT,
                                 enableAnalysis = true,
                                 onFrame = { imageProxy -> 
-                                    mediaPipeCamera.analyzer.analyze(imageProxy)
+                                    try {
+                                        mediaPipeCamera.analyzer.analyze(imageProxy)
+                                    } catch (e: Exception) {
+                                        Log.e("GamePlayScreen", "카메라 분석 중 오류: ${e.message}", e)
+                                        // 분석 실패해도 앱이 크래시되지 않도록 처리
+                                    }
                                 }
                             )
+                            
+                            // 실시간 판정 오버레이 (모든 모드)
+                            if (gameUi.currentGrade.isNotEmpty()) {
+                                val judgmentResult = JudgmentResult(
+                                    type = when (gameUi.currentGrade) {
+                                        "PERFECT" -> JudgmentType.PERFECT
+                                        "GOOD" -> JudgmentType.GOOD
+                                        "MISS" -> JudgmentType.MISS
+                                        else -> JudgmentType.MISS
+                                    },
+                                    accuracy = gameUi.similarity,
+                                    score = gameUi.score,
+                                    combo = gameUi.combo,
+                                    timestamp = System.currentTimeMillis(),
+                                    isLocalResult = true
+                                )
+                                JudgmentOverlay(result = judgmentResult)
+                            }
+                            
+                            // 기존 판정 오버레이 (EASY 모드 - 웹소켓 판정)
                             judgmentResult?.let { JudgmentOverlay(result = it) }
                         }
                     }

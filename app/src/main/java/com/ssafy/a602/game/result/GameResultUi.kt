@@ -18,5 +18,11 @@ data class GameResultUi(
     val accepted: Boolean = true,
     val isPersonalBest: Boolean = false,
     val rankUpdated: Boolean = false,
-    val serverScoreEcho: Int = 0
+    val serverScoreEcho: Int = 0,
+    // HARD 모드용 추가 필드들
+    val perfectCount: Int = 0,
+    val goodCount: Int = 0,
+    val totalCount: Int = 0,
+    val avgSimilarity: Float = 0f,
+    val gameMode: String = "EASY"  // "EASY" | "HARD"
 )

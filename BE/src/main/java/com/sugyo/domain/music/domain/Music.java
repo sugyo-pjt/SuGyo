@@ -37,7 +37,6 @@ public class Music {
     @Column
     private String songUrl;
 
-    @OneToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "music_id")
+    @OneToMany(mappedBy = "music", fetch = FetchType.LAZY)
     private List<Chart> chart;
 }

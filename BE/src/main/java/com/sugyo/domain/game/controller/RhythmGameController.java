@@ -422,13 +422,13 @@ public class RhythmGameController {
 //                    )
 //            )
 //    })
-//    @PostMapping("/play")
-//    public ResponseEntity<String> processGamePlay(
-//            @RequestBody GamePlayRequestDto request,
-//            @AuthenticationPrincipal CustomUserDetails user) {
-//        rhythmGameService.processGamePlay(request, user.getId());
-//        return ResponseEntity.ok("OK");
-//    }
+    @PostMapping("/play")
+    public ResponseEntity<String> processGamePlay(
+            @RequestBody GamePlayRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        rhythmGameService.processGamePlay(request, user.getId());
+        return ResponseEntity.ok("OK");
+    }
 
     @Operation(
             summary = "프레임 좌표 데이터 저장",

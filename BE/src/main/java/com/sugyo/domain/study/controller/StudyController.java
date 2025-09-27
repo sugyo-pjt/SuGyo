@@ -333,4 +333,10 @@ public class StudyController {
         studyService.saveQuizResult(userId,request);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/music/{musicId}")
+    public ResponseEntity<List<StudyWordItemDto>> getAllMusicVocabulary(@PathVariable long musicId){
+        List<StudyWordItemDto> response = studyService.getAllMusicVocabulary(musicId);
+        return ResponseEntity.ok(response);
+    }
 }

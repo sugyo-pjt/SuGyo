@@ -113,15 +113,15 @@ interface StudyApiService {
         @Path("dayId") dayId: Int
     ): Response<DayItemsResponse>
 
-    /** [4] 퀴즈 결과 저장 */
-    @POST("api/v1/study/result")
-    suspend fun postQuizResult(
-        @Body body: QuizResultRequest
-    ): Response<Unit> // 200 OK 예상
-
     /** [4] 노래학습 상세(단어/영상): SongStudyScreen */
     @GET("api/v1/study/music/{musicId}")
     suspend fun getSongStudy(
         @Path("musicId") musicId: Int
     ): Response<List<SongItemDto>>
+
+    /** [5] 퀴즈 결과 저장 */
+    @POST("api/v1/study/result")
+    suspend fun postQuizResult(
+        @Body body: QuizResultRequest
+    ): Response<Unit> // 200 OK 예상
 }

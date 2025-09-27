@@ -260,11 +260,13 @@ public class StudyController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "단어 키워드 검색", description = "키워드가 포함된 모든 단어의 요약 정보를 조회합니다.")
     @GetMapping("/search/{keyword}")
     public ResponseEntity<List<SearchKeywordResponse>> searchVocabulary(@PathVariable String keyword) {
         return ResponseEntity.ok(studyService.searchVocabulary(keyword));
     }
 
+    @Operation(summary = "단어 상세 정보 조회", description = "단일 단어의 상세 정보를 조회합니다.")
     @GetMapping("/detail/{wordId}")
     public ResponseEntity<StudyWordItemDto> getWordItem(@PathVariable long wordId) {
         return ResponseEntity.ok(studyService.getWordItem(wordId));
@@ -334,6 +336,7 @@ public class StudyController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "노래별 단어 목록 상세 조회", description = "노래 id로 가사에 포함되는 모든 단어의 학습 데이터를 조회합니다.")
     @GetMapping("/music/{musicId}")
     public ResponseEntity<List<StudyWordItemDto>> getAllMusicVocabulary(@PathVariable long musicId){
         List<StudyWordItemDto> response = studyService.getAllMusicVocabulary(musicId);

@@ -5,6 +5,9 @@ import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.common.repository.ObjectStorageRepository;
 import com.sugyo.domain.game.dto.EasyGameMotionFrame;
+import com.sugyo.domain.game.dto.MotionFrame;
+import com.sugyo.domain.game.dto.Pose;
+import com.sugyo.domain.game.domain.BodyPart;
 import com.sugyo.domain.game.entity.Chart;
 import com.sugyo.domain.game.entity.ChartAnswer;
 import com.sugyo.domain.game.entity.FrameCoordinates;
@@ -30,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -242,25 +246,19 @@ public class RhythmGameService {
             double startTimeMs = convertLocalTimeToMs(answer.getStartedAt());
             double endTimeMs = convertLocalTimeToMs(answer.getEndedAt());
 
-            // 300ms 단위로 반올림
-            double startTime300 = Math.floor(startTimeMs / 300) * 300;
-            double endTime300 = Math.ceil(endTimeMs / 300) * 300;
-
             // 3. 해당 시간 범위의 정답 프레임 데이터 조회
-            List<FrameCoordinates> correctFrames = frameCoordinatesRepository
-                    .findByMusicIdAndTimeRange(request.getMusicId(), startTime300, endTime300);
+            List<FrameCoordinates> correctFrames = frameCoordinatesRepository.findByMusicId(request.getMusicId());
 
             if (correctFrames.isEmpty()) {
                 log.warn("No correct frames found for musicId: {}, timeRange: {} - {}",
-                        request.getMusicId(), startTime300, endTime300);
+                        request.getMusicId(), startTimeMs, endTimeMs);
                 continue;
             }
 
             // 4. 클라이언트가 보낸 프레임과 정답 프레임 비교
             double similarity = calculateSimilarity(request.getFrames(), correctFrames);
 
-            log.info("Similarity for segment {} in range {} - {}: {}",
-                    request.getSegment(), startTime300, endTime300, similarity);
+            log.info("Similarity for segment {} in range {} - {}: {}", request.getSegment(), startTimeMs, endTimeMs, similarity);
         }
     }
 
@@ -270,19 +268,63 @@ public class RhythmGameService {
 
     private double calculateSimilarity(List<EasyGameMotionFrame> clientFrames,
                                      List<FrameCoordinates> correctFrames) {
-        // 유사도 계산 로직 구현
-        // 이 부분은 기존 웹소켓에서 사용하던 유사도 계산 알고리즘을 활용
-
         if (clientFrames.isEmpty() || correctFrames.isEmpty()) {
             return 0.0;
         }
 
-        // 간단한 프레임 수 기반 유사도 (실제로는 더 복잡한 계산 필요)
-        int minFrames = Math.min(clientFrames.size(), correctFrames.size());
-        int maxFrames = Math.max(clientFrames.size(), correctFrames.size());
+        // 1. EasyGameMotionFrame을 MotionFrame으로 변환
+        List<MotionFrame> clientMotionFrames = convertToMotionFrames(clientFrames);
 
-        // 임시 유사도 계산 (실제 구현 시 좌표 비교 필요)
-        return (double) minFrames / maxFrames * 0.85; // 임시값
+        // 2. FrameCoordinates에서 MotionFrame으로 변환
+        List<MotionFrame> correctMotionFrames = convertFrameCoordinatesToMotionFrames(correctFrames);
+
+        if (clientMotionFrames.isEmpty() || correctMotionFrames.isEmpty()) {
+            return 0.0;
+        }
+
+        // 3. JsonSimilarityComparator의 calculateMotionSimilarity 호출
+        return JsonSimilarityComparator.calculateMotionSimilarity(
+                clientMotionFrames, correctMotionFrames, 640, 480);
+    }
+
+    private List<MotionFrame> convertToMotionFrames(List<EasyGameMotionFrame> easyFrames) {
+        List<MotionFrame> motionFrames = new ArrayList<>();
+
+        for (int i = 0; i < easyFrames.size(); i++) {
+            EasyGameMotionFrame easyFrame = easyFrames.get(i);
+            List<Pose> poses = new ArrayList<>();
+
+            // BODY 포즈 추가
+            poses.add(new Pose(BodyPart.BODY, easyFrame.pose()));
+
+            // LEFT_HAND 포즈 추가
+            poses.add(new Pose(BodyPart.LEFT_HAND, easyFrame.left()));
+
+            // RIGHT_HAND 포즈 추가
+            poses.add(new Pose(BodyPart.RIGHT_HAND, easyFrame.right()));
+
+            // MotionFrame 생성 (frame 번호는 인덱스 + 1)
+            motionFrames.add(new MotionFrame(i, poses));
+        }
+
+        return motionFrames;
+    }
+
+    private List<MotionFrame> convertFrameCoordinatesToMotionFrames(List<FrameCoordinates> frameCoordinates) {
+        List<MotionFrame> motionFrames = new ArrayList<>();
+
+        for (int i = 0; i < frameCoordinates.size(); i++) {
+            FrameCoordinates frameCoord = frameCoordinates.get(i);
+
+            // FrameCoordinates의 frameData는 List<MotionFrame> 타입
+            // 각 FrameCoordinates에서 첫 번째 MotionFrame만 사용
+            List<MotionFrame> storedFrames = frameCoord.getFrameData();
+            if (!storedFrames.isEmpty()) {
+                motionFrames.add(storedFrames.get(0));
+            }
+        }
+
+        return motionFrames;
     }
 
 }

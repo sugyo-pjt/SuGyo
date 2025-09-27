@@ -7,7 +7,7 @@ import java.util.List;
 
 @Getter
 @NoArgsConstructor
-public class FrameSaveRequestDto {
+public class AllFramesDto {
     private Long musicId;
     private List<GameActionRequest> allFrames;
 }

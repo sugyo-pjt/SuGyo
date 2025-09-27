@@ -5,10 +5,8 @@ import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
 import com.sugyo.domain.game.dto.response.MusicUrlResponseDto;
 import com.sugyo.domain.game.dto.response.MusicRankingResponseDto;
-import com.sugyo.domain.game.dto.request.GameResultRequestDto;
-import com.sugyo.domain.game.dto.response.GameResultResponseDto;
 import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
-import com.sugyo.domain.game.dto.request.FrameSaveRequestDto;
+import com.sugyo.domain.game.dto.request.AllFramesDto;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.dto.response.GameSimilarityResponseDto;
 import com.sugyo.domain.game.service.RhythmGameService;
@@ -473,7 +471,7 @@ public class RhythmGameController {
     })
     @PostMapping("/save")
     public ResponseEntity<String> saveFrameCoordinates(
-            @RequestBody FrameSaveRequestDto request) {
+            @RequestBody AllFramesDto request) {
         frameCoordinatesService.saveFrameCoordinates(request);
         return ResponseEntity.ok("Frame data saved successfully");
     }
@@ -535,4 +533,5 @@ public class RhythmGameController {
         );
         return ResponseEntity.ok(response);
     }
+
 }

@@ -1,12 +1,11 @@
 package com.sugyo.domain.game.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.CommonErrorCode;
 import com.sugyo.common.exception.GlobalErrorCode;
 import com.sugyo.domain.game.dto.MotionFrame;
-import com.sugyo.domain.game.dto.request.FrameSaveRequestDto;
+import com.sugyo.domain.game.dto.request.AllFramesDto;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.entity.Music;
@@ -17,7 +16,6 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,7 +33,7 @@ public class FrameCoordinatesService {
     private static final int DEFAULT_WIDTH = 640;
     private static final int DEFAULT_HEIGHT = 480;
 
-    public void saveFrameCoordinates(FrameSaveRequestDto requestDto) {
+    public void saveFrameCoordinates(AllFramesDto requestDto) {
         Music music = musicRepository.findById(requestDto.getMusicId())
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 

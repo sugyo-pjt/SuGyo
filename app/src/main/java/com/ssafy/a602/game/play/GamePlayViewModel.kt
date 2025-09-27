@@ -16,8 +16,13 @@ import com.ssafy.a602.game.play.answer.AnswerLoader
 import com.ssafy.a602.game.play.answer.AnswerTimeline
 import com.ssafy.a602.game.play.clock.PlayerClock
 import com.ssafy.a602.game.play.judge.FeatureRingBuffer
-import com.ssafy.a602.game.play.judge.SimilarityJudge
+import com.ssafy.a602.game.play.judge.LocalJudgeEngine
 import com.ssafy.a602.game.play.judge.FrameFeature
+import com.ssafy.a602.game.play.judge.JsonSimilarityComparator
+import com.ssafy.a602.game.play.judge.MotionFrame
+import com.ssafy.a602.game.play.judge.Pose
+import com.ssafy.a602.game.play.judge.Coordinate
+import com.ssafy.a602.game.play.judge.BodyPart
 import com.ssafy.a602.game.api.RhythmVerifyApi
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -99,7 +104,7 @@ class GamePlayViewModel @Inject constructor(
     private var answerTimeline: AnswerTimeline? = null
     private var playerClock: PlayerClock? = null
     private var featureBuffer: FeatureRingBuffer? = null
-    private var similarityJudge: SimilarityJudge? = null
+    private var localJudgeEngine: LocalJudgeEngine? = null
     
     // 게임 통계
     private var gameStats = GameStats()
@@ -148,8 +153,8 @@ class GamePlayViewModel @Inject constructor(
             // FeatureRingBuffer 초기화
             featureBuffer = FeatureRingBuffer()
             
-            // SimilarityJudge 초기화
-            similarityJudge = SimilarityJudge()
+            // LocalJudgeEngine 초기화
+            localJudgeEngine = LocalJudgeEngine()
             
             // AnswerTimeline 로드
             viewModelScope.launch {
@@ -443,10 +448,18 @@ class GamePlayViewModel @Inject constructor(
         val currentTime = playerClock?.nowMs() ?: return
         val answerFrame = answerTimeline?.frameAt(currentTime) ?: return
         val userFrame = featureBuffer?.getLatestOrNearest(currentTime) ?: return
-        val judge = similarityJudge ?: return
+        val judge = localJudgeEngine ?: return
         
-        // 판정 계산
-        val (grade, similarity) = judge.calculateGrade(userFrame, answerFrame)
+        // 새로운 판정 시스템 사용
+        val userFrames = convertToMotionFrames(userFrame)
+        val answerFrames = convertAnswerFrameToMotionFrames(answerFrame)
+        
+        // JsonSimilarityComparator를 사용한 유사도 계산
+        val similarity = JsonSimilarityComparator.calculateMotionSimilarity(userFrames, answerFrames, 640, 480)
+        
+        // LocalJudgeEngine을 사용한 판정
+        val judgment = judge.judgeByRatio(similarity)
+        val grade = judgment.name
         
         // 통계 업데이트
         updateGameStats(grade, similarity)
@@ -461,6 +474,82 @@ class GamePlayViewModel @Inject constructor(
     }
     
     /**
+     * FrameFeature를 MotionFrame으로 변환
+     */
+    private fun convertToMotionFrames(userFrame: FrameFeature): List<MotionFrame> {
+        val poses = mutableListOf<Pose>()
+        
+        // BODY 포즈 추가
+        val bodyCoordinates = convertFloatArrayToCoordinates(userFrame.pose)
+        poses.add(Pose(BodyPart.BODY, bodyCoordinates))
+        
+        // LEFT_HAND 포즈 추가
+        val leftCoordinates = convertFloatArrayToCoordinates(userFrame.left)
+        poses.add(Pose(BodyPart.LEFT_HAND, leftCoordinates))
+        
+        // RIGHT_HAND 포즈 추가
+        val rightCoordinates = convertFloatArrayToCoordinates(userFrame.right)
+        poses.add(Pose(BodyPart.RIGHT_HAND, rightCoordinates))
+        
+        return listOf(MotionFrame(0, poses))
+    }
+    
+    /**
+     * AnswerFrame을 MotionFrame으로 변환
+     */
+    private fun convertAnswerFrameToMotionFrames(answerFrame: com.ssafy.a602.game.play.answer.AnswerFrame): List<MotionFrame> {
+        val poses = mutableListOf<Pose>()
+        
+        // BODY 포즈 추가
+        val bodyCoordinates = convertFloatArrayToCoordinates(answerFrame.pose)
+        poses.add(Pose(BodyPart.BODY, bodyCoordinates))
+        
+        // LEFT_HAND 포즈 추가
+        val leftCoordinates = convertFloatArrayToCoordinates(answerFrame.left)
+        poses.add(Pose(BodyPart.LEFT_HAND, leftCoordinates))
+        
+        // RIGHT_HAND 포즈 추가
+        val rightCoordinates = convertFloatArrayToCoordinates(answerFrame.right)
+        poses.add(Pose(BodyPart.RIGHT_HAND, rightCoordinates))
+        
+        return listOf(MotionFrame(0, poses))
+    }
+    
+    /**
+     * FloatArray를 Coordinate 리스트로 변환
+     */
+    private fun convertFloatArrayToCoordinates(floatArray: FloatArray): List<Coordinate> {
+        val coordinates = mutableListOf<Coordinate>()
+        
+        // FloatArray를 4개씩 묶어서 Coordinate로 변환 (x, y, z, w)
+        for (i in floatArray.indices step 4) {
+            val x = if (i < floatArray.size) floatArray[i].toDouble() else 0.0
+            val y = if (i + 1 < floatArray.size) floatArray[i + 1].toDouble() else 0.0
+            val z = if (i + 2 < floatArray.size) floatArray[i + 2].toDouble() else 0.0
+            val w = if (i + 3 < floatArray.size) floatArray[i + 3].toDouble() else 1.0
+            
+            coordinates.add(Coordinate(x, y, z, w))
+        }
+        
+        return coordinates
+    }
+    
+    /**
+     * GameSessionContext 생성 (점수 계산용)
+     */
+    private fun createGameSessionContext(): com.ssafy.a602.game.play.judge.GameSessionContext {
+        return com.ssafy.a602.game.play.judge.GameSessionContext(
+            userId = "current_user",
+            musicId = currentMusicId,
+            webSocketSessionId = "local_session",
+            lastNoteTimestamp = 0f
+        ).apply {
+            // 현재 콤보 설정
+            combo.set(gameStats.currentCombo)
+        }
+    }
+    
+    /**
      * 게임 통계 업데이트
      */
     private fun updateGameStats(grade: String, similarity: Float) {
@@ -471,12 +560,18 @@ class GamePlayViewModel @Inject constructor(
             "PERFECT" -> {
                 gameStats.perfectCount++
                 gameStats.currentCombo++
-                gameStats.totalScore += similarityJudge?.calculateScore(grade) ?: 0
+                // LocalJudgeEngine을 사용한 점수 계산
+                val judgment = com.ssafy.a602.game.play.judge.Judgment.PERFECT
+                val points = localJudgeEngine?.calculatePoints(judgment, createGameSessionContext()) ?: 100
+                gameStats.totalScore += points
             }
             "GOOD" -> {
                 gameStats.goodCount++
                 gameStats.currentCombo++
-                gameStats.totalScore += similarityJudge?.calculateScore(grade) ?: 0
+                // LocalJudgeEngine을 사용한 점수 계산
+                val judgment = com.ssafy.a602.game.play.judge.Judgment.GOOD
+                val points = localJudgeEngine?.calculatePoints(judgment, createGameSessionContext()) ?: 70
+                gameStats.totalScore += points
             }
             "MISS" -> {
                 gameStats.missCount++

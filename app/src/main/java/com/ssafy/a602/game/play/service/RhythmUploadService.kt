@@ -26,7 +26,7 @@ class RhythmUploadService @Inject constructor(
     }
     
     /**
-     * 리듬게임 데이터 업로드
+     * 리듬게임 데이터 업로드 (주석 처리됨 - 검증 API로 변경 예정)
      * 
      * @param request 리듬게임 데이터 요청
      * @return 업로드 성공 여부
@@ -34,6 +34,8 @@ class RhythmUploadService @Inject constructor(
     suspend fun uploadRhythmData(
         request: RhythmSaveRequest
     ): Result<Boolean> = withContext(Dispatchers.IO) {
+        // TODO: save API 호출 주석 처리됨 - 검증 API로 변경 예정
+        /*
         try {
             Log.d(TAG, "리듬 데이터 업로드 시작: musicId=${request.musicId}, segments=${request.allFrames.size}")
             Log.d(TAG, "요청 데이터 상세: segments=${request.allFrames.map { "${it.type}:${it.frames.size}개" }}")
@@ -63,6 +65,11 @@ class RhythmUploadService @Inject constructor(
             Log.e(TAG, "리듬 데이터 업로드 중 오류 발생", e)
             Result.failure(e)
         }
+        */
+        
+        // 임시로 성공 처리 (검증 API 구현 전까지)
+        Log.d(TAG, "save API 호출 주석 처리됨 - 임시 성공 처리")
+        Result.success(true)
     }
     
     /**

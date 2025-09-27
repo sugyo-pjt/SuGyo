@@ -46,7 +46,7 @@ import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.play.input.DynamicLandmarkBuffer
 import com.ssafy.a602.game.play.input.LandmarkResultHandler
-import com.ssafy.a602.game.play.input.WordWindowUploader
+// WordWindowUploader import 제거됨
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.time.TimelineTick
 import com.ssafy.a602.game.time.TimelineViewModel
@@ -236,15 +236,11 @@ fun GamePlayScreen(
         )
     }
     
-    // 🔥 게임 모드에 따른 업로더 선택
-    val uploader = when (gameMode) {
-        GameMode.EASY -> WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null)
-        GameMode.HARD -> null // 웹소켓은 ViewModel에서 처리
-        else -> null
-    }
+    // 🔥 게임 모드에 따른 업로더 선택 - WordWindowUploader 제거됨
+    val uploader = null // 모든 모드에서 로컬 판정 사용
     
     val mediaPipeCamera = remember { 
-        GamePlayCamera(resultHandler, uploader ?: WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null))
+        GamePlayCamera(resultHandler, uploader)
     }
 
     LaunchedEffect(Unit) {
@@ -395,7 +391,17 @@ fun GamePlayScreen(
     LaunchedEffect(isPaused, isScreenVisible) {
         if (!isScreenVisible) return@LaunchedEffect
         if (player.mediaItemCount == 0) return@LaunchedEffect
-        if (isPaused) player.pause() else player.play()
+        
+        // 게임 완료 시 ExoPlayer 완전 정지
+        if (isPaused && completeUi.submitted) {
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 완전 정지")
+            player.pause()
+            player.stop()
+        } else if (isPaused) {
+            player.pause()
+        } else {
+            player.play()
+        }
     }
 
     // 첫 틱 오차 로깅
@@ -490,9 +496,15 @@ fun GamePlayScreen(
         
         if (isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
+            // ExoPlayer 정지
+            player.pause()
+            player.stop()
             gamePlayViewModel?.finishGameAndPost()
         } else if (isTimeFinished && !isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
+            // ExoPlayer 정지
+            player.pause()
+            player.stop()
             gamePlayViewModel?.finishGameAndPost()
         }
     }
@@ -500,6 +512,11 @@ fun GamePlayScreen(
     // 게임 완료 상태 감지 (새로운 API 사용)
     LaunchedEffect(completeUi.submitted) {
         if (completeUi.submitted) {
+            // ExoPlayer 정지
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 정지")
+            player.pause()
+            player.stop()
+            
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,

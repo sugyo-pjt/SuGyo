@@ -5,8 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.play.input.LM
-import com.ssafy.a602.game.play.dto.WebSocketJudgmentResult
-import com.ssafy.a602.game.play.net.WebSocketStreamer
+// 웹소켓 관련 import 제거됨
 import com.ssafy.a602.game.score.GameScoreCalculator
 import com.ssafy.a602.game.score.JudgmentType as ScoreJudgmentType
 import com.ssafy.a602.game.play.JudgmentType
@@ -49,7 +48,6 @@ data class CompleteUiState(
 
 @HiltViewModel
 class GamePlayViewModel @Inject constructor(
-    private val webSocketStreamer: WebSocketStreamer,
     private val rhythmUploadService: RhythmUploadService
 ) : ViewModel() {
 
@@ -110,70 +108,13 @@ class GamePlayViewModel @Inject constructor(
         _ui.value = GameUiState()
         _complete.value = CompleteUiState()
         
-        // 하드 모드일 때만 웹소켓 연결
+        // 하드 모드일 때 로컬 판정 로직 초기화
         if (mode == GameMode.HARD) {
-            connectWebSocket()
+            // TODO: 로컬 판정 로직 초기화
         }
     }
     
-    private fun connectWebSocket() {
-        if (currentMusicId <= 0) {
-            android.util.Log.e("GamePlayViewModel", "❌ invalid musicId=$currentMusicId (songId=$songId)")
-            webSocketStreamer.setHttpMode(true)
-            return
-        }
-        tryWsWithCandidates(currentMusicId)
-    }
-    
-    private fun tryWsWithCandidates(musicId: Long) {
-        val base = "wss://j13a602.p.ssafy.io"
-        val url = "$base/play/hard/$musicId"
-        webSocketStreamer.connect(url, playerPositionProvider ?: { 0L }) { judgment ->
-            // 웹소켓에서 받은 판정 결과를 기존 JudgmentResult로 변환
-            val judgmentResult = JudgmentResult(
-                type = when (judgment.judgment) {
-                    "PERFECT" -> JudgmentType.PERFECT
-                    "GREAT" -> JudgmentType.GREAT
-                    "GOOD" -> JudgmentType.GOOD
-                    "MISS" -> JudgmentType.MISS
-                    else -> JudgmentType.MISS
-                },
-                accuracy = judgment.accuracy ?: when (judgment.judgment) {
-                    "PERFECT" -> 0.98f
-                    "GREAT" -> 0.85f
-                    "GOOD" -> 0.70f
-                    "MISS" -> 0.0f
-                    else -> 0.0f
-                },
-                score = judgment.score,
-                combo = judgment.combo,
-                timestamp = System.currentTimeMillis(),
-                word = judgment.word,
-                isWebSocketResult = true
-            )
-            
-            // UI에 판정 결과 표시
-            _currentJudgment.value = judgmentResult
-            
-            // 🔥 Hard 모드: 서버에서 계산된 모든 결과를 그대로 사용
-            _ui.value = _ui.value.copy(
-                score = judgment.totalScore ?: _ui.value.score,
-                combo = judgment.combo,
-                maxCombo = judgment.maxCombo ?: _ui.value.maxCombo,
-                percent = ((judgment.accuracy ?: 0f) * 100).toInt(),
-                grade = judgment.grade ?: _ui.value.grade
-            )
-            
-            // 3초 후 판정 결과 숨기기
-            viewModelScope.launch {
-                kotlinx.coroutines.delay(3000)
-                _currentJudgment.value = null
-            }
-        }
-        
-        // 연결 성립 후에만 전송 시작
-        webSocketStreamer.startStreaming()
-    }
+    // 웹소켓 관련 메서드들 제거됨 - 로컬 판정으로 대체
 
     // 🔥 Easy 모드: 프론트엔드에서 계산
     fun onServerVerdict(isPerfect: Boolean, word: String) {
@@ -197,7 +138,7 @@ class GamePlayViewModel @Inject constructor(
         // Hard 모드일 때는 서버에서 계산된 결과를 사용하므로 여기서는 아무것도 하지 않음
     }
     
-    // MediaPipe 결과를 웹소켓으로 전송 (하드 모드일 때만)
+    // MediaPipe 결과를 로컬 판정으로 처리 (하드 모드일 때만)
     fun onLandmarks(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
         android.util.Log.d("GamePlayViewModel", "🎯 onLandmarks 호출: gameMode=$gameMode, pose=${pose.size}, left=${left.size}, right=${right.size}")
         
@@ -210,7 +151,10 @@ class GamePlayViewModel @Inject constructor(
                 return
             }
             
-            webSocketStreamer.addFrame(pose, left, right)
+            // TODO: 로컬 판정 로직 구현
+            // 1. 현재 노트 윈도우 확인
+            // 2. MediaPipe 데이터와 채보 비교
+            // 3. 판정 결과 생성 및 UI 업데이트
             
             // 🔥 리듬 수집기에도 프레임 데이터 전달 (모든 프레임 즉시 수집)
             val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
@@ -229,9 +173,9 @@ class GamePlayViewModel @Inject constructor(
         val currentPaused = _ui.value.isPaused
         _ui.value = _ui.value.copy(isPaused = !currentPaused)
         
-        // 하드 모드일 때 웹소켓에 일시정지 상태 전송
+        // 하드 모드일 때 로컬 일시정지 처리
         if (gameMode == GameMode.HARD) {
-            webSocketStreamer.sendPauseResume(!currentPaused)
+            // TODO: 로컬 일시정지 처리 로직
             
             // 🔥 리듬 수집기에 세그먼트 타입 변경 알림
             val positionMs = playerPositionProvider?.invoke() ?: 0L
@@ -282,6 +226,9 @@ class GamePlayViewModel @Inject constructor(
             return
         }
         
+        // 게임 완료 상태로 변경하여 ExoPlayer 정지 신호
+        _ui.value = _ui.value.copy(isPaused = true)
+        
         if (gameMode == GameMode.EASY) {
             android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산 결과 사용")
             // Easy 모드: 프론트엔드 계산 결과 사용
@@ -324,7 +271,9 @@ class GamePlayViewModel @Inject constructor(
                     android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
                     
                     if (rhythmData != null) {
-                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
+                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 완료 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
+                        // TODO: save API 호출 주석 처리됨 - 검증 API로 변경 예정
+                        /*
                         // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
                         val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
                             request = rhythmData
@@ -344,6 +293,14 @@ class GamePlayViewModel @Inject constructor(
                                 submitError = uploadResult.exceptionOrNull()?.message ?: "리듬 데이터 업로드 실패"
                             )
                         }
+                        */
+                        
+                        // 임시로 성공 처리 (검증 API 구현 전까지)
+                        _complete.value = _complete.value.copy(
+                            submitting = false,
+                            submitted = true,
+                            isBestRecord = false
+                        )
                         isUploading = false
                     } else {
                         android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 실패")
@@ -370,7 +327,7 @@ class GamePlayViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         if (gameMode == GameMode.HARD) {
-            webSocketStreamer.stop()
+            // 웹소켓 관련 정리 제거됨
             rhythmCollector?.stopCollection()
         }
     }

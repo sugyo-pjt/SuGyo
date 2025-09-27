@@ -2,10 +2,13 @@ package com.ssafy.a602.game.play.input
 
 import kotlinx.serialization.Serializable
 
+@Serializable
+data class LM(
+    val x: Float?, val y: Float?, val z: Float?, val w: Float?
+)
+
 val POSE_KEEP = (0..22).toSet()
 val HAND_KEEP = (0..20).toSet()
-
-// LM 클래스는 FramesBatch.kt에서 정의됨
 
 fun toLMFiltered(
     src: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,

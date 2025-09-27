@@ -11,7 +11,7 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.ssafy.a602.game.play.input.LandmarkResultHandler
-import com.ssafy.a602.game.play.input.WordWindowUploader
+// WordWindowUploader import 제거됨
 import java.util.concurrent.TimeUnit
 
 /**
@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
 @ExperimentalGetImage
 class GamePlayCamera(
     private val resultHandler: LandmarkResultHandler,
-    private val uploader: WordWindowUploader
+    private val uploader: Any? // WordWindowUploader 제거됨, null 허용
 ) {
     private var poseLandmarker: PoseLandmarker? = null
     private var handLandmarker: HandLandmarker? = null
@@ -73,7 +73,7 @@ class GamePlayCamera(
                 .setResultListener { result, image ->
                     val timestampMs = System.currentTimeMillis()
                     resultHandler.onHandResult(result, timestampMs)
-                    uploader.maybeFlush()
+                    // uploader.maybeFlush() 제거됨 - 로컬 판정으로 대체
                 }
                 .build()
             

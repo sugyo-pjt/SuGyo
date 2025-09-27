@@ -22,7 +22,7 @@ media3 = "1.8.0"
 camera = "1.4.0"
 
 # Kotlinx Serialization
-kotlinxSerialization = "1.6.0"
+kotlinxSerialization = "1.7.3"
 
 # Retrofit & OkHttp
 retrofit = "2.9.0"

@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ssafy.a602.game.ui.GameUITheme
@@ -86,9 +87,11 @@ fun GameLyricsCard(
                     Text(
                         text = previousLyric,
                         color = Color(0xFF7C8799),
-                        fontSize = 14.sp,
+                        fontSize = 16.sp, // 17.sp -> 16.sp로 감소
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
+                        maxLines = 2, // 여러 줄 표시 허용
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.graphicsLayer {
                             alpha = 0.7f
                         }
@@ -118,8 +121,10 @@ fun GameLyricsCard(
                         Text(
                             text = currentLyric,
                             textAlign = TextAlign.Center,
-                            fontSize = 22.sp,
+                            fontSize = 25.sp, // 26.sp -> 25.sp로 감소
                             fontWeight = FontWeight.Bold,
+                            maxLines = 3, // 여러 줄 표시 허용
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.graphicsLayer {
                                 scaleX = 1f + 0.05f * textGlow.value
                                 scaleY = 1f + 0.05f * textGlow.value
@@ -151,9 +156,11 @@ fun GameLyricsCard(
                     Text(
                         text = nextLyric,
                         color = Color(0xFF6B7280),
-                        fontSize = 14.sp,
+                        fontSize = 16.sp, // 17.sp -> 16.sp로 감소
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
+                        maxLines = 2, // 여러 줄 표시 허용
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.graphicsLayer {
                             alpha = 0.6f
                         }

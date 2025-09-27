@@ -6,6 +6,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ExperimentalMirrorMode
 import androidx.camera.core.ImageProxy
+import androidx.media3.common.C
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.ssafy.a602.game.GameTheme
 import com.ssafy.a602.game.CameraPreview
 import com.ssafy.a602.game.data.GameDataManager
+import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.play.input.DynamicLandmarkBuffer
@@ -157,13 +159,20 @@ fun GamePlayScreen(
     onOpenSettings: () -> Unit = {},
     onFrame: ((ImageProxy) -> Unit)? = null,
     judgmentResult: JudgmentResult? = null,
-    gamePlayViewModel: GamePlayViewModel? = null
+    gamePlayViewModel: GamePlayViewModel? = null,
+    playerPositionMs: () -> Long = { 0L }  // ExoPlayer 위치 제공 (기본값)
 ) {
     val context = LocalContext.current
 
     // GamePlayViewModel 상태
     val gameUi by (gamePlayViewModel?.ui?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(GameUiState()) })
     val completeUi by (gamePlayViewModel?.complete?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(CompleteUiState()) })
+    
+    // 🔥 웹소켓 판정 결과 상태 (기존 구조 활용)
+    val currentJudgment by (gamePlayViewModel?.currentJudgment?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) })
+    
+    // 게임 모드 확인
+    val gameMode = GameDataManager.currentGameMode.value ?: GameMode.EASY
     
     // 중복 호출 제거: GameDataManager로 이미 채보 데이터 관리됨
 
@@ -213,22 +222,55 @@ fun GamePlayScreen(
     val timelineViewModel = remember(player) { TimelineViewModel(player) }
     val tick: TimelineTick? by timelineViewModel.ticks.collectAsState()
 
-    // MediaPipe
+    // MediaPipe - 게임 모드에 따라 다른 업로더 사용
     val buffer = remember { DynamicLandmarkBuffer() }
-    val resultHandler = remember { LandmarkResultHandler(buffer) }
-    val uploader = remember { 
-        WordWindowUploader(
-            buffer, 
-            endpoint = "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play",
-            tokenManager = null // TODO: TokenManager 주입 필요
-        ) 
+    val resultHandler = remember { 
+        LandmarkResultHandler(
+            buffer = buffer,
+            onLandmarks = { pose, left, right ->
+                // 🔥 하드 모드일 때 ViewModel에 랜드마크 결과 전달
+                if (gameMode == GameMode.HARD) {
+                    gamePlayViewModel?.onLandmarks(pose, left, right)
+                }
+            }
+        )
     }
-    val mediaPipeCamera = remember { GamePlayCamera(resultHandler, uploader) }
+    
+    // 🔥 게임 모드에 따른 업로더 선택
+    val uploader = when (gameMode) {
+        GameMode.EASY -> WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null)
+        GameMode.HARD -> null // 웹소켓은 ViewModel에서 처리
+        else -> null
+    }
+    
+    val mediaPipeCamera = remember { 
+        GamePlayCamera(resultHandler, uploader ?: WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null))
+    }
 
     LaunchedEffect(Unit) {
         Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
         mediaPipeCamera.init(context)
         Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+    }
+    
+    // 🔥 게임 시작 시 플레이어 위치 제공자 설정
+    LaunchedEffect(gamePlayViewModel) {
+        val totalWords = 10 // TODO: 실제 총 단어 수로 설정
+        // ExoPlayer의 실제 위치를 사용하도록 수정
+        val actualPlayerPositionMs: () -> Long = { 
+            val position = player.currentPosition
+            if (position == C.TIME_UNSET) 0L else position
+        }
+        gamePlayViewModel?.startGame(songId, totalWords, gameMode, actualPlayerPositionMs)
+    }
+    
+    // 🔥 하드 모드일 때 리듬 수집기에 프레임 데이터 전달
+    LaunchedEffect(gameMode, tick?.positionMs) {
+        if (gameMode == GameMode.HARD && tick?.isPlaying == true) {
+            val currentMs = tick?.positionMs ?: 0L
+            // 300ms 주기로 프레임 수집 (실제로는 MediaPipe에서 처리)
+            // TODO: MediaPipe 결과를 리듬 수집기에 전달하는 로직 추가
+        }
     }
 
     // Pause→Resume AC 측정
@@ -250,7 +292,16 @@ fun GamePlayScreen(
     val greenBorder = GameTheme.Colors.GreenBorder
 
     val currentSong by GameDataManager.currentSong.collectAsState()
+    val currentGameMode by GameDataManager.currentGameMode.collectAsState()
     val gameProgressState by GameDataManager.gameProgress.collectAsState()
+    
+    // 현재 모드에 따른 업로더 선택
+    val currentUploader = when (currentGameMode) {
+        GameMode.EASY -> uploader
+        GameMode.HARD -> uploader // TODO: websocketUploader로 변경
+        null -> uploader // 기본값
+        else -> uploader // 기본값
+    }
 
     // 곡 선택 및 게임 초기화
     LaunchedEffect(songId) {
@@ -282,7 +333,12 @@ fun GamePlayScreen(
                     Log.d("GamePlayScreen", "✅ 채보 데이터 로드 성공, 게임 시작")
                 }
 
-                vm.startGame(songId, totalWords = sections.size)
+                // ExoPlayer의 실제 위치를 사용하도록 수정
+                val actualPlayerPositionMs: () -> Long = { 
+                    val position = player.currentPosition
+                    if (position == C.TIME_UNSET) 0L else position
+                }
+                vm.startGame(songId, totalWords = sections.size, mode = gameMode, playerPositionMs = actualPlayerPositionMs)
             } ?: Log.e("GamePlayScreen", "GamePlayViewModel이 null입니다!")
         } else {
             Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")
@@ -348,12 +404,15 @@ fun GamePlayScreen(
         if (t.isPlaying) logFirstTickErrorIfNeeded(t)
     }
 
-    // 현재 시간(초)
-    val gameTime = (tick?.positionMs ?: 0L) / 1000f
+    // 현재 시간(초) - ExoPlayer의 실제 재생 위치 사용 (더 정확한 계산)
+    val gameTime = remember(player.currentPosition) {
+        val positionMs = player.currentPosition
+        if (positionMs == C.TIME_UNSET) 0f else (positionMs / 1000f).coerceAtLeast(0f)
+    }
     
     // 디버깅: tick 상태 로그
     LaunchedEffect(tick) {
-        Log.d("GamePlayScreen", "Tick 상태: positionMs=${tick?.positionMs}, isPlaying=${tick?.isPlaying}, gameTime=${gameTime}s")
+        Log.d("GamePlayScreen", "Tick 상태: positionMs=${tick?.positionMs}, isPlaying=${tick?.isPlaying}, gameTime=${gameTime}s, playerPosition=${player.currentPosition}ms")
     }
     
     // 수동 테스트 코드 제거됨 - ExoPlayer가 정상 작동함
@@ -372,22 +431,11 @@ fun GamePlayScreen(
             val actionEndTime = (parseTimeToSeconds(correctInfo.actionEndedAt) * 1000).toLong()
 
             if (currentMs in actionStartTime until (actionStartTime + 100)) {
-                uploader.onWord(
-                    actionStartMs = actionStartTime,
-                    actionEndMs = actionEndTime,
-                    segment = currentSection.id.toInt(),
-                    correctStartedIndex = correctInfo.correctStartedIndex,
-                    correctEndedIndex = correctInfo.correctEndedIndex,
-                    musicId = songId.toInt()
-                )
-                
                 // 수어 타이밍 시작 시 버퍼 상태 로그
                 Log.d("GamePlayScreen", "수어 타이밍 시작: segment=${currentSection.id}, range=${correctInfo.correctStartedIndex}~${correctInfo.correctEndedIndex}")
                 buffer.logBufferDetails()
             }
             if (currentMs in actionEndTime until (actionEndTime + 100)) {
-                uploader.onActionEnd()
-                
                 // 수어 타이밍 종료 시 버퍼 상태 로그
                 Log.d("GamePlayScreen", "수어 타이밍 종료: ${currentSection.text}")
                 Log.d("GamePlayScreen", "버퍼 상태: ${buffer.getBufferInfo()}")
@@ -395,32 +443,34 @@ fun GamePlayScreen(
         }
     }
 
-    // 진행/완료 체크 - 곡의 실제 총 길이 사용 (전주 + 가사 + 후주 포함)
-    val totalTime = remember(currentSong) {
-        // 곡 정보의 durationText 사용 (전주부터 후주까지 전체 곡 길이)
-        currentSong?.durationText?.let {
-            try {
-                val parts = it.split(":")
-                val calculatedTime = when (parts.size) {
-                    2 -> {
-                        // MM:SS 형식
-                        (parts[0].toInt() * 60 + parts[1].toInt()).toFloat()
+    // 진행/완료 체크 - ExoPlayer의 실제 곡 길이 사용
+    val totalTime = remember(currentSong, player) {
+        // ExoPlayer에서 실제 곡 길이 가져오기
+        val durationMs = player.duration
+        if (durationMs != C.TIME_UNSET && durationMs > 0) {
+            val durationSeconds = durationMs / 1000f
+            Log.d("GamePlayScreen", "ExoPlayer 실제 곡 길이: ${durationSeconds}s (${durationMs}ms)")
+            durationSeconds
+        } else {
+            // ExoPlayer 길이를 못 가져온 경우 곡 정보 사용
+            currentSong?.durationText?.let {
+                try {
+                    val parts = it.split(":")
+                    val calculatedTime = when (parts.size) {
+                        2 -> (parts[0].toInt() * 60 + parts[1].toInt()).toFloat()
+                        3 -> (parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()).toFloat()
+                        else -> 200f
                     }
-                    3 -> {
-                        // HH:MM:SS 형식
-                        (parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()).toFloat()
-                    }
-                    else -> 200f // 기본값
+                    Log.d("GamePlayScreen", "곡 정보 기반 총 시간: ${calculatedTime}s (durationText: $it)")
+                    calculatedTime
+                } catch (_: Exception) { 
+                    Log.d("GamePlayScreen", "곡 정보 파싱 실패, 기본값 사용: 200s")
+                    200f 
                 }
-                Log.d("GamePlayScreen", "곡 전체 길이 기반 총 시간: ${calculatedTime}s (durationText: $it)")
-                calculatedTime
-            } catch (_: Exception) { 
-                Log.d("GamePlayScreen", "곡 정보 파싱 실패, 기본값 사용: 200s")
-                200f 
+            } ?: run {
+                Log.d("GamePlayScreen", "곡 정보 없음, 기본값 사용: 200s")
+                200f
             }
-        } ?: run {
-            Log.d("GamePlayScreen", "곡 정보 없음, 기본값 사용: 200s")
-            200f
         }
     }
 
@@ -434,10 +484,15 @@ fun GamePlayScreen(
         // 디버깅 로그 추가
         Log.d("GamePlayScreen", "게임 시간 체크: gameTime=${gameTime}s, totalTime=${totalTime}s")
         
-        // 게임 완료 조건: 곡이 완전히 종료된 후 (전주 + 가사 + 후주 모두 포함)
-        if (gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f) {
-            Log.d("GamePlayScreen", "게임 완료 조건 만족: gameTime=${gameTime}s >= totalTime=${totalTime}s (곡 완전 종료)")
-            // GamePlayViewModel을 사용하여 게임 완료 처리 (새로운 API 사용)
+        // 게임 완료 조건: ExoPlayer 재생 완료를 우선 확인
+        val isPlayerFinished = player.playbackState == Player.STATE_ENDED
+        val isTimeFinished = gameTime >= totalTime && totalTime > 0 && gameTime > 1.0f
+        
+        if (isPlayerFinished) {
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
+            gamePlayViewModel?.finishGameAndPost()
+        } else if (isTimeFinished && !isPlayerFinished) {
+            Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
             gamePlayViewModel?.finishGameAndPost()
         }
     }
@@ -549,7 +604,8 @@ fun GamePlayScreen(
                         currentTime = songProgress.currentTime,
                         totalDuration = songProgress.totalTime,
                         isPaused = !(tick?.isPlaying ?: false),
-                        onTogglePause = onTogglePause
+                        onTogglePause = onTogglePause,
+                        gameMode = currentGameMode
                     )
                     
                     Spacer(Modifier.height(8.dp))
@@ -562,6 +618,7 @@ fun GamePlayScreen(
                     
                     Spacer(Modifier.height(16.dp))
                     
+
                     // 게임 상태 표시 (점수, 등급, 콤보) - Modern 컴포넌트 사용 (임시 주석 처리)
                     /*
                     GameScoreCard(
@@ -674,9 +731,9 @@ fun GamePlayScreen(
                                 Text(
                                     text = previousSection?.text ?: "",
                                     color = Color(0xFF9AA3B2),
-                                    fontSize = 15.sp,
+                                    fontSize = 17.sp, // 18.sp -> 17.sp로 감소
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = 2, // 여러 줄 표시 허용
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 
@@ -696,10 +753,10 @@ fun GamePlayScreen(
                                 
                                 Text(
                                     text = highlightedText,
-                                    fontSize = 20.sp,
+                                    fontSize = 23.sp, // 24.sp -> 23.sp로 감소
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = 3, // 여러 줄 표시 허용 (현재 가사는 더 중요하므로)
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 
@@ -709,9 +766,9 @@ fun GamePlayScreen(
                                 Text(
                                     text = nextSection?.text ?: "",
                                     color = Color(0xFF6B7280),
-                                    fontSize = 15.sp,
+                                    fontSize = 17.sp, // 18.sp -> 17.sp로 감소
                                     textAlign = TextAlign.Center,
-                                    maxLines = 1,
+                                    maxLines = 2, // 여러 줄 표시 허용
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
@@ -865,6 +922,16 @@ fun GamePlayScreen(
                     combo = gameUi.combo, 
                     modifier = Modifier.align(Alignment.Center)
                 )
+                
+                // 🔥 하드 모드일 때만 웹소켓 판정 결과 표시 (기존 GameJudgmentToast 활용)
+                if (gameMode == GameMode.HARD) {
+                    GameJudgmentToast(
+                        result = currentJudgment,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                
+                // 기존 HTTP 판정 결과도 유지 (Easy 모드용)
                 GameJudgmentToast(
                     result = judgmentResult, 
                     modifier = Modifier.align(Alignment.Center)

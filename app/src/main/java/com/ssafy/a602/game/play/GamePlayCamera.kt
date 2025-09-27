@@ -66,6 +66,9 @@ class GamePlayCamera(
             val handOptions = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(handBaseOptions)
                 .setNumHands(2) // ★ 두 손 감지
+                .setMinHandDetectionConfidence(0.3f) // 손 감지 최소 신뢰도 (낮춤)
+                .setMinHandPresenceConfidence(0.3f) // 손 존재 최소 신뢰도 (낮춤)
+                .setMinTrackingConfidence(0.3f) // 추적 최소 신뢰도 (낮춤)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result, image ->
                     val timestampMs = System.currentTimeMillis()
@@ -93,6 +96,7 @@ class GamePlayCamera(
         // Bitmap 크기 조정 (필요시)
         if (rgb == null || rgb!!.width != image.width || rgb!!.height != image.height) {
             rgb = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+            android.util.Log.d("GamePlayCamera", "Bitmap 크기 조정: ${image.width}x${image.height}")
         }
         
         // YUV → RGB 변환
@@ -102,6 +106,11 @@ class GamePlayCamera(
         val mpImage = BitmapImageBuilder(rgb!!).build()
         val timestampMs = TimeUnit.NANOSECONDS.toMillis(image.imageInfo.timestamp)
         
+        // 손 인식을 위한 이미지 품질 확인
+        if (timestampMs % 2000 < 33) { // 2초마다 한 번
+            android.util.Log.d("GamePlayCamera", "이미지 품질 확인: ${rgb!!.width}x${rgb!!.height}, 포맷: ${rgb!!.config}")
+        }
+        
         // MediaPipe 분석 실행
         poseLandmarker?.detectAsync(mpImage, timestampMs)
         handLandmarker?.detectAsync(mpImage, timestampMs)
@@ -109,6 +118,8 @@ class GamePlayCamera(
         // 디버그: 분석 실행 확인 (너무 많은 로그를 방지하기 위해 30프레임마다)
         if (timestampMs % 1000 < 33) { // 약 1초마다
             android.util.Log.d("GamePlayCamera", "MediaPipe 분석 실행 중... timestamp: $timestampMs")
+            android.util.Log.d("GamePlayCamera", "  - Pose Landmarker: ${if (poseLandmarker != null) "활성" else "비활성"}")
+            android.util.Log.d("GamePlayCamera", "  - Hand Landmarker: ${if (handLandmarker != null) "활성" else "비활성"}")
         }
         
         // image.close()는 CameraPreview에서 자동으로 호출됨

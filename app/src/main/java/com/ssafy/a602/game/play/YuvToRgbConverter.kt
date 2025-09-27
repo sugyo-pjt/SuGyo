@@ -52,7 +52,7 @@ class YuvToRgbConverter(private val context: Context) {
         val out = ByteArrayOutputStream()
         yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
         val imageBytes = out.toByteArray()
-
+        
         // Bitmap으로 변환
         val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
         

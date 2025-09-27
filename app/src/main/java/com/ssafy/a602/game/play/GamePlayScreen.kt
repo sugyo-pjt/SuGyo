@@ -756,10 +756,20 @@ fun GamePlayScreen(
                                 
                                 Spacer(Modifier.height(6.dp))
                                 
-                                // 현재 가사 (메인) - 수어 하이라이팅 적용
-                                val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value)
+                                // 현재 가사 (메인) - 하드모드에서는 하이라이팅 제거
                                 val highlightedText = if (currentSection != null) {
-                                    createHighlightedLyrics(currentSection.text, currentHighlights)
+                                    if (gameMode == GameMode.HARD) {
+                                        // 하드모드: 하이라이팅 없이 흰색으로만 표시
+                                        buildAnnotatedString {
+                                            withStyle(style = SpanStyle(color = Color.White)) {
+                                                append(currentSection.text)
+                                            }
+                                        }
+                                    } else {
+                                        // 이지모드: 기존 하이라이팅 유지
+                                        val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value)
+                                        createHighlightedLyrics(currentSection.text, currentHighlights)
+                                    }
                                 } else {
                                     buildAnnotatedString {
                                         withStyle(style = SpanStyle(color = Color.White)) {

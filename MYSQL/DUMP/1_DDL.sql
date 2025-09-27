@@ -1,3 +1,6 @@
+DROP DATABASE IF EXISTS sugyo;
+create database sugyo;
+use sugyo;
 CREATE TABLE users
 (
 	id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -127,6 +130,13 @@ CREATE TABLE `frame_coordinates` (
 	`frame_data`	JSON	NOT NULL
 );
 
+CREATE TABLE music_vocabulary(
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    music_id BIGINT NOT NULL,
+    vocabulary_id BIGINT NOT NULL,
+    CONSTRAINT fk_music_vocabulary_music FOREIGN KEY (music_id) REFERENCES music(id),
+    CONSTRAINT fk_music_vocabulary_vocabulary FOREIGN KEY (vocabulary_id) REFERENCES vocabulary(id)
+);
 
 
 INSERT INTO users (id,email,nickname,password,profile_image_url,created_at,updated_at,self_introduction) VALUES (

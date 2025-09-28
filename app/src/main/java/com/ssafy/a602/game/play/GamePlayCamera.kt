@@ -37,10 +37,10 @@ class GamePlayCamera(
         yuv2rgb = YuvToRgbConverter(context)
 
         try {
-            android.util.Log.d("GamePlayCamera", "MediaPipe 모델 초기화 시작 (점진적 로딩)")
+            android.util.Log.d("GamePlayCamera", "MediaPipe 모델 초기화 시작")
             
-            // 1단계: Pose Landmarker 먼저 초기화 (더 가벼움)
-            android.util.Log.d("GamePlayCamera", "1단계: Pose Landmarker 모델 로드 시작")
+            // Pose Landmarker 초기화
+            android.util.Log.d("GamePlayCamera", "Pose Landmarker 모델 로드: models/pose_landmarker_lite.task")
             val poseBaseOptions = BaseOptions.builder()
                 .setModelAssetPath("models/pose_landmarker_lite.task")
                 .build()
@@ -55,10 +55,10 @@ class GamePlayCamera(
                 .build()
             
             poseLandmarker = PoseLandmarker.createFromOptions(context, poseOptions)
-            android.util.Log.d("GamePlayCamera", "✅ 1단계: Pose Landmarker 초기화 완료")
+            android.util.Log.d("GamePlayCamera", "Pose Landmarker 초기화 완료")
 
-            // 2단계: Hand Landmarker 초기화 (더 무거움)
-            android.util.Log.d("GamePlayCamera", "2단계: Hand Landmarker 모델 로드 시작")
+            // Hand Landmarker 초기화
+            android.util.Log.d("GamePlayCamera", "Hand Landmarker 모델 로드: models/hand_landmarker.task")
             val handBaseOptions = BaseOptions.builder()
                 .setModelAssetPath("models/hand_landmarker.task")
                 .build()
@@ -78,8 +78,8 @@ class GamePlayCamera(
                 .build()
             
             handLandmarker = HandLandmarker.createFromOptions(context, handOptions)
-            android.util.Log.d("GamePlayCamera", "✅ 2단계: Hand Landmarker 초기화 완료")
-            android.util.Log.d("GamePlayCamera", "🎉 MediaPipe 모델 초기화 완료 (점진적 로딩)")
+            android.util.Log.d("GamePlayCamera", "Hand Landmarker 초기화 완료")
+            android.util.Log.d("GamePlayCamera", "MediaPipe 모델 초기화 완료")
         } catch (e: Exception) {
             android.util.Log.e("GamePlayCamera", "MediaPipe 초기화 실패: ${e.message}", e)
             throw RuntimeException("MediaPipe 초기화에 실패했습니다. pose_landmarker_lite.task와 hand_landmarker.task 파일을 확인해주세요.", e)

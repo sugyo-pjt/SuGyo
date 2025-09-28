@@ -52,40 +52,11 @@ import com.ssafy.a602.game.time.TimelineTick
 import com.ssafy.a602.game.time.TimelineViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import com.ssafy.a602.game.ui.modern.*
 import com.ssafy.a602.game.data.SongSection
 import com.ssafy.a602.game.api.dto.CorrectDto
 
 /* ========== Utility Functions ========== */
-
-/**
- * 게임 종료 시 부드러운 페이드아웃 처리
- */
-private suspend fun startGameEndFadeOut() {
-    try {
-        Log.d("GamePlayScreen", "게임 종료 페이드아웃 시작")
-        
-        // 1.5초에 걸쳐 볼륨을 점진적으로 줄임
-        val fadeDuration = 1500L // 1.5초
-        val steps = 15 // 15단계로 나누어 부드럽게 처리
-        val stepDuration = fadeDuration / steps
-        
-        for (i in 0..steps) {
-            val volume = (1.0f - (i.toFloat() / steps)).coerceAtLeast(0f)
-            // ExoPlayer 볼륨 조절 (API에 따라 다를 수 있음)
-            // player.volume = volume
-            Log.d("GamePlayScreen", "페이드아웃 단계 $i: 볼륨 $volume")
-            delay(stepDuration)
-        }
-        
-        // 최종적으로 정지
-        Log.d("GamePlayScreen", "페이드아웃 완료 - ExoPlayer 정지")
-    } catch (e: Exception) {
-        Log.e("GamePlayScreen", "페이드아웃 처리 중 오류: ${e.message}", e)
-    }
-}
 
 /**
  * 현재 시간에 해당하는 수어 하이라이팅 정보를 반환
@@ -270,14 +241,10 @@ fun GamePlayScreen(
         GamePlayCamera(resultHandler, uploader)
     }
 
-    // MediaPipe 초기화를 백그라운드에서 점진적으로 처리
     LaunchedEffect(Unit) {
         try {
-            Log.d("GamePlayScreen", "MediaPipe 초기화 시작 (백그라운드)")
-            // 백그라운드 스레드에서 초기화하여 UI 블로킹 방지
-            withContext(Dispatchers.IO) {
-                mediaPipeCamera.init(context)
-            }
+            Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
+            mediaPipeCamera.init(context)
             Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
         } catch (e: Exception) {
             Log.e("GamePlayScreen", "MediaPipe 초기화 실패: ${e.message}", e)
@@ -377,7 +344,7 @@ fun GamePlayScreen(
         }
     }
 
-    // ExoPlayer 준비/재생 (백그라운드에서 점진적 처리)
+    // ExoPlayer 준비/재생
     LaunchedEffect(player, songId, currentSong, isScreenVisible) {
         if (!isScreenVisible) {
             Log.d("GamePlayScreen", "화면이 보이지 않음, ExoPlayer 준비 건너뜀")
@@ -392,31 +359,25 @@ fun GamePlayScreen(
         Log.d("GamePlayScreen", "ExoPlayer 준비 시작: songId=$songId, currentSong=${song?.title}")
         
         if (player.mediaItemCount == 0) {
-            // 백그라운드에서 음악 URL 로드 및 MediaItem 설정
-            withContext(Dispatchers.IO) {
-                Log.d("GamePlayScreen", "음악 URL 로드 시작: ${song?.id}")
-                val audioUrl = GameDataManager.getMusicUrl(song?.id ?: "")
-                if (audioUrl.isNullOrEmpty()) {
-                    Log.e("GamePlayScreen", "음악 URL 로드 실패: ${song?.id}")
-                    return@withContext
-                }
-                Log.d("GamePlayScreen", "음악 URL 로드 성공: $audioUrl")
-                
-                // 메인 스레드에서 ExoPlayer 설정
-                withContext(Dispatchers.Main) {
-                    Log.d("GamePlayScreen", "ExoPlayer MediaItem 설정 시작")
-                    player.setMediaItem(MediaItem.fromUri(audioUrl))
-                    Log.d("GamePlayScreen", "ExoPlayer prepare() 호출")
-                    player.prepare()
-                    
-                    Log.d("GamePlayScreen", "ExoPlayer 재생 상태 확인: isPaused=$isPaused")
-                    if (!isPaused) {
-                        Log.d("GamePlayScreen", "ExoPlayer play() 호출")
-                        player.play()
-                    } else {
-                        Log.d("GamePlayScreen", "일시정지 상태이므로 재생하지 않음")
-                    }
-                }
+            Log.d("GamePlayScreen", "음악 URL 로드 시작: ${song?.id}")
+            val audioUrl = GameDataManager.getMusicUrl(song?.id ?: "")
+            if (audioUrl.isNullOrEmpty()) {
+                Log.e("GamePlayScreen", "음악 URL 로드 실패: ${song?.id}")
+                return@LaunchedEffect
+            }
+            Log.d("GamePlayScreen", "음악 URL 로드 성공: $audioUrl")
+            
+            Log.d("GamePlayScreen", "ExoPlayer MediaItem 설정 시작")
+            player.setMediaItem(MediaItem.fromUri(audioUrl))
+            Log.d("GamePlayScreen", "ExoPlayer prepare() 호출")
+            player.prepare()
+            
+            Log.d("GamePlayScreen", "ExoPlayer 재생 상태 확인: isPaused=$isPaused")
+            if (!isPaused) {
+                Log.d("GamePlayScreen", "ExoPlayer play() 호출")
+                player.play()
+            } else {
+                Log.d("GamePlayScreen", "일시정지 상태이므로 재생하지 않음")
             }
         } else {
             Log.d("GamePlayScreen", "ExoPlayer에 이미 MediaItem이 있음: ${player.mediaItemCount}개")
@@ -538,13 +499,15 @@ fun GamePlayScreen(
         
         if (isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
-            // 부드러운 페이드아웃으로 게임 종료
-            startGameEndFadeOut()
+            // ExoPlayer 정지
+            player.pause()
+            player.stop()
             gamePlayViewModel?.finishGameAndPost()
         } else if (isTimeFinished && !isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
-            // 부드러운 페이드아웃으로 게임 종료
-            startGameEndFadeOut()
+            // ExoPlayer 정지
+            player.pause()
+            player.stop()
             gamePlayViewModel?.finishGameAndPost()
         }
     }
@@ -552,9 +515,10 @@ fun GamePlayScreen(
     // 게임 완료 상태 감지 (새로운 API 사용)
     LaunchedEffect(completeUi.submitted) {
         if (completeUi.submitted) {
-            // 부드러운 페이드아웃으로 게임 종료
-            Log.d("GamePlayScreen", "게임 완료: 페이드아웃 시작")
-            startGameEndFadeOut()
+            // ExoPlayer 정지
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 정지")
+            player.pause()
+            player.stop()
             
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
             val gameResult = GameDataManager.createGameResult(

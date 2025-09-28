@@ -99,13 +99,25 @@ fun GameResultScreen(
                 SummaryPanel(result = result)
 
                 // 판정 분포
-                JudgementDistributionCard(
-                    perfect = result.correctCount,
-                    miss = result.missCount
-                )
+                if (result.gameMode == "HARD") {
+                    HardModeJudgementDistributionCard(
+                        perfect = result.perfectCount,
+                        good = result.goodCount,
+                        miss = result.missCount,
+                        total = result.totalCount,
+                        avgSimilarity = result.avgSimilarity
+                    )
+                } else {
+                    JudgementDistributionCard(
+                        perfect = result.correctCount,
+                        miss = result.missCount
+                    )
+                }
 
-                // 미스 단어 목록(보기 전용)
-                MissWordListCard(words = result.missWords)
+                // 미스 단어 목록(보기 전용) - EASY 모드에서만 표시
+                if (result.gameMode == "EASY") {
+                    MissWordListCard(words = result.missWords)
+                }
                 
                 // 액션 버튼들
                 ResultActions(
@@ -141,7 +153,7 @@ private fun SummaryPanel(result: GameResultUi) {
         "A" -> Color(0xFFFF3B30) // Red
         "B" -> Color(0xFF9C27B0) // Purple
         "C" -> Color(0xFF2196F3) // Blue
-        "F" -> Color(0xFF424242) // Dark Gray
+        "F" -> Color(0xFFFFFFFF) // White - 선명하게 표시
         else -> Color(0xFF9E9E9E)
     }
     // 내부 원(배경) 색
@@ -312,6 +324,150 @@ private fun JudgementDistributionCard(perfect: Int, miss: Int) {
     }
 }
 
+/**
+ * HARD 모드용 판정 분포 카드 (PERFECT, GOOD, MISS)
+ */
+@Composable
+private fun HardModeJudgementDistributionCard(
+    perfect: Int,
+    good: Int,
+    miss: Int,
+    total: Int,
+    avgSimilarity: Float
+) {
+    val totalCount = total.coerceAtLeast(1)
+    val perfectRatio = perfect / totalCount.toFloat()
+    val goodRatio = good / totalCount.toFloat()
+    val missRatio = miss / totalCount.toFloat()
+
+    val perfectPct = String.format("%.1f%%", perfectRatio * 100)
+    val goodPct = String.format("%.1f%%", goodRatio * 100)
+    val missPct = String.format("%.1f%%", missRatio * 100)
+
+    // HARD 모드 색상 팔레트
+    val perfectLabel = Color(0xFF7EB8FF)
+    val goodLabel = Color(0xFF4CAF50)
+    val missLabel = Color(0xFFFF7B7B)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground.copy(alpha = 0.8f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "판정 분포 (HARD 모드)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+
+            // 평균 유사도 표시
+            Text(
+                text = "평균 유사도: ${String.format("%.2f", avgSimilarity)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+
+            HardModeJudgmentRow(
+                label = "PERFECT",
+                count = perfect,
+                percentageText = perfectPct,
+                ratio = perfectRatio,
+                barColor = PerfectBar,
+                labelColor = perfectLabel
+            )
+
+            HardModeJudgmentRow(
+                label = "GOOD",
+                count = good,
+                percentageText = goodPct,
+                ratio = goodRatio,
+                barColor = Color(0xFF4CAF50),
+                labelColor = goodLabel
+            )
+
+            HardModeJudgmentRow(
+                label = "MISS",
+                count = miss,
+                percentageText = missPct,
+                ratio = missRatio,
+                barColor = MissBar,
+                labelColor = missLabel
+            )
+        }
+    }
+}
+
+
+/**
+ * HARD 모드용 판정 행 (개수 표시 없음, 퍼센트 괄호 없음)
+ */
+@Composable
+private fun HardModeJudgmentRow(
+    label: String,
+    count: Int,
+    percentageText: String,
+    ratio: Float,
+    barColor: Color,
+    labelColor: Color,
+    trackColor: Color = Color.White.copy(alpha = 0.10f)
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 좌측 레이블
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = labelColor,
+            modifier = Modifier.width(82.dp)
+        )
+
+        Spacer(Modifier.width(12.dp))
+
+        // 진행 바 (개수 표시 없음)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(24.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(trackColor)
+        ) {
+            if (count > 0) {
+                BoxWithConstraints(Modifier.matchParentSize()) {
+                    val filledWidth = constraints.maxWidth * ratio.coerceIn(0f, 1f)
+                    val filledWidthDp = with(LocalDensity.current) { filledWidth.toDp() }
+                    
+                    // 개수 표시 제거 - 진행 바만 표시
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(filledWidthDp)
+                            .background(barColor)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        // 우측 퍼센트 (괄호 없음)
+        Text(
+            text = percentageText.replace("(", "").replace(")", ""), // 괄호 제거
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.width(60.dp),
+            textAlign = TextAlign.End
+        )
+    }
+}
 
 @Composable
 private fun JudgmentRow(
@@ -353,29 +509,7 @@ private fun JudgmentRow(
                     .background(barColor)
             )
             
-            // 개수 표시 (채워진 구간의 끝에)
-            if (count > 0) {
-                BoxWithConstraints(Modifier.matchParentSize()) {
-                    val filledWidth = constraints.maxWidth * ratio.coerceIn(0f, 1f)
-                    val filledWidthDp = with(LocalDensity.current) { filledWidth.toDp() }
-                    
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .width(filledWidthDp)
-                    ) {
-                        Text(
-                            text = count.toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(horizontal = 6.dp)
-                        )
-                    }
-                }
-            }
+            // 개수 표시 제거 - 진행 바만 표시
         }
 
         Spacer(Modifier.width(12.dp))

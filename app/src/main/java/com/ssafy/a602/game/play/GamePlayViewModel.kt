@@ -5,15 +5,28 @@ import androidx.lifecycle.viewModelScope
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.GameMode
 import com.ssafy.a602.game.play.input.LM
-import com.ssafy.a602.game.play.dto.WebSocketJudgmentResult
-import com.ssafy.a602.game.play.net.WebSocketStreamer
+// 웹소켓 관련 import 제거됨
 import com.ssafy.a602.game.score.GameScoreCalculator
 import com.ssafy.a602.game.score.JudgmentType as ScoreJudgmentType
-import com.ssafy.a602.game.play.JudgmentType
 import com.ssafy.a602.game.play.collector.RhythmCollector
 import com.ssafy.a602.game.play.collector.MediaPipeToRhythmConverter
 import com.ssafy.a602.game.play.dto.*
 import com.ssafy.a602.game.play.service.RhythmUploadService
+import com.ssafy.a602.game.play.answer.AnswerLoader
+import com.ssafy.a602.game.play.answer.AnswerTimeline
+import com.ssafy.a602.game.play.clock.PlayerClock
+import com.ssafy.a602.game.play.judge.FeatureRingBuffer
+import com.ssafy.a602.game.play.judge.LocalJudgeEngine
+import com.ssafy.a602.game.play.judge.FrameFeature
+import com.ssafy.a602.game.play.judge.JsonSimilarityComparator
+import com.ssafy.a602.game.play.judge.MotionFrame
+import com.ssafy.a602.game.play.judge.Pose
+import com.ssafy.a602.game.play.judge.Coordinate
+import com.ssafy.a602.game.play.judge.BodyPart
+import com.ssafy.a602.game.api.RhythmResultApi
+import com.ssafy.a602.game.play.recorder.CoordinatesRecorder
+import com.ssafy.a602.game.play.converter.MediaPipeToVec4Converter
+import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +50,11 @@ data class GameUiState(
     val missCount: Int = 0,
     val missWords: List<String> = emptyList(),
     // 일시정지 상태 추가
-    val isPaused: Boolean = false
+    val isPaused: Boolean = false,
+    // 실시간 판정 표시
+    val currentGrade: String = "",
+    val lastJudgment: String = "",
+    val similarity: Float = 0f
 )
 
 data class CompleteUiState(
@@ -47,10 +64,26 @@ data class CompleteUiState(
     val isBestRecord: Boolean = false
 )
 
+data class GameStats(
+    var perfectCount: Int = 0,
+    var goodCount: Int = 0,
+    var missCount: Int = 0,
+    var totalCount: Int = 0,
+    var maxCombo: Int = 0,
+    var currentCombo: Int = 0,
+    var totalScore: Int = 0,
+    var avgSimilarity: Float = 0f,
+    // 실시간 판정 표시용
+    var lastGrade: String = "",
+    var lastJudgment: String = "",
+    var lastSimilarity: Float = 0f
+)
+
 @HiltViewModel
 class GamePlayViewModel @Inject constructor(
-    private val webSocketStreamer: WebSocketStreamer,
-    private val rhythmUploadService: RhythmUploadService
+    private val rhythmUploadService: RhythmUploadService,
+    private val rhythmResultApi: RhythmResultApi,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private lateinit var calc: GameScoreCalculator
@@ -76,6 +109,19 @@ class GamePlayViewModel @Inject constructor(
     
     // 🔥 하드 모드 리듬 수집기
     private var rhythmCollector: RhythmCollector? = null
+    
+    // 새로운 판정 시스템 컴포넌트
+    private var answerTimeline: AnswerTimeline? = null
+    private var playerClock: PlayerClock? = null
+    private var featureBuffer: FeatureRingBuffer? = null
+    private var localJudgeEngine: LocalJudgeEngine? = null
+    
+    // 🎯 좌표 수집기 (서버 전송용)
+    private var coordinatesRecorder: CoordinatesRecorder? = null
+    private var gameStartedAtMs: Long = 0L
+    
+    // 게임 통계
+    private var gameStats = GameStats()
 
     fun startGame(songId: String, totalWords: Int, mode: GameMode, playerPositionMs: () -> Long = { 0L }) {
         android.util.Log.d("GamePlayViewModel", "🎮 게임 시작: songId=$songId, mode=$mode, totalWords=$totalWords")
@@ -84,99 +130,125 @@ class GamePlayViewModel @Inject constructor(
         this.currentMusicId = songId.toLongOrNull() ?: -1L
         this.playerPositionProvider = playerPositionMs
         
-        // Easy 모드일 때만 프론트엔드 계산기 사용
-        if (mode == GameMode.EASY) {
-            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산기 초기화")
-            calc = GameScoreCalculator(songId = songId, totalWords = totalWords, baseScore = 100)
-        }
+        // 게임 통계 초기화
+        gameStats = GameStats()
         
-        // 🔥 하드 모드일 때 리듬 수집기 초기화
-        if (mode == GameMode.HARD) {
-            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기 초기화 시작")
+        // Easy 모드일 때 하드모드와 동일한 실시간 판정 시스템 초기화
+        if (mode == GameMode.EASY) {
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 실시간 판정 시스템 초기화")
+            
+            // 게임 시작 시간 기록
+            gameStartedAtMs = System.currentTimeMillis()
+            
+            // PlayerClock 초기화
+            playerClock = PlayerClock().apply {
+                setPlayerPositionProvider(playerPositionMs)
+                start()
+            }
+            
+            // FeatureRingBuffer 초기화
+            featureBuffer = FeatureRingBuffer()
+            
+            // LocalJudgeEngine 초기화
+            localJudgeEngine = LocalJudgeEngine()
+            
+            // 🎯 좌표 수집기 초기화 (서버 전송용)
+            coordinatesRecorder = CoordinatesRecorder(currentMusicId).apply {
+                startSession(0L) // 음악 재생 시작을 0으로 설정
+            }
+            
+            // AnswerTimeline 로드
+            viewModelScope.launch {
+                try {
+                    answerTimeline = AnswerLoader.load(context, currentMusicId)
+                    if (answerTimeline != null) {
+                        android.util.Log.d("GamePlayViewModel", "✅ Easy 모드: 정답 타임라인 로드 성공: ${answerTimeline!!.frames.size}개 프레임")
+                        startRealTimeLoop()
+                    } else {
+                        android.util.Log.e("GamePlayViewModel", "❌ Easy 모드: 정답 타임라인 로드 실패")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GamePlayViewModel", "❌ Easy 모드: 정답 타임라인 로드 오류", e)
+                }
+            }
+            
+            // 기존 리듬 수집기도 유지 (호환성)
             rhythmCollector = RhythmCollector(
                 musicId = currentMusicId.toInt(),
                 coroutineScope = viewModelScope
             )
             rhythmCollector?.startCollection()
-            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 수집기 초기화 완료")
             
-            // 🔥 게임 시작 시 PLAY 세그먼트 시작
             viewModelScope.launch {
                 rhythmCollector?.onTypeChanged(SegmentType.PLAY, 0L)
-                android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: PLAY 세그먼트 시작")
             }
+            
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 실시간 판정 시스템 초기화 완료")
+        }
+        
+        // 🔥 하드 모드일 때 새로운 판정 시스템 초기화
+        if (mode == GameMode.HARD) {
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 새로운 판정 시스템 초기화 시작")
+            
+            // 게임 시작 시간 기록
+            gameStartedAtMs = System.currentTimeMillis()
+            
+            // PlayerClock 초기화
+            playerClock = PlayerClock().apply {
+                setPlayerPositionProvider(playerPositionMs)
+                start()
+            }
+            
+            // FeatureRingBuffer 초기화
+            featureBuffer = FeatureRingBuffer()
+            
+            // LocalJudgeEngine 초기화
+            localJudgeEngine = LocalJudgeEngine()
+            
+            // 🎯 좌표 수집기 초기화 (서버 전송용)
+            coordinatesRecorder = CoordinatesRecorder(currentMusicId).apply {
+                startSession(0L) // 음악 재생 시작을 0으로 설정
+            }
+            
+            // AnswerTimeline 로드
+            viewModelScope.launch {
+                try {
+                    answerTimeline = AnswerLoader.load(context, currentMusicId)
+                    if (answerTimeline != null) {
+                        android.util.Log.d("GamePlayViewModel", "✅ 정답 타임라인 로드 성공: ${answerTimeline!!.frames.size}개 프레임")
+                        startRealTimeLoop()
+                    } else {
+                        android.util.Log.e("GamePlayViewModel", "❌ 정답 타임라인 로드 실패")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GamePlayViewModel", "❌ 정답 타임라인 로드 오류", e)
+                }
+            }
+            
+            // 기존 리듬 수집기도 유지 (호환성)
+            rhythmCollector = RhythmCollector(
+                musicId = currentMusicId.toInt(),
+                coroutineScope = viewModelScope
+            )
+            rhythmCollector?.startCollection()
+            
+            viewModelScope.launch {
+                rhythmCollector?.onTypeChanged(SegmentType.PLAY, 0L)
+            }
+            
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 새로운 판정 시스템 초기화 완료")
         }
         
         _ui.value = GameUiState()
         _complete.value = CompleteUiState()
-        
-        // 하드 모드일 때만 웹소켓 연결
-        if (mode == GameMode.HARD) {
-            connectWebSocket()
-        }
     }
     
-    private fun connectWebSocket() {
-        if (currentMusicId <= 0) {
-            android.util.Log.e("GamePlayViewModel", "❌ invalid musicId=$currentMusicId (songId=$songId)")
-            webSocketStreamer.setHttpMode(true)
-            return
-        }
-        tryWsWithCandidates(currentMusicId)
-    }
-    
-    private fun tryWsWithCandidates(musicId: Long) {
-        val base = "wss://j13a602.p.ssafy.io"
-        val url = "$base/play/hard/$musicId"
-        webSocketStreamer.connect(url, playerPositionProvider ?: { 0L }) { judgment ->
-            // 웹소켓에서 받은 판정 결과를 기존 JudgmentResult로 변환
-            val judgmentResult = JudgmentResult(
-                type = when (judgment.judgment) {
-                    "PERFECT" -> JudgmentType.PERFECT
-                    "GREAT" -> JudgmentType.GREAT
-                    "GOOD" -> JudgmentType.GOOD
-                    "MISS" -> JudgmentType.MISS
-                    else -> JudgmentType.MISS
-                },
-                accuracy = judgment.accuracy ?: when (judgment.judgment) {
-                    "PERFECT" -> 0.98f
-                    "GREAT" -> 0.85f
-                    "GOOD" -> 0.70f
-                    "MISS" -> 0.0f
-                    else -> 0.0f
-                },
-                score = judgment.score,
-                combo = judgment.combo,
-                timestamp = System.currentTimeMillis(),
-                word = judgment.word,
-                isWebSocketResult = true
-            )
-            
-            // UI에 판정 결과 표시
-            _currentJudgment.value = judgmentResult
-            
-            // 🔥 Hard 모드: 서버에서 계산된 모든 결과를 그대로 사용
-            _ui.value = _ui.value.copy(
-                score = judgment.totalScore ?: _ui.value.score,
-                combo = judgment.combo,
-                maxCombo = judgment.maxCombo ?: _ui.value.maxCombo,
-                percent = ((judgment.accuracy ?: 0f) * 100).toInt(),
-                grade = judgment.grade ?: _ui.value.grade
-            )
-            
-            // 3초 후 판정 결과 숨기기
-            viewModelScope.launch {
-                kotlinx.coroutines.delay(3000)
-                _currentJudgment.value = null
-            }
-        }
-        
-        // 연결 성립 후에만 전송 시작
-        webSocketStreamer.startStreaming()
-    }
+    // 웹소켓 관련 메서드들 제거됨 - 로컬 판정으로 대체
 
-    // 🔥 Easy 모드: 프론트엔드에서 계산
+    // 🔥 Easy 모드: 프론트엔드에서 계산 (주석처리 - 하드모드와 동일한 로직 사용)
     fun onServerVerdict(isPerfect: Boolean, word: String) {
+        // 이지모드 판정 로직 주석처리 - 하드모드와 동일한 실시간 판정 시스템 사용
+        /*
         // Easy 모드일 때만 프론트엔드 계산기 사용
         if (gameMode == GameMode.EASY) {
             val type = if (isPerfect) ScoreJudgmentType.PERFECT else ScoreJudgmentType.MISS
@@ -195,26 +267,70 @@ class GamePlayViewModel @Inject constructor(
             )
         }
         // Hard 모드일 때는 서버에서 계산된 결과를 사용하므로 여기서는 아무것도 하지 않음
+        */
     }
     
-    // MediaPipe 결과를 웹소켓으로 전송 (하드 모드일 때만)
+    // MediaPipe 결과를 모드별로 처리
     fun onLandmarks(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
         android.util.Log.d("GamePlayViewModel", "🎯 onLandmarks 호출: gameMode=$gameMode, pose=${pose.size}, left=${left.size}, right=${right.size}")
         
-        if (gameMode == GameMode.HARD) {
+        // 데이터 유효성 검사
+        if (pose.isEmpty() && left.isEmpty() && right.isEmpty()) {
+            android.util.Log.w("GamePlayViewModel", "⚠️ 모든 MediaPipe 데이터가 비어있음!")
+            return
+        }
+        
+        if (gameMode == GameMode.EASY) {
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: MediaPipe 데이터 수신 - pose=${pose.size}, left=${left.size}, right=${right.size}")
+            
+            // Easy 모드: 하드모드와 동일한 실시간 판정 시스템 사용
+            val currentTime = playerClock?.nowMs() ?: 0L
+            featureBuffer?.addFrame(pose, left, right, currentTime)
+            
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프레임 추가 완료 - currentTime=$currentTime, featureBuffer=${featureBuffer != null}")
+            
+            // 🎯 좌표 수집기에 데이터 추가 (서버 전송용)
+            val musicTime = playerClock?.nowMs() ?: 0L // 음악 재생 시간 사용
+            val (body, leftHand, rightHand) = MediaPipeToVec4Converter.convertForServer(
+                bodyLm = pose,
+                leftLm = left,
+                rightLm = right,
+                mirrorX = true,
+                swapHands = false
+            )
+            coordinatesRecorder?.appendFrame(musicTime, body, leftHand, rightHand)
+            
+            // 기존 리듬 수집기도 유지 (호환성)
+            val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
+            viewModelScope.launch {
+                val positionMs = withContext(Dispatchers.Main) {
+                    playerPositionProvider?.invoke() ?: 0L
+                }
+                android.util.Log.v("GamePlayViewModel", "📊 Easy 모드: 리듬 수집기에 프레임 전달 - positionMs=$positionMs, poses=${poses.size}")
+                rhythmCollector?.addFrameToBuffer(poses, positionMs)
+            }
+        } else if (gameMode == GameMode.HARD) {
             android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: MediaPipe 데이터 수신 - pose=${pose.size}, left=${left.size}, right=${right.size}")
             
-            // 데이터 유효성 검사
-            if (pose.isEmpty() && left.isEmpty() && right.isEmpty()) {
-                android.util.Log.w("GamePlayViewModel", "⚠️ 모든 MediaPipe 데이터가 비어있음!")
-                return
-            }
+            // Hard 모드: 새로운 판정 시스템에 프레임 추가
+            val currentTime = playerClock?.nowMs() ?: 0L
+            featureBuffer?.addFrame(pose, left, right, currentTime)
             
-            webSocketStreamer.addFrame(pose, left, right)
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 프레임 추가 완료 - currentTime=$currentTime, featureBuffer=${featureBuffer != null}")
             
-            // 🔥 리듬 수집기에도 프레임 데이터 전달 (모든 프레임 즉시 수집)
+            // 🎯 좌표 수집기에 데이터 추가 (서버 전송용)
+            val musicTime = playerClock?.nowMs() ?: 0L // 음악 재생 시간 사용
+            val (body, leftHand, rightHand) = MediaPipeToVec4Converter.convertForServer(
+                bodyLm = pose,
+                leftLm = left,
+                rightLm = right,
+                mirrorX = true,
+                swapHands = false
+            )
+            coordinatesRecorder?.appendFrame(musicTime, body, leftHand, rightHand)
+            
+            // 기존 리듬 수집기도 유지 (호환성)
             val poses = MediaPipeToRhythmConverter.convertToPoses(pose, left, right)
-            // ExoPlayer는 메인 스레드에서만 접근 가능하므로 withContext 사용
             viewModelScope.launch {
                 val positionMs = withContext(Dispatchers.Main) {
                     playerPositionProvider?.invoke() ?: 0L
@@ -229,9 +345,9 @@ class GamePlayViewModel @Inject constructor(
         val currentPaused = _ui.value.isPaused
         _ui.value = _ui.value.copy(isPaused = !currentPaused)
         
-        // 하드 모드일 때 웹소켓에 일시정지 상태 전송
+        // 하드 모드일 때 로컬 일시정지 처리
         if (gameMode == GameMode.HARD) {
-            webSocketStreamer.sendPauseResume(!currentPaused)
+            // TODO: 로컬 일시정지 처리 로직
             
             // 🔥 리듬 수집기에 세그먼트 타입 변경 알림
             val positionMs = playerPositionProvider?.invoke() ?: 0L
@@ -242,34 +358,10 @@ class GamePlayViewModel @Inject constructor(
         }
     }
     
-    // 🔥 게임 완료 처리도 모드별로 다르게
+    // 🔥 게임 완료 처리도 모드별로 다르게 (이지모드도 하드모드와 동일한 로직 사용)
     fun finishGame() {
-        if (gameMode == GameMode.EASY) {
-            // Easy 모드: 프론트엔드 계산 결과 사용
-            val req = calc.getFinal()
-            viewModelScope.launch {
-                _ui.value = _ui.value.copy(loading = true, error = null)
-                val result = GameDataManager.submitGameResult(req)
-                _ui.value = result.fold(
-                    onSuccess = { response ->
-                        _ui.value.copy(
-                            loading = false,
-                            submitted = true,
-                            personalBest = response.isPersonalBest
-                        )
-                    },
-                    onFailure = { e ->
-                        _ui.value.copy(
-                            loading = false,
-                            error = (e.message ?: "결과 전송 실패")
-                        )
-                    }
-                )
-            }
-        } else {
-            // Hard 모드: 서버에서 계산된 결과를 사용 (웹소켓으로 받은 최종 결과)
-            // 서버에서 게임 완료 신호를 받으면 자동으로 처리됨
-        }
+        // 이지모드도 하드모드와 동일한 실시간 판정 시스템 사용
+        // 서버에서 게임 완료 신호를 받으면 자동으로 처리됨
     }
 
     fun finishGameAndPost() {
@@ -282,97 +374,372 @@ class GamePlayViewModel @Inject constructor(
             return
         }
         
+        // 게임 완료 상태로 변경하여 ExoPlayer 정지 신호
+        _ui.value = _ui.value.copy(isPaused = true)
+        
         if (gameMode == GameMode.EASY) {
-            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 프론트엔드 계산 결과 사용")
-            // Easy 모드: 프론트엔드 계산 결과 사용
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 좌표 기반 결과 전송")
+            // Easy 모드: 하드모드와 동일한 좌표 기반 결과 전송 사용
             isUploading = true
-            val final = calc.getFinal() // 여기서 totalScore만 사용
             viewModelScope.launch {
-                _complete.value = _complete.value.copy(submitting = true, submitError = null)
-                val result = GameDataManager.completeGame(currentMusicId, final.totalScore)
-                _complete.value = result.fold(
-                    onSuccess = { response ->
-                        _complete.value.copy(
-                            submitting = false,
-                            submitted = true,
-                            isBestRecord = response.isBestRecord
-                        )
-                    },
-                    onFailure = { e ->
-                        // API 호출 실패해도 게임 결과 화면으로 넘어가도록 submitted = true로 설정
-                        _complete.value.copy(
-                            submitting = false,
-                            submitted = true, // 실패해도 결과 화면으로 이동
-                            submitError = e.message ?: "전송 실패"
-                        )
-                    }
-                )
-                isUploading = false
-            }
-        } else {
-            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 및 업로드 시작")
-            // 🔥 Hard 모드: 리듬 데이터 수집 완료 후 업로드
-            isUploading = true
-            // viewModelScope 대신 GlobalScope 사용 (ViewModel이 이미 정리된 상태)
-            kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 _complete.value = _complete.value.copy(submitting = true, submitError = null)
                 
                 try {
-                    // 리듬 데이터 수집 완료
-                    android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 완료 요청")
-                    val rhythmData = rhythmCollector?.onSongEnd()
-                    android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 결과 - ${if (rhythmData != null) "성공" else "실패"}")
+                    // 좌표 기반 결과 전송
+                    finishAndSendResult()
                     
-                    if (rhythmData != null) {
-                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 시작 - musicId=${rhythmData.musicId}, segments=${rhythmData.allFrames.size}")
-                        // 리듬 데이터 업로드 API 호출 (토큰 자동 주입)
-                        val uploadResult = rhythmUploadService.uploadRhythmDataWithRetry(
-                            request = rhythmData
-                        )
-                        
-                        android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 업로드 결과 - ${if (uploadResult.isSuccess) "성공" else "실패"}")
-                        if (uploadResult.isSuccess) {
-                            _complete.value = _complete.value.copy(
-                                submitting = false,
-                                submitted = true,
-                                isBestRecord = false // TODO: 서버 응답에서 확인
-                            )
-                        } else {
-                            _complete.value = _complete.value.copy(
-                                submitting = false,
-                                submitted = true,
-                                submitError = uploadResult.exceptionOrNull()?.message ?: "리듬 데이터 업로드 실패"
-                            )
-                        }
-                        isUploading = false
-                    } else {
-                        android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 리듬 데이터 수집 실패")
-                        _complete.value = _complete.value.copy(
-                            submitting = false,
-                            submitted = true,
-                            submitError = "리듬 데이터 수집 실패"
-                        )
-                        isUploading = false
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 예외 발생", e)
                     _complete.value = _complete.value.copy(
                         submitting = false,
                         submitted = true,
-                        submitError = e.message ?: "리듬 데이터 업로드 실패"
+                        isBestRecord = false // TODO: 서버 응답에서 확인
                     )
+                } catch (e: Exception) {
+                    android.util.Log.e("GamePlayViewModel", "📊 Easy 모드: 결과 전송 중 오류 발생", e)
+                    _complete.value = _complete.value.copy(
+                        submitting = false,
+                        submitted = true,
+                        submitError = e.message ?: "결과 전송 중 오류 발생"
+                    )
+                } finally {
+                    isUploading = false
+                }
+            }
+        } else {
+            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 좌표 기반 결과 전송")
+            // 🔥 Hard 모드: 좌표 기반 결과 전송 사용
+            isUploading = true
+            viewModelScope.launch {
+                _complete.value = _complete.value.copy(submitting = true, submitError = null)
+                
+                try {
+                    // 좌표 기반 결과 전송
+                    finishAndSendResult()
+                    
+                    _complete.value = _complete.value.copy(
+                        submitting = false,
+                        submitted = true,
+                        isBestRecord = false // TODO: 서버 응답에서 확인
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 결과 전송 중 오류 발생", e)
+                    _complete.value = _complete.value.copy(
+                        submitting = false,
+                        submitted = true,
+                        submitError = e.message ?: "결과 전송 중 오류 발생"
+                    )
+                } finally {
                     isUploading = false
                 }
             }
         }
     }
     
+    /**
+     * 실시간 판정 루프 시작 (16ms 간격)
+     */
+    private fun startRealTimeLoop() {
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                while (true) {
+                    tick()
+                    kotlinx.coroutines.delay(16) // 60Hz
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                android.util.Log.d("GamePlayViewModel", "실시간 루프 취소됨")
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("GamePlayViewModel", "실시간 루프 오류", e)
+            }
+        }
+    }
+    
+    /**
+     * 실시간 판정 틱
+     */
+    private fun tick() {
+        val currentTime = playerClock?.nowMs() ?: return
+        val answerFrame = answerTimeline?.frameAt(currentTime) ?: return
+        val userFrame = featureBuffer?.getLatestOrNearest(currentTime) ?: return
+        val judge = localJudgeEngine ?: return
+        
+        android.util.Log.d("GamePlayViewModel", "🎯 tick 실행: currentTime=$currentTime, answerFrame=$answerFrame, userFrame=$userFrame")
+        
+        // 새로운 판정 시스템 사용
+        val userFrames = convertToMotionFrames(userFrame)
+        val answerFrames = convertAnswerFrameToMotionFrames(answerFrame)
+        
+        // JsonSimilarityComparator를 사용한 유사도 계산
+        val similarity = JsonSimilarityComparator.calculateMotionSimilarity(userFrames, answerFrames, 640, 480)
+        
+        // LocalJudgeEngine을 사용한 판정
+        val judgment = judge.judgeByRatio(similarity)
+        val grade = judgment.name
+        
+        android.util.Log.d("GamePlayViewModel", "🎯 판정 결과: similarity=$similarity, grade=$grade")
+        
+        // 통계 업데이트
+        updateGameStats(grade, similarity)
+        
+        
+        // UI 업데이트
+        updateUI()
+    }
+    
+    /**
+     * FrameFeature를 MotionFrame으로 변환
+     */
+    private fun convertToMotionFrames(userFrame: FrameFeature): List<MotionFrame> {
+        val poses = mutableListOf<Pose>()
+        
+        // BODY 포즈 추가
+        val bodyCoordinates = convertFloatArrayToCoordinates(userFrame.pose)
+        poses.add(Pose(BodyPart.BODY, bodyCoordinates))
+        
+        // LEFT_HAND 포즈 추가
+        val leftCoordinates = convertFloatArrayToCoordinates(userFrame.left)
+        poses.add(Pose(BodyPart.LEFT_HAND, leftCoordinates))
+        
+        // RIGHT_HAND 포즈 추가
+        val rightCoordinates = convertFloatArrayToCoordinates(userFrame.right)
+        poses.add(Pose(BodyPart.RIGHT_HAND, rightCoordinates))
+        
+        return listOf(MotionFrame(0, poses))
+    }
+    
+    /**
+     * AnswerFrame을 MotionFrame으로 변환
+     */
+    private fun convertAnswerFrameToMotionFrames(answerFrame: com.ssafy.a602.game.play.answer.AnswerFrame): List<MotionFrame> {
+        val poses = mutableListOf<Pose>()
+        
+        // BODY 포즈 추가
+        val bodyCoordinates = convertFloatArrayToCoordinates(answerFrame.pose)
+        poses.add(Pose(BodyPart.BODY, bodyCoordinates))
+        
+        // LEFT_HAND 포즈 추가
+        val leftCoordinates = convertFloatArrayToCoordinates(answerFrame.left)
+        poses.add(Pose(BodyPart.LEFT_HAND, leftCoordinates))
+        
+        // RIGHT_HAND 포즈 추가
+        val rightCoordinates = convertFloatArrayToCoordinates(answerFrame.right)
+        poses.add(Pose(BodyPart.RIGHT_HAND, rightCoordinates))
+        
+        return listOf(MotionFrame(0, poses))
+    }
+    
+    /**
+     * FloatArray를 Coordinate 리스트로 변환
+     */
+    private fun convertFloatArrayToCoordinates(floatArray: FloatArray): List<Coordinate> {
+        val coordinates = mutableListOf<Coordinate>()
+        
+        // FloatArray를 4개씩 묶어서 Coordinate로 변환 (x, y, z, w)
+        for (i in floatArray.indices step 4) {
+            val x = if (i < floatArray.size) floatArray[i].toDouble() else 0.0
+            val y = if (i + 1 < floatArray.size) floatArray[i + 1].toDouble() else 0.0
+            val z = if (i + 2 < floatArray.size) floatArray[i + 2].toDouble() else 0.0
+            val w = if (i + 3 < floatArray.size) floatArray[i + 3].toDouble() else 1.0
+            
+            coordinates.add(Coordinate(x, y, z, w))
+        }
+        
+        return coordinates
+    }
+    
+    /**
+     * GameSessionContext 생성 (점수 계산용)
+     */
+    private fun createGameSessionContext(): com.ssafy.a602.game.play.judge.GameSessionContext {
+        return com.ssafy.a602.game.play.judge.GameSessionContext(
+            userId = "current_user",
+            musicId = currentMusicId,
+            webSocketSessionId = "local_session",
+            lastNoteTimestamp = 0f
+        ).apply {
+            // 현재 콤보 설정
+            combo.set(gameStats.currentCombo)
+        }
+    }
+    
+    /**
+     * 게임 통계 업데이트
+     */
+    private fun updateGameStats(grade: String, similarity: Float) {
+        gameStats.totalCount++
+        gameStats.avgSimilarity = (gameStats.avgSimilarity * (gameStats.totalCount - 1) + similarity) / gameStats.totalCount
+        
+        // 실시간 판정 저장
+        gameStats.lastGrade = grade
+        gameStats.lastJudgment = grade
+        gameStats.lastSimilarity = similarity
+        
+        when (grade) {
+            "PERFECT" -> {
+                gameStats.perfectCount++
+                gameStats.currentCombo++
+                // LocalJudgeEngine을 사용한 점수 계산
+                val judgment = com.ssafy.a602.game.play.judge.Judgment.PERFECT
+                val points = localJudgeEngine?.calculatePoints(judgment, createGameSessionContext()) ?: 100
+                gameStats.totalScore += points
+            }
+            "GOOD" -> {
+                gameStats.goodCount++
+                gameStats.currentCombo++
+                // LocalJudgeEngine을 사용한 점수 계산
+                val judgment = com.ssafy.a602.game.play.judge.Judgment.GOOD
+                val points = localJudgeEngine?.calculatePoints(judgment, createGameSessionContext()) ?: 70
+                gameStats.totalScore += points
+            }
+            "MISS" -> {
+                gameStats.missCount++
+                gameStats.currentCombo = 0
+            }
+        }
+        
+        gameStats.maxCombo = maxOf(gameStats.maxCombo, gameStats.currentCombo)
+        
+        android.util.Log.d("GamePlayViewModel", "🎯 UI 업데이트: grade=$grade, similarity=$similarity, combo=${gameStats.currentCombo}")
+    }
+    
+    
+    /**
+     * UI 상태 업데이트
+     */
+    private fun updateUI() {
+        val currentState = _ui.value
+        _ui.value = currentState.copy(
+            score = gameStats.totalScore,
+            combo = gameStats.currentCombo,
+            maxCombo = gameStats.maxCombo,
+            correctCount = gameStats.perfectCount + gameStats.goodCount,
+            missCount = gameStats.missCount,
+            // 실시간 판정 표시
+            currentGrade = gameStats.lastGrade,
+            lastJudgment = gameStats.lastJudgment,
+            similarity = gameStats.lastSimilarity
+        )
+    }
+    
+    /**
+     * HARD 모드 결과 생성
+     */
+    private fun createHardModeResult() {
+        try {
+            // 기존 SimilarityJudge 로직을 사용한 등급 계산
+            val accuracy = ((gameStats.perfectCount + gameStats.goodCount) * 100 / gameStats.totalCount.coerceAtLeast(1))
+            val grade = calculateGradeFromAccuracy(accuracy)
+            
+            val result = com.ssafy.a602.game.result.GameResultUi(
+                songTitle = "노래 제목", // TODO: 실제 노래 제목으로 교체
+                score = gameStats.totalScore,
+                accuracyPercent = accuracy,
+                grade = grade,
+                maxCombo = gameStats.maxCombo,
+                correctCount = gameStats.perfectCount + gameStats.goodCount,
+                missCount = gameStats.missCount,
+                comboMultiplier = 1.0,
+                isNewRecord = false,
+                missWords = emptyList(), // HARD 모드에서는 단어 목록 없음
+                accepted = true,
+                isPersonalBest = false,
+                rankUpdated = false,
+                serverScoreEcho = 0, // TODO: 서버 응답에서 받아오도록 수정
+                // HARD 모드용 추가 필드들
+                perfectCount = gameStats.perfectCount,
+                goodCount = gameStats.goodCount,
+                totalCount = gameStats.totalCount,
+                avgSimilarity = gameStats.avgSimilarity,
+                gameMode = "HARD"
+            )
+            
+            android.util.Log.d("GamePlayViewModel", "🎯 HARD 모드 결과 생성 완료: score=${result.score}, perfect=${result.perfectCount}, good=${result.goodCount}, miss=${result.missCount}")
+            
+            // TODO: 결과 화면으로 네비게이션
+            // navController.navigate("game_result/${result}")
+            
+        } catch (e: Exception) {
+            android.util.Log.e("GamePlayViewModel", "🎯 HARD 모드 결과 생성 실패", e)
+        }
+    }
+    
+    /**
+     * 게임 종료 시 서버로 결과 전송
+     */
+    fun finishAndSendResult() = viewModelScope.launch {
+        if (coordinatesRecorder == null) {
+            android.util.Log.w("GamePlayViewModel", "좌표 수집기가 없음")
+            return@launch
+        }
+        
+        try {
+            android.util.Log.d("GamePlayViewModel", "🎯 게임 결과 서버 전송 시작")
+            
+            // 좌표 데이터 DTO 생성
+            val coordinatesDto = coordinatesRecorder!!.buildDto()
+            
+            // 결과 요청 생성
+            val request = RhythmResultRequest(
+                clientCoordinates = listOf(coordinatesDto),
+                clientCalculateScore = gameStats.totalScore
+            )
+            
+            // JSON 구조 로그 출력
+            android.util.Log.d("GamePlayViewModel", "📤 JSON 구조 로그:")
+            android.util.Log.d("GamePlayViewModel", "  - musicId: ${coordinatesDto.musicId}")
+            android.util.Log.d("GamePlayViewModel", "  - segments: ${coordinatesDto.allFrames.size}개")
+            android.util.Log.d("GamePlayViewModel", "  - clientCalculateScore: ${request.clientCalculateScore}")
+            
+            // 좌표 데이터 상세 로그
+            coordinatesDto.allFrames.forEachIndexed { index, segment ->
+                android.util.Log.d("GamePlayViewModel", "  - segment[$index]: timestamp=${segment.timestamp}ms, frames=${segment.frames.size}개")
+                segment.frames.forEachIndexed { frameIndex, frame ->
+                    android.util.Log.d("GamePlayViewModel", "    - frame[$frameIndex]: poses=${frame.poses.size}개")
+                    frame.poses.forEach { pose ->
+                        android.util.Log.d("GamePlayViewModel", "      - ${pose.part}: coordinates=${pose.coordinates.size}개")
+                    }
+                }
+            }
+            
+            // 서버로 전송 (인증은 인터셉터에서 자동 처리)
+            val response = rhythmResultApi.postResult("", request)
+            
+            if (response.isSuccessful) {
+                android.util.Log.d("GamePlayViewModel", "✅ 서버 전송 성공")
+                _ui.value = _ui.value.copy(submitted = true)
+            } else {
+                android.util.Log.e("GamePlayViewModel", "❌ 서버 전송 실패: ${response.code()} ${response.message()}")
+                _ui.value = _ui.value.copy(error = "서버 전송 실패: ${response.code()}")
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("GamePlayViewModel", "❌ 서버 전송 오류", e)
+            _ui.value = _ui.value.copy(error = "서버 전송 오류: ${e.message}")
+        }
+    }
+    
+    /**
+     * 정확도 기반 등급 계산 (SimilarityJudge 로직 참고)
+     */
+    private fun calculateGradeFromAccuracy(accuracy: Int): String {
+        return when {
+            accuracy >= 95 -> "S"  // 95% 이상: S등급
+            accuracy >= 90 -> "A"  // 90% 이상: A등급
+            accuracy >= 80 -> "B"  // 80% 이상: B등급
+            accuracy >= 70 -> "C"  // 70% 이상: C등급
+            else -> "F"            // 그 외: F등급
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
-        if (gameMode == GameMode.HARD) {
-            webSocketStreamer.stop()
-            rhythmCollector?.stopCollection()
-        }
+        
+        // 모든 모드에서 리듬 수집기 정리
+        rhythmCollector?.stopCollection()
+        
+        // 이지모드와 하드모드 모두 동일한 정리 로직 적용
+        playerClock?.stop()
+        featureBuffer?.clear()
+        coordinatesRecorder?.reset()
     }
     
 }

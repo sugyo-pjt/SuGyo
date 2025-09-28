@@ -46,7 +46,7 @@ import com.ssafy.a602.game.data.SongProgress
 import com.ssafy.a602.game.utils.TimeParsing
 import com.ssafy.a602.game.play.input.DynamicLandmarkBuffer
 import com.ssafy.a602.game.play.input.LandmarkResultHandler
-import com.ssafy.a602.game.play.input.WordWindowUploader
+// WordWindowUploader import 제거됨
 import com.ssafy.a602.game.result.GameResultUi
 import com.ssafy.a602.game.time.TimelineTick
 import com.ssafy.a602.game.time.TimelineViewModel
@@ -228,29 +228,28 @@ fun GamePlayScreen(
         LandmarkResultHandler(
             buffer = buffer,
             onLandmarks = { pose, left, right ->
-                // 🔥 하드 모드일 때 ViewModel에 랜드마크 결과 전달
-                if (gameMode == GameMode.HARD) {
-                    gamePlayViewModel?.onLandmarks(pose, left, right)
-                }
+                // 모든 모드에서 ViewModel에 랜드마크 결과 전달
+                gamePlayViewModel?.onLandmarks(pose, left, right)
             }
         )
     }
     
-    // 🔥 게임 모드에 따른 업로더 선택
-    val uploader = when (gameMode) {
-        GameMode.EASY -> WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null)
-        GameMode.HARD -> null // 웹소켓은 ViewModel에서 처리
-        else -> null
-    }
+    // 🔥 게임 모드에 따른 업로더 선택 - WordWindowUploader 제거됨
+    val uploader = null // 모든 모드에서 로컬 판정 사용
     
     val mediaPipeCamera = remember { 
-        GamePlayCamera(resultHandler, uploader ?: WordWindowUploader(buffer, "http://j13a602.p.ssafy.io/api/v1/game/rhythm/play", null))
+        GamePlayCamera(resultHandler, uploader)
     }
 
     LaunchedEffect(Unit) {
-        Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
-        mediaPipeCamera.init(context)
-        Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+        try {
+            Log.d("GamePlayScreen", "MediaPipe 초기화 시작")
+            mediaPipeCamera.init(context)
+            Log.d("GamePlayScreen", "MediaPipe 초기화 완료")
+        } catch (e: Exception) {
+            Log.e("GamePlayScreen", "MediaPipe 초기화 실패: ${e.message}", e)
+            // MediaPipe 초기화 실패해도 게임은 계속 진행 (카메라만 비활성화)
+        }
     }
     
     // 🔥 게임 시작 시 플레이어 위치 제공자 설정
@@ -395,7 +394,17 @@ fun GamePlayScreen(
     LaunchedEffect(isPaused, isScreenVisible) {
         if (!isScreenVisible) return@LaunchedEffect
         if (player.mediaItemCount == 0) return@LaunchedEffect
-        if (isPaused) player.pause() else player.play()
+        
+        // 게임 완료 시 ExoPlayer 완전 정지
+        if (isPaused && completeUi.submitted) {
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 완전 정지")
+            player.pause()
+            player.stop()
+        } else if (isPaused) {
+            player.pause()
+        } else {
+            player.play()
+        }
     }
 
     // 첫 틱 오차 로깅
@@ -490,9 +499,15 @@ fun GamePlayScreen(
         
         if (isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
+            // ExoPlayer 정지
+            player.pause()
+            player.stop()
             gamePlayViewModel?.finishGameAndPost()
         } else if (isTimeFinished && !isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
+            // ExoPlayer 정지
+            player.pause()
+            player.stop()
             gamePlayViewModel?.finishGameAndPost()
         }
     }
@@ -500,6 +515,11 @@ fun GamePlayScreen(
     // 게임 완료 상태 감지 (새로운 API 사용)
     LaunchedEffect(completeUi.submitted) {
         if (completeUi.submitted) {
+            // ExoPlayer 정지
+            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 정지")
+            player.pause()
+            player.stop()
+            
             // ViewModel에서 계산된 결과를 사용하여 게임 완료 처리
             val gameResult = GameDataManager.createGameResult(
                 songId = songId,
@@ -648,10 +668,36 @@ fun GamePlayScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 lensFacing = CameraSelector.LENS_FACING_FRONT,
                                 enableAnalysis = true,
+                                manualMirrorFallback = false,
                                 onFrame = { imageProxy -> 
-                                    mediaPipeCamera.analyzer.analyze(imageProxy)
+                                    try {
+                                        mediaPipeCamera.analyzer.analyze(imageProxy)
+                                    } catch (e: Exception) {
+                                        Log.e("GamePlayScreen", "카메라 분석 중 오류: ${e.message}", e)
+                                        // 분석 실패해도 앱이 크래시되지 않도록 처리
+                                    }
                                 }
                             )
+                            
+                            // 실시간 판정 오버레이 (모든 모드)
+                            if (gameUi.currentGrade.isNotEmpty()) {
+                                val judgmentResult = JudgmentResult(
+                                    type = when (gameUi.currentGrade) {
+                                        "PERFECT" -> JudgmentType.PERFECT
+                                        "GOOD" -> JudgmentType.GOOD
+                                        "MISS" -> JudgmentType.MISS
+                                        else -> JudgmentType.MISS
+                                    },
+                                    accuracy = gameUi.similarity,
+                                    score = gameUi.score,
+                                    combo = gameUi.combo,
+                                    timestamp = System.currentTimeMillis(),
+                                    isLocalResult = true
+                                )
+                                JudgmentOverlay(result = judgmentResult)
+                            }
+                            
+                            // 기존 판정 오버레이 (EASY 모드 - 웹소켓 판정)
                             judgmentResult?.let { JudgmentOverlay(result = it) }
                         }
                     }
@@ -739,10 +785,20 @@ fun GamePlayScreen(
                                 
                                 Spacer(Modifier.height(6.dp))
                                 
-                                // 현재 가사 (메인) - 수어 하이라이팅 적용
-                                val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value)
+                                // 현재 가사 (메인) - 하드모드에서는 하이라이팅 제거
                                 val highlightedText = if (currentSection != null) {
-                                    createHighlightedLyrics(currentSection.text, currentHighlights)
+                                    if (gameMode == GameMode.HARD) {
+                                        // 하드모드: 하이라이팅 없이 흰색으로만 표시
+                                        buildAnnotatedString {
+                                            withStyle(style = SpanStyle(color = Color.White)) {
+                                                append(currentSection.text)
+                                            }
+                                        }
+                                    } else {
+                                        // 이지모드: 기존 하이라이팅 유지
+                                        val currentHighlights = getCurrentSignHighlight(currentSection, songProgress.currentTime, currentSectionIndex.value)
+                                        createHighlightedLyrics(currentSection.text, currentHighlights)
+                                    }
                                 } else {
                                     buildAnnotatedString {
                                         withStyle(style = SpanStyle(color = Color.White)) {

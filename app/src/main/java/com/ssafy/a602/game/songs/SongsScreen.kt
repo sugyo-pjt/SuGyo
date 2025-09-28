@@ -1,6 +1,7 @@
 package com.ssafy.a602.game.songs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ssafy.a602.game.songs.SongsViewModel
 import com.ssafy.a602.game.data.GameDataManager
 import com.ssafy.a602.game.data.GameMode
+import com.ssafy.a602.game.GameTheme
 import com.ssafy.a602.game.songs.SongItem
 import com.ssafy.a602.game.PermissionManager
 import coil.compose.AsyncImage
@@ -238,7 +240,8 @@ fun GameModeSelectionDialog(
             Text(
                 text = "게임 모드 선택",
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = GameTheme.Colors.PrimaryText
             )
         },
         text = {
@@ -247,57 +250,87 @@ fun GameModeSelectionDialog(
                     text = "\"${song.title}\"",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF3B82F6)
+                    color = GameTheme.Colors.AccuracyBlue
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "플레이할 게임 모드를 선택해주세요.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7280)
+                    color = GameTheme.Colors.TertiaryText
                 )
             }
         },
         confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Easy 모드 버튼
-                Button(
-                    onClick = { onModeSelected(GameMode.EASY) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                // Easy와 Hard 모드 버튼을 Row로 묶기
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = GameMode.EASY.displayName,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    // Easy 모드 버튼
+                    Button(
+                        onClick = { onModeSelected(GameMode.EASY) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GameTheme.Colors.SuccessButton
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = GameMode.EASY.displayName,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    
+                    // Hard 모드 버튼
+                    Button(
+                        onClick = { onModeSelected(GameMode.HARD) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GameTheme.Colors.DangerButton
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = GameMode.HARD.displayName,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
                 
-                // Hard 모드 버튼
-                Button(
-                    onClick = { onModeSelected(GameMode.HARD) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFEF4444)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                // 취소 버튼 - 테두리 유지
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .border(
+                            width = 1.dp,
+                            color = GameTheme.Colors.TertiaryText.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                 ) {
                     Text(
-                        text = GameMode.HARD.displayName,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
+                        text = "취소",
+                        color = GameTheme.Colors.TertiaryText,
+                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("취소")
-            }
-        },
-        shape = RoundedCornerShape(16.dp)
+        dismissButton = null,
+        containerColor = GameTheme.Colors.DarkCard,
+        shape = RoundedCornerShape(20.dp)
     )
 }
 

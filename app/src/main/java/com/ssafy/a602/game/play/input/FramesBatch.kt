@@ -3,11 +3,6 @@ package com.ssafy.a602.game.play.input
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class LM(
-    val x: Float?, val y: Float?, val z: Float?, val w: Float?
-)
-
-@Serializable
 data class FrameEntry(
     val frameIndex: Int,            // 윈도우(0.3s) 내 0부터 시작
     val pose: List<LM?>,            // 0~22 총 23개 (null 허용)

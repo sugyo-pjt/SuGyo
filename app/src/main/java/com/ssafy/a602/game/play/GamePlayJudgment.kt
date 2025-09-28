@@ -1,6 +1,7 @@
 package com.ssafy.a602.game.play
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -11,12 +12,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ssafy.a602.game.play.JudgmentResult
 import com.ssafy.a602.game.play.JudgmentType
+import com.ssafy.a602.game.ui.GameUITheme
 
 @Composable
 fun JudgmentOverlay(
@@ -47,27 +51,56 @@ fun JudgmentOverlay(
         label = "scale"
     )
     
+    // 판정별 색상 정의 (GameUITheme.Colors 사용)
+    val judgmentColor = when (result.type) {
+        JudgmentType.PERFECT -> GameUITheme.Colors.Perfect
+        JudgmentType.GOOD -> GameUITheme.Colors.Good
+        JudgmentType.MISS -> GameUITheme.Colors.Miss
+        else -> GameUITheme.Colors.Miss
+    }
+    
+    val judgmentText = when (result.type) {
+        JudgmentType.PERFECT -> "PERFECT"
+        JudgmentType.GOOD -> "GOOD"
+        JudgmentType.MISS -> "MISS"
+        else -> "UNKNOWN"
+    }
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        // 배경 블러 효과 (은은한 색상)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(judgmentColor.copy(alpha = 0.1f))
+                .blur(20.dp)
+        )
+        
+        // 메인 판정 텍스트
         Text(
-            text = when (result.type) {
-                JudgmentType.PERFECT -> "PERFECT"
-                JudgmentType.MISS -> "MISS"
-                else -> "UNKNOWN"
-            },
-            color = when (result.type) {
-                JudgmentType.PERFECT -> Color(0xFF3B82F6) // 파란색
-                JudgmentType.MISS -> Color(0xFFFF5A5A) // 빨간색
-                else -> Color(0xFF808080) // 회색
-            },
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
+            text = judgmentText,
+            color = judgmentColor,
+            fontSize = 55.sp, // 글자 크기 55.sp로 변경
+            fontWeight = FontWeight.ExtraBold,
             style = MaterialTheme.typography.displayLarge,
             modifier = Modifier
                 .alpha(alpha)
                 .scale(scale)
         )
+        
+        // 유사도 표시 (HARD 모드에서만)
+        if (result.accuracy > 0f) {
+            Text(
+                text = "${(result.accuracy * 100).toInt()}%",
+                color = judgmentColor.copy(alpha = 0.8f),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .alpha(alpha * 0.8f)
+                    .scale(scale * 0.8f)
+            )
+        }
     }
 }

@@ -27,6 +27,7 @@ class RhythmUploadService @Inject constructor(
     
     /**
      * 리듬게임 데이터 업로드
+     * POST /api/v1/game/rhythm/play
      * 
      * @param request 리듬게임 데이터 요청
      * @return 업로드 성공 여부
@@ -38,18 +39,10 @@ class RhythmUploadService @Inject constructor(
             Log.d(TAG, "리듬 데이터 업로드 시작: musicId=${request.musicId}, segments=${request.allFrames.size}")
             Log.d(TAG, "요청 데이터 상세: segments=${request.allFrames.map { "${it.type}:${it.frames.size}개" }}")
             
-            val token = tokenManager.getAccessToken()
-            if (token.isNullOrEmpty()) {
-                Log.e(TAG, "인증 토큰이 없습니다")
-                return@withContext Result.failure(Exception("인증 토큰이 없습니다"))
-            }
-            
-            Log.d(TAG, "토큰 확인: ${token.take(20)}... (길이: ${token.length})")
-            Log.d(TAG, "API 호출: POST http://j13a602.p.ssafy.io/api/v1/game/rhythm/save")
-            val response = rhythmApi.saveRhythm(request, "Bearer $token")
+            Log.d(TAG, "API 호출: POST /api/v1/game/rhythm/play")
+            val response = rhythmApi.saveRhythm(request)
             
             if (response.isSuccessful) {
-                // 서버에서 단순 문자열을 반환하므로 body() 호출하지 않음
                 Log.d(TAG, "리듬 데이터 업로드 성공: ${response.code()}")
                 Result.success(true)
             } else {

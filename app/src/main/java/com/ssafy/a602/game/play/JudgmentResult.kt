@@ -9,9 +9,9 @@ data class JudgmentResult(
     val score: Int,            // 획득 점수
     val combo: Int,            // 현재 콤보
     val timestamp: Long,        // 판정 시간
-    // 웹소켓 판정을 위한 추가 필드
-    val word: String? = null,   // 판정된 단어 (웹소켓에서 받은 경우)
-    val isWebSocketResult: Boolean = false  // 웹소켓에서 온 판정인지 구분
+    // 로컬 판정을 위한 추가 필드
+    val word: String? = null,   // 판정된 단어
+    val isLocalResult: Boolean = true  // 로컬에서 계산된 판정인지 구분
 )
 
 /**
@@ -24,8 +24,8 @@ enum class JudgmentType {
     MISS        // 실패
 }
 
-// 웹소켓에서 받는 판정 결과를 위한 확장 함수
-fun JudgmentResult.fromWebSocket(
+// 로컬 판정 결과를 위한 확장 함수
+fun JudgmentResult.fromLocal(
     judgment: String,
     word: String,
     score: Int,
@@ -55,6 +55,6 @@ fun JudgmentResult.fromWebSocket(
         combo = combo,
         timestamp = System.currentTimeMillis(),
         word = word,
-        isWebSocketResult = true
+        isLocalResult = true
     )
 }

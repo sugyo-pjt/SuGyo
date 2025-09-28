@@ -122,6 +122,10 @@ class GamePlayViewModel @Inject constructor(
     
     // 게임 통계
     private var gameStats = GameStats()
+    
+    // 현재 섹션 정보를 위한 변수들
+    private var currentSections: List<com.ssafy.a602.game.data.SongSection> = emptyList()
+    private var currentSectionIndex: Int = 0
 
     fun startGame(songId: String, totalWords: Int, mode: GameMode, playerPositionMs: () -> Long = { 0L }) {
         android.util.Log.d("GamePlayViewModel", "🎮 게임 시작: songId=$songId, mode=$mode, totalWords=$totalWords")
@@ -132,6 +136,9 @@ class GamePlayViewModel @Inject constructor(
         
         // 게임 통계 초기화
         gameStats = GameStats()
+        
+        // 섹션 정보 로드
+        loadSections()
         
         // Easy 모드일 때 하드모드와 동일한 실시간 판정 시스템 초기화
         if (mode == GameMode.EASY) {
@@ -454,6 +461,137 @@ class GamePlayViewModel @Inject constructor(
     }
     
     /**
+     * 섹션 정보 로드
+     */
+    private fun loadSections() {
+        viewModelScope.launch {
+            try {
+                // GameDataManager를 통해 섹션 정보 가져오기
+                val sections = com.ssafy.a602.game.data.GameDataManager.getSongSections(songId)
+                currentSections = sections
+                android.util.Log.d("GamePlayViewModel", "📝 섹션 정보 로드 완료: ${sections.size}개 섹션")
+                
+                // 섹션별 정보 로그
+                sections.forEachIndexed { index, section ->
+                    android.util.Log.d("GamePlayViewModel", "섹션[$index]: '${section.text}' (${section.startTime}s~${section.endTime}s)")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GamePlayViewModel", "❌ 섹션 정보 로드 실패", e)
+                currentSections = emptyList()
+            }
+        }
+    }
+    
+    /**
+     * 현재 시간에 해당하는 섹션 인덱스 찾기
+     */
+    private fun findCurrentSectionIndex(currentTimeMs: Long): Int {
+        val currentTimeSeconds = currentTimeMs / 1000f
+        
+        if (currentSections.isEmpty()) {
+            return 0
+        }
+        
+        // 현재 시간이 첫 번째 섹션 시작 시간보다 작으면 0 반환
+        if (currentTimeSeconds < currentSections[0].startTime) {
+            return 0
+        }
+        
+        // 현재 시간이 마지막 섹션의 종료 시간보다 크면 마지막 인덱스 반환
+        val lastSection = currentSections.last()
+        if (currentTimeSeconds >= lastSection.endTime) {
+            return currentSections.size - 1
+        }
+        
+        // 현재 시간이 포함되는 섹션 찾기
+        for (i in currentSections.indices) {
+            val section = currentSections[i]
+            if (currentTimeSeconds >= section.startTime && currentTimeSeconds < section.endTime) {
+                return i
+            }
+        }
+        
+        // 위 조건에 맞지 않으면 가장 가까운 다음 섹션의 이전 인덱스 반환
+        for (i in currentSections.indices) {
+            if (currentTimeSeconds < currentSections[i].startTime) {
+                return maxOf(0, i - 1)
+            }
+        }
+        
+        return currentSections.size - 1
+    }
+    
+    /**
+     * 현재 섹션이 가사가 있는 섹션인지 확인 (하드 모드용)
+     */
+    private fun isCurrentSectionWithLyrics(currentTimeMs: Long): Boolean {
+        val currentTimeSeconds = currentTimeMs / 1000f
+        val sectionIndex = findCurrentSectionIndex(currentTimeMs)
+        
+        if (sectionIndex >= currentSections.size) {
+            return false
+        }
+        
+        val currentSection = currentSections[sectionIndex]
+        
+        // 가사가 비어있지 않고, 현재 시간이 섹션 범위 내에 있는지 확인
+        val hasLyrics = currentSection.text.isNotBlank() && currentSection.text.isNotEmpty()
+        val isInTimeRange = currentTimeSeconds >= currentSection.startTime && currentTimeSeconds < currentSection.endTime
+        
+        android.util.Log.d("GamePlayViewModel", "🎵 가사 확인: section='${currentSection.text}', hasLyrics=$hasLyrics, isInTimeRange=$isInTimeRange, time=${currentTimeSeconds}s (${currentSection.startTime}s~${currentSection.endTime}s)")
+        
+        return hasLyrics && isInTimeRange
+    }
+    
+    /**
+     * 현재 시간이 정답 단어 타이밍에 해당하는지 확인 (이지 모드용)
+     */
+    private fun isCurrentTimeInAnswerWordTiming(currentTimeMs: Long): Boolean {
+        val currentTimeSeconds = currentTimeMs / 1000f
+        val sectionIndex = findCurrentSectionIndex(currentTimeMs)
+        
+        if (sectionIndex >= currentSections.size) {
+            return false
+        }
+        
+        val currentSection = currentSections[sectionIndex]
+        
+        // 정답 정보가 있는지 확인
+        if (currentSection.correctInfo.isEmpty()) {
+            android.util.Log.d("GamePlayViewModel", "🎯 정답 정보 없음: section='${currentSection.text}'")
+            return false
+        }
+        
+        // 현재 시간이 정답 단어 타이밍에 해당하는지 확인
+        val isInAnswerTiming = currentSection.correctInfo.any { correct ->
+            val actionStartTime = parseTimeToSeconds(correct.actionStartedAt)
+            val actionEndTime = parseTimeToSeconds(correct.actionEndedAt)
+            
+            val isInRange = currentTimeSeconds >= actionStartTime && currentTimeSeconds <= actionEndTime
+            
+            android.util.Log.d("GamePlayViewModel", "🎯 정답 타이밍 확인: section='${currentSection.text}', correct=${correct.correctStartedIndex}~${correct.correctEndedIndex}, actionTime=${actionStartTime}s~${actionEndTime}s, currentTime=${currentTimeSeconds}s, isInRange=$isInRange")
+            
+            isInRange
+        }
+        
+        android.util.Log.d("GamePlayViewModel", "🎯 정답 단어 타이밍 확인: section='${currentSection.text}', isInAnswerTiming=$isInAnswerTiming, time=${currentTimeSeconds}s")
+        
+        return isInAnswerTiming
+    }
+    
+    /**
+     * 시간 문자열을 초 단위로 변환
+     */
+    private fun parseTimeToSeconds(timeString: String): Float {
+        return try {
+            timeString.toFloat()
+        } catch (e: Exception) {
+            android.util.Log.w("GamePlayViewModel", "시간 파싱 실패: $timeString", e)
+            0f
+        }
+    }
+    
+    /**
      * 실시간 판정 틱
      */
     private fun tick() {
@@ -462,7 +600,34 @@ class GamePlayViewModel @Inject constructor(
         val userFrame = featureBuffer?.getLatestOrNearest(currentTime) ?: return
         val judge = localJudgeEngine ?: return
         
-        android.util.Log.d("GamePlayViewModel", "🎯 tick 실행: currentTime=$currentTime, answerFrame=$answerFrame, userFrame=$userFrame")
+        android.util.Log.d("GamePlayViewModel", "🎯 tick 실행: currentTime=$currentTime, answerFrame=$answerFrame, userFrame=$userFrame, gameMode=$gameMode")
+        
+        // 게임 모드에 따라 다른 타이밍 로직 적용
+        val shouldPerformComparison = when (gameMode) {
+            com.ssafy.a602.game.data.GameMode.EASY -> {
+                // 이지 모드: 정답 단어 타이밍에서만 비교
+                val isInAnswerTiming = isCurrentTimeInAnswerWordTiming(currentTime)
+                android.util.Log.d("GamePlayViewModel", "📊 이지 모드: 정답 단어 타이밍 확인=$isInAnswerTiming")
+                isInAnswerTiming
+            }
+            com.ssafy.a602.game.data.GameMode.HARD -> {
+                // 하드 모드: 가사가 있는 섹션에서만 비교
+                val isInLyricsSection = isCurrentSectionWithLyrics(currentTime)
+                android.util.Log.d("GamePlayViewModel", "🔥 하드 모드: 가사 섹션 확인=$isInLyricsSection")
+                isInLyricsSection
+            }
+            else -> {
+                android.util.Log.w("GamePlayViewModel", "⚠️ 알 수 없는 게임 모드: $gameMode")
+                false
+            }
+        }
+        
+        if (!shouldPerformComparison) {
+            android.util.Log.d("GamePlayViewModel", "⏭️ 유사도 비교 건너뛰기: gameMode=$gameMode")
+            return
+        }
+        
+        android.util.Log.d("GamePlayViewModel", "✅ 유사도 비교 수행: gameMode=$gameMode")
         
         // 새로운 판정 시스템 사용
         val userFrames = convertToMotionFrames(userFrame)

@@ -17,4 +17,4 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(route.router, prefix="/fastapi")
+app.include_router(route.router, prefix="")

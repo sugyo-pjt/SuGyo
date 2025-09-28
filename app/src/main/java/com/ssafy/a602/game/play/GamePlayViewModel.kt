@@ -140,9 +140,9 @@ class GamePlayViewModel @Inject constructor(
         // 섹션 정보 로드
         loadSections()
         
-        // Easy 모드일 때 하드모드와 동일한 실시간 판정 시스템 초기화
+        // 🎯 Easy 모드: 하드모드와 동일한 로컬 판정 시스템 사용
         if (mode == GameMode.EASY) {
-            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 실시간 판정 시스템 초기화")
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 로컬 판정 시스템 초기화")
             
             // 게임 시작 시간 기록
             gameStartedAtMs = System.currentTimeMillis()
@@ -179,18 +179,7 @@ class GamePlayViewModel @Inject constructor(
                 }
             }
             
-            // 기존 리듬 수집기도 유지 (호환성)
-            rhythmCollector = RhythmCollector(
-                musicId = currentMusicId.toInt(),
-                coroutineScope = viewModelScope
-            )
-            rhythmCollector?.startCollection()
-            
-            viewModelScope.launch {
-                rhythmCollector?.onTypeChanged(SegmentType.PLAY, 0L)
-            }
-            
-            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 실시간 판정 시스템 초기화 완료")
+            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 로컬 판정 시스템 초기화 완료")
         }
         
         // 🔥 하드 모드일 때 새로운 판정 시스템 초기화
@@ -250,32 +239,7 @@ class GamePlayViewModel @Inject constructor(
         _complete.value = CompleteUiState()
     }
     
-    // 웹소켓 관련 메서드들 제거됨 - 로컬 판정으로 대체
 
-    // 🔥 Easy 모드: 프론트엔드에서 계산 (주석처리 - 하드모드와 동일한 로직 사용)
-    fun onServerVerdict(isPerfect: Boolean, word: String) {
-        // 이지모드 판정 로직 주석처리 - 하드모드와 동일한 실시간 판정 시스템 사용
-        /*
-        // Easy 모드일 때만 프론트엔드 계산기 사용
-        if (gameMode == GameMode.EASY) {
-            val type = if (isPerfect) ScoreJudgmentType.PERFECT else ScoreJudgmentType.MISS
-            calc.addJudgment(type, word)
-
-            // HUD용 간단 요약만 즉시 갱신
-            val preview = calc.getFinal()
-            _ui.value = _ui.value.copy(
-                score = preview.totalScore,
-                percent = preview.percent,
-                grade = preview.grade,
-                maxCombo = preview.maxCombo,
-                correctCount = preview.correctCount,
-                missCount = preview.missCount,
-                missWords = preview.missWords
-            )
-        }
-        // Hard 모드일 때는 서버에서 계산된 결과를 사용하므로 여기서는 아무것도 하지 않음
-        */
-    }
     
     // MediaPipe 결과를 모드별로 처리
     fun onLandmarks(pose: List<LM?>, left: List<LM?>, right: List<LM?>) {
@@ -524,11 +488,19 @@ class GamePlayViewModel @Inject constructor(
             return false
         }
         
+        // 🎯 이지모드 전주 판정 방지: 섹션 시작 시간 이후에만 판정 허용
+        // 섹션 시작 시간보다 이른 시간에는 판정하지 않음 (전주 중 판정 방지)
+        if (currentTimeSeconds < currentSection.startTime) {
+            android.util.Log.d("GamePlayViewModel", "🎯 전주 중 판정 방지: currentTime=${currentTimeSeconds}s < sectionStartTime=${currentSection.startTime}s")
+            return false
+        }
+        
         // 현재 시간이 정답 단어 타이밍에 해당하는지 확인
         val isInAnswerTiming = currentSection.correctInfo.any { correct ->
             val actionStartTime = parseTimeToSeconds(correct.actionStartedAt)
             val actionEndTime = parseTimeToSeconds(correct.actionEndedAt)
             
+            // 🎯 빨간색 하이라이트 타이밍과 정확히 일치: actionStart ~ actionEnd 사이에만 판정
             val isInRange = currentTimeSeconds >= actionStartTime && currentTimeSeconds <= actionEndTime
             
             android.util.Log.d("GamePlayViewModel", "🎯 정답 타이밍 확인: section='${currentSection.text}', correct=${correct.correctStartedIndex}~${correct.correctEndedIndex}, actionTime=${actionStartTime}s~${actionEndTime}s, currentTime=${currentTimeSeconds}s, isInRange=$isInRange")
@@ -546,9 +518,41 @@ class GamePlayViewModel @Inject constructor(
      */
     private fun parseTimeToSeconds(timeString: String): Float {
         return try {
-            timeString.toFloat()
+            // 🎯 디버깅: 실제 데이터 형식 확인
+            android.util.Log.d("GamePlayViewModel", "시간 파싱 시도: '$timeString'")
+            
+            // "HH:MM:SS" 형식인지 확인
+            if (timeString.contains(":")) {
+                val parts = timeString.split(":")
+                val result = when (parts.size) {
+                    2 -> {
+                        // MM:SS 형식
+                        val minutes = parts[0].toInt()
+                        val seconds = parts[1].toFloat()
+                        (minutes * 60 + seconds)
+                    }
+                    3 -> {
+                        // HH:MM:SS 또는 HH:MM:SS.S 형식
+                        val hours = parts[0].toInt()
+                        val minutes = parts[1].toInt()
+                        val seconds = parts[2].toFloat() // 소수점 포함 처리
+                        (hours * 3600 + minutes * 60 + seconds)
+                    }
+                    else -> {
+                        android.util.Log.w("GamePlayViewModel", "알 수 없는 시간 형식: $timeString")
+                        timeString.toFloat()
+                    }
+                }
+                android.util.Log.d("GamePlayViewModel", "시간 파싱 결과: '$timeString' -> ${result}초")
+                result
+            } else {
+                // 숫자만 있는 경우 (초 단위)
+                val result = timeString.toFloat()
+                android.util.Log.d("GamePlayViewModel", "시간 파싱 결과: '$timeString' -> ${result}초")
+                result
+            }
         } catch (e: Exception) {
-            android.util.Log.w("GamePlayViewModel", "시간 파싱 실패: $timeString", e)
+            android.util.Log.w("GamePlayViewModel", "시간 파싱 실패: '$timeString'", e)
             0f
         }
     }

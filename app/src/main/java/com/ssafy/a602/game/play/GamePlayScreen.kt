@@ -158,7 +158,6 @@ fun GamePlayScreen(
     onGameQuit: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onFrame: ((ImageProxy) -> Unit)? = null,
-    judgmentResult: JudgmentResult? = null,
     gamePlayViewModel: GamePlayViewModel? = null,
     playerPositionMs: () -> Long = { 0L }  // ExoPlayer 위치 제공 (기본값)
 ) {
@@ -168,8 +167,6 @@ fun GamePlayScreen(
     val gameUi by (gamePlayViewModel?.ui?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(GameUiState()) })
     val completeUi by (gamePlayViewModel?.complete?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(CompleteUiState()) })
     
-    // 🔥 웹소켓 판정 결과 상태 (기존 구조 활용)
-    val currentJudgment by (gamePlayViewModel?.currentJudgment?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) })
     
     // 게임 모드 확인
     val gameMode = GameDataManager.currentGameMode.value ?: GameMode.EASY
@@ -683,8 +680,6 @@ fun GamePlayScreen(
                                 JudgmentOverlay(result = judgmentResult)
                             }
                             
-                            // 기존 판정 오버레이 (EASY 모드 - 웹소켓 판정)
-                            judgmentResult?.let { JudgmentOverlay(result = it) }
                         }
                     }
 
@@ -973,11 +968,6 @@ fun GamePlayScreen(
                     )
                 }
                 
-                // 기존 HTTP 판정 결과도 유지 (Easy 모드용)
-                GameJudgmentToast(
-                    result = judgmentResult, 
-                    modifier = Modifier.align(Alignment.Center)
-                )
             }
         }
     }

@@ -96,15 +96,15 @@ class HandNormalization private constructor() {
                 }
             }
 
-            // 5) 단위박스 스케일
-            var maxAbs = EPS
+            // 5단계: 크기 정규화 (손목→중지 거리로 스케일링) - 자바 서버와 일치
+            val scale = kotlin.math.sqrt(xDirection.sumOf { it * it })
+            val finalScale = if (scale <= EPS) EPS else scale
             for (i in normalized.indices) {
-                val r = normalized[i]
-                maxAbs = max(maxAbs, abs(r[0]))
-                maxAbs = max(maxAbs, abs(r[1]))
-                maxAbs = max(maxAbs, abs(r[2]))
+                for (j in 0..2) {
+                    normalized[i][j] /= finalScale
+                }
             }
-            return if (maxAbs <= EPS) normalized else normalized.map { row -> row.map { it / maxAbs }.toDoubleArray() }.toTypedArray()
+            return normalized
         }
 
         /**

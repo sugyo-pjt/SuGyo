@@ -4,8 +4,8 @@ class LocalJudgeEngine {
     
     companion object {
         private const val SIMILARITY_THRESHOLD = 0.6f
-        private const val PERFECT_RATIO_THRESHOLD = 0.9f
-        private const val GOOD_RATIO_THRESHOLD = 0.7f
+        private const val PERFECT_RATIO_THRESHOLD = 0.9f  // 자바 서버와 동일
+        private const val GOOD_RATIO_THRESHOLD = 0.7f     // 자바 서버와 동일
     }
 
     /**
@@ -20,12 +20,12 @@ class LocalJudgeEngine {
     }
 
     /**
-     * 등급 + 콤보 → 점수 계산
+     * 등급 + 콤보 → 점수 계산 - 자바 서버 코드와 일치
      */
     fun calculatePoints(currentJudge: Judgment, context: GameSessionContext): Int {
         return when (currentJudge) {
-            Judgment.PERFECT -> 100 + (context.combo.get() / 10)
-            Judgment.GOOD -> 70 + (context.combo.get() / 20)
+            Judgment.PERFECT -> 100 + (context.combo.get() / 10)  // 자바 서버와 동일
+            Judgment.GOOD -> 70 + (context.combo.get() / 20)       // 자바 서버와 동일
             Judgment.MISS -> 0
         }
     }

@@ -10,10 +10,10 @@ import kotlin.math.sqrt
 class SimilarityJudge {
     private val TAG = "SimilarityJudge"
     
-    // 등급 임계값
+    // 등급 임계값 - 자바 서버와 일치
     companion object {
-        const val PERFECT_THRESHOLD = 0.85f
-        const val GOOD_THRESHOLD = 0.70f
+        const val PERFECT_THRESHOLD = 0.9f   // 자바 서버: 0.9
+        const val GOOD_THRESHOLD = 0.7f      // 자바 서버: 0.7
     }
     
     // 가중치

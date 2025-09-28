@@ -597,17 +597,34 @@ class GamePlayViewModel @Inject constructor(
         android.util.Log.d("GamePlayViewModel", "✅ 유사도 비교 수행: gameMode=$gameMode")
         
         // 새로운 판정 시스템 사용
-        val userFrames = convertToMotionFrames(userFrame)
+        // 🎯 서버 좌표를 사용한 판정 (서버와 동일한 좌표)
+        val userFrames = createMotionFramesFromServerCoordinates()
         val answerFrames = convertAnswerFrameToMotionFrames(answerFrame)
+        
+        android.util.Log.d("GamePlayViewModel", "🎯 서버 좌표 기반 판정:")
+        android.util.Log.d("GamePlayViewModel", "  - 서버 좌표에서 생성된 사용자 프레임: ${userFrames.size}")
+        android.util.Log.d("GamePlayViewModel", "  - 정답 프레임: ${answerFrames.size}")
         
         // JsonSimilarityComparator를 사용한 유사도 계산
         val similarity = JsonSimilarityComparator.calculateMotionSimilarity(userFrames, answerFrames, 640, 480).toFloat()
+        
+        // 🎯 상세 유사도 분석 로그
+        android.util.Log.d("GamePlayViewModel", "📊 유사도 계산 상세:")
+        android.util.Log.d("GamePlayViewModel", "  - 사용자 프레임 수: ${userFrames.size}")
+        android.util.Log.d("GamePlayViewModel", "  - 정답 프레임 수: ${answerFrames.size}")
+        android.util.Log.d("GamePlayViewModel", "  - 최종 유사도: $similarity")
         
         // LocalJudgeEngine을 사용한 판정
         val judgment = judge.judgeByRatio(similarity)
         val grade = judgment.name
         
-        android.util.Log.d("GamePlayViewModel", "🎯 판정 결과: similarity=$similarity, grade=$grade")
+        // 🎯 판정 결과 상세 로그
+        android.util.Log.d("GamePlayViewModel", "🎯 판정 결과 상세:")
+        android.util.Log.d("GamePlayViewModel", "  - 유사도: $similarity")
+        android.util.Log.d("GamePlayViewModel", "  - 임계값: PERFECT>=0.9, GOOD>=0.7")
+        android.util.Log.d("GamePlayViewModel", "  - 판정: $grade")
+        android.util.Log.d("GamePlayViewModel", "  - 현재 콤보: ${gameStats.currentCombo}")
+        android.util.Log.d("GamePlayViewModel", "  - 총 점수: ${gameStats.totalScore}")
         
         // 통계 업데이트
         updateGameStats(grade, similarity)
@@ -615,6 +632,41 @@ class GamePlayViewModel @Inject constructor(
         
         // UI 업데이트
         updateUI()
+    }
+    
+    /**
+     * 서버 좌표에서 MotionFrame 생성 (서버와 동일한 좌표 사용)
+     */
+    private fun createMotionFramesFromServerCoordinates(): List<MotionFrame> {
+        val frames = coordinatesRecorder?.getLatestFrameForJudgment() ?: return emptyList()
+        if (frames.isEmpty()) return emptyList()
+        
+        val latestFrame = frames.last()
+        val poses = mutableListOf<Pose>()
+        
+        // 서버 좌표에서 Pose 생성
+        latestFrame.poses.forEach { poseBlock ->
+            val coordinates = poseBlock.coordinates.map { vec4 ->
+                Coordinate(
+                    x = vec4?.x?.toDouble() ?: 0.0,
+                    y = vec4?.y?.toDouble() ?: 0.0,
+                    z = vec4?.z?.toDouble() ?: 0.0,
+                    w = vec4?.w?.toDouble() ?: 1.0
+                )
+            }
+            
+            val bodyPart = when (poseBlock.part) {
+                "BODY" -> BodyPart.BODY
+                "LEFT_HAND" -> BodyPart.LEFT_HAND
+                "RIGHT_HAND" -> BodyPart.RIGHT_HAND
+                else -> BodyPart.BODY
+            }
+            
+            poses.add(Pose(bodyPart, coordinates))
+        }
+        
+        android.util.Log.d("GamePlayViewModel", "🎯 서버 좌표에서 MotionFrame 생성: poses=${poses.size}")
+        return listOf(MotionFrame(0, poses))
     }
     
     /**
@@ -701,9 +753,15 @@ class GamePlayViewModel @Inject constructor(
         gameStats.avgSimilarity = (gameStats.avgSimilarity * (gameStats.totalCount - 1) + similarity) / gameStats.totalCount
         
         // 실시간 판정 저장
+        android.util.Log.d("GamePlayViewModel", "💾 판정 상태 저장:")
+        android.util.Log.d("GamePlayViewModel", "  - 저장할 grade: '$grade'")
+        android.util.Log.d("GamePlayViewModel", "  - 이전 lastGrade: '${gameStats.lastGrade}'")
+        
         gameStats.lastGrade = grade
         gameStats.lastJudgment = grade
         gameStats.lastSimilarity = similarity
+        
+        android.util.Log.d("GamePlayViewModel", "  - 저장 후 lastGrade: '${gameStats.lastGrade}'")
         
         // 🎯 판정 UI가 0.2초 후에 사라지도록 타이머 설정
         viewModelScope.launch {
@@ -711,6 +769,12 @@ class GamePlayViewModel @Inject constructor(
             gameStats.lastGrade = "" // 판정 UI 숨김
             updateUI()
         }
+        
+        // 🎯 통계 업데이트 상세 로그
+        android.util.Log.d("GamePlayViewModel", "📈 통계 업데이트:")
+        android.util.Log.d("GamePlayViewModel", "  - 판정: $grade")
+        android.util.Log.d("GamePlayViewModel", "  - 이전 콤보: ${gameStats.currentCombo}")
+        android.util.Log.d("GamePlayViewModel", "  - 이전 점수: ${gameStats.totalScore}")
         
         when (grade) {
             "PERFECT" -> {
@@ -720,6 +784,7 @@ class GamePlayViewModel @Inject constructor(
                 val judgment = com.ssafy.a602.game.play.judge.Judgment.PERFECT
                 val points = localJudgeEngine?.calculatePoints(judgment, createGameSessionContext()) ?: 100
                 gameStats.totalScore += points
+                android.util.Log.d("GamePlayViewModel", "  - PERFECT 처리: 콤보+1, 점수+$points")
             }
             "GOOD" -> {
                 gameStats.goodCount++
@@ -728,12 +793,18 @@ class GamePlayViewModel @Inject constructor(
                 val judgment = com.ssafy.a602.game.play.judge.Judgment.GOOD
                 val points = localJudgeEngine?.calculatePoints(judgment, createGameSessionContext()) ?: 70
                 gameStats.totalScore += points
+                android.util.Log.d("GamePlayViewModel", "  - GOOD 처리: 콤보+1, 점수+$points")
             }
             "MISS" -> {
                 gameStats.missCount++
                 gameStats.currentCombo = 0
+                android.util.Log.d("GamePlayViewModel", "  - MISS 처리: 콤보 리셋")
             }
         }
+        
+        android.util.Log.d("GamePlayViewModel", "  - 최종 콤보: ${gameStats.currentCombo}")
+        android.util.Log.d("GamePlayViewModel", "  - 최종 점수: ${gameStats.totalScore}")
+        android.util.Log.d("GamePlayViewModel", "  - PERFECT: ${gameStats.perfectCount}, GOOD: ${gameStats.goodCount}, MISS: ${gameStats.missCount}")
         
         gameStats.maxCombo = maxOf(gameStats.maxCombo, gameStats.currentCombo)
         
@@ -746,6 +817,12 @@ class GamePlayViewModel @Inject constructor(
      */
     private fun updateUI() {
         val currentState = _ui.value
+        android.util.Log.d("GamePlayViewModel", "🔄 UI 상태 업데이트:")
+        android.util.Log.d("GamePlayViewModel", "  - gameStats.lastGrade: '${gameStats.lastGrade}'")
+        android.util.Log.d("GamePlayViewModel", "  - gameStats.lastJudgment: '${gameStats.lastJudgment}'")
+        android.util.Log.d("GamePlayViewModel", "  - gameStats.lastSimilarity: ${gameStats.lastSimilarity}")
+        android.util.Log.d("GamePlayViewModel", "  - 이전 currentGrade: '${currentState.currentGrade}'")
+        
         _ui.value = currentState.copy(
             score = gameStats.totalScore,
             combo = gameStats.currentCombo,
@@ -757,6 +834,8 @@ class GamePlayViewModel @Inject constructor(
             lastJudgment = gameStats.lastJudgment,
             similarity = gameStats.lastSimilarity
         )
+        
+        android.util.Log.d("GamePlayViewModel", "  - 업데이트 후 currentGrade: '${_ui.value.currentGrade}'")
     }
     
     /**

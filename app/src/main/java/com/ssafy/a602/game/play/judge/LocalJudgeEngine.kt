@@ -12,22 +12,55 @@ class LocalJudgeEngine {
      * 유사도 → 등급 판정
      */
     fun judgeByRatio(ratio: Float): Judgment {
-        return when {
-            ratio >= PERFECT_RATIO_THRESHOLD -> Judgment.PERFECT
-            ratio >= GOOD_RATIO_THRESHOLD -> Judgment.GOOD
-            else -> Judgment.MISS
+        android.util.Log.d("LocalJudgeEngine", "⚖️ 판정 로직 실행:")
+        android.util.Log.d("LocalJudgeEngine", "  - 입력 유사도: $ratio")
+        android.util.Log.d("LocalJudgeEngine", "  - PERFECT 임계값: $PERFECT_RATIO_THRESHOLD")
+        android.util.Log.d("LocalJudgeEngine", "  - GOOD 임계값: $GOOD_RATIO_THRESHOLD")
+        
+        val judgment = when {
+            ratio >= PERFECT_RATIO_THRESHOLD -> {
+                android.util.Log.d("LocalJudgeEngine", "  - 판정: PERFECT (${ratio} >= ${PERFECT_RATIO_THRESHOLD})")
+                Judgment.PERFECT
+            }
+            ratio >= GOOD_RATIO_THRESHOLD -> {
+                android.util.Log.d("LocalJudgeEngine", "  - 판정: GOOD (${ratio} >= ${GOOD_RATIO_THRESHOLD})")
+                Judgment.GOOD
+            }
+            else -> {
+                android.util.Log.d("LocalJudgeEngine", "  - 판정: MISS (${ratio} < ${GOOD_RATIO_THRESHOLD})")
+                Judgment.MISS
+            }
         }
+        
+        return judgment
     }
 
     /**
      * 등급 + 콤보 → 점수 계산 - 자바 서버 코드와 일치
      */
     fun calculatePoints(currentJudge: Judgment, context: GameSessionContext): Int {
-        return when (currentJudge) {
-            Judgment.PERFECT -> 100 + (context.combo.get() / 10)  // 자바 서버와 동일
-            Judgment.GOOD -> 70 + (context.combo.get() / 20)       // 자바 서버와 동일
-            Judgment.MISS -> 0
+        val combo = context.combo.get()
+        val points = when (currentJudge) {
+            Judgment.PERFECT -> {
+                val basePoints = 100
+                val comboBonus = combo / 10
+                val totalPoints = basePoints + comboBonus
+                android.util.Log.d("LocalJudgeEngine", "💰 PERFECT 점수 계산: 기본($basePoints) + 콤보보너스($comboBonus) = $totalPoints")
+                totalPoints
+            }
+            Judgment.GOOD -> {
+                val basePoints = 70
+                val comboBonus = combo / 20
+                val totalPoints = basePoints + comboBonus
+                android.util.Log.d("LocalJudgeEngine", "💰 GOOD 점수 계산: 기본($basePoints) + 콤보보너스($comboBonus) = $totalPoints")
+                totalPoints
+            }
+            Judgment.MISS -> {
+                android.util.Log.d("LocalJudgeEngine", "💰 MISS 점수 계산: 0")
+                0
+            }
         }
+        return points
     }
 
     /**

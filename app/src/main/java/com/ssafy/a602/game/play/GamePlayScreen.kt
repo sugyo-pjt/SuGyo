@@ -664,13 +664,34 @@ fun GamePlayScreen(
                             
                             // 실시간 판정 오버레이 (모든 모드)
                             if (gameUi.currentGrade.isNotEmpty()) {
+                                // 🎯 UI 판정 로그 추가
+                                android.util.Log.d("GamePlayScreen", "🎨 UI 판정 표시:")
+                                android.util.Log.d("GamePlayScreen", "  - currentGrade: '${gameUi.currentGrade}'")
+                                android.util.Log.d("GamePlayScreen", "  - similarity: ${gameUi.similarity}")
+                                android.util.Log.d("GamePlayScreen", "  - score: ${gameUi.score}")
+                                android.util.Log.d("GamePlayScreen", "  - combo: ${gameUi.combo}")
+                                
+                                val judgmentType = when (gameUi.currentGrade) {
+                                    "PERFECT" -> {
+                                        android.util.Log.d("GamePlayScreen", "  - 판정 타입: PERFECT")
+                                        JudgmentType.PERFECT
+                                    }
+                                    "GOOD" -> {
+                                        android.util.Log.d("GamePlayScreen", "  - 판정 타입: GOOD")
+                                        JudgmentType.GOOD
+                                    }
+                                    "MISS" -> {
+                                        android.util.Log.d("GamePlayScreen", "  - 판정 타입: MISS")
+                                        JudgmentType.MISS
+                                    }
+                                    else -> {
+                                        android.util.Log.w("GamePlayScreen", "  - ⚠️ 알 수 없는 판정: '${gameUi.currentGrade}' -> MISS로 처리")
+                                        JudgmentType.MISS
+                                    }
+                                }
+                                
                                 val judgmentResult = JudgmentResult(
-                                    type = when (gameUi.currentGrade) {
-                                        "PERFECT" -> JudgmentType.PERFECT
-                                        "GOOD" -> JudgmentType.GOOD
-                                        "MISS" -> JudgmentType.MISS
-                                        else -> JudgmentType.MISS
-                                    },
+                                    type = judgmentType,
                                     accuracy = gameUi.similarity,
                                     score = gameUi.score,
                                     combo = gameUi.combo,
@@ -678,6 +699,8 @@ fun GamePlayScreen(
                                     isLocalResult = true
                                 )
                                 JudgmentOverlay(result = judgmentResult)
+                            } else {
+                                android.util.Log.v("GamePlayScreen", "🎨 UI 판정 숨김: currentGrade가 비어있음")
                             }
                             
                         }

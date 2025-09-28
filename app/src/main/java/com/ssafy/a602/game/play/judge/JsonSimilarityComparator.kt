@@ -36,8 +36,17 @@ class JsonSimilarityComparator private constructor() {
             val rightArmSimilarity = HandNormalization.calculateArmSimilarity(frame1, frame2, "Right", width, height)
             val handSimilarity = HandNormalization.calculateHandSimilarity(frame1, frame2, width, height)
 
+            // 🎯 상세 유사도 로그
+            android.util.Log.d("JsonSimilarityComparator", "🔍 프레임 유사도 상세:")
+            android.util.Log.d("JsonSimilarityComparator", "  - 왼팔 유사도: $leftArmSimilarity")
+            android.util.Log.d("JsonSimilarityComparator", "  - 오른팔 유사도: $rightArmSimilarity")
+            android.util.Log.d("JsonSimilarityComparator", "  - 손 유사도: $handSimilarity")
+            
+            val maxSimilarity = max(max(leftArmSimilarity, rightArmSimilarity), handSimilarity)
+            android.util.Log.d("JsonSimilarityComparator", "  - 최대 유사도: $maxSimilarity")
+
             // 자바 서버 코드와 동일: 세 유사도 중 최댓값 사용
-            return max(max(leftArmSimilarity, rightArmSimilarity), handSimilarity)
+            return maxSimilarity
         }
     }
 }

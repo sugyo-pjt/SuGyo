@@ -70,6 +70,14 @@ class CoordinatesRecorder(
         startedAtMs = 0L
         Log.d(TAG, "리코더 리셋")
     }
+    
+    // 🎯 판정용 최신 프레임 데이터 접근자
+    fun getLatestFrameForJudgment(): List<FrameBlock>? {
+        if (segments.isEmpty()) return null
+        val latestSegment = segments.last()
+        if (latestSegment.frames.isEmpty()) return null
+        return latestSegment.frames
+    }
 
     private data class MutablePlaySegment(
         val type: String,

@@ -23,9 +23,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
         ErrorCode errorCode = GlobalErrorCode.from(ex);
         if (errorCode == INTERNAL_SERVER_ERROR) {
-            log.error("Unknown exception occurred: {}", errorCode.getMessage());
+            log.error("Unknown exception occurred: {}", ex);
         } else {
-            log.warn("Exception occurred: {}", errorCode.getMessage());
+            log.warn("Exception occurred: {} - {}", errorCode.getMessage(), ex.getMessage());
         }
         return new ResponseEntity<>(new ErrorResponse(errorCode), errorCode.getHttpStatus());
     }

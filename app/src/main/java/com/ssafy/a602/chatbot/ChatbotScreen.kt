@@ -1,287 +1,274 @@
 package com.ssafy.a602.chatbot
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.Image
+import com.ssafy.a602.R
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ssafy.a602.chatbot.ChatMessage
+import com.ssafy.a602.chatbot.ChatViewModel
+import com.ssafy.a602.chatbot.Sender
+import kotlinx.coroutines.launch
 
-/* ───────────────────────── 메인 화면 ───────────────────────── */
+object ChatTheme {
+    val Bg = Color(0xFFF1FBF4) // 다른 스크린과 동일한 연한 초록 배경
+    val MyBubble = Color(0xFF4CAF50) // 초록색 버블
+    val OtherBubble = Color.White
+    val Time = Color(0xFF9AA0A6)
+    val TopBarBg = Color(0xFFF1FBF4)
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatbotScreen(
-    onBack: () -> Unit = {}
+    onBack: () -> Unit,
+    vm: ChatViewModel = hiltViewModel()
 ) {
-    val bg = Brush.verticalGradient(listOf(Color(0xFFF2F6FF), Color.White))
 
-    // ★ 가짜 백엔드 → 나중에 Real 로 교체(예: RealChatApi(...))
-    val vm: ChatbotViewModel = viewModel(
-        factory = ChatbotViewModel.Factory(backend = ChatFakeApi())
-    )
+    val messages by vm.messages.collectAsState()
+    val typing by vm.isBotTyping.collectAsState()
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
-    var input by remember { mutableStateOf("") }
+    // 새 메시지 수신 시 하단 고정
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) scope.launch {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
 
-    Box(
-        Modifier.fillMaxSize().background(bg).padding(horizontal = 16.dp)
-    ) {
-        Column(Modifier.fillMaxSize()) {
-
-            /* ── 상단바 ── */
-            Row(
-                Modifier.fillMaxWidth().padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("←",
-                    fontSize = 20.sp,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { onBack() }
-                        .padding(4.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "AI 수어 챗봇",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                Spacer(Modifier.weight(1f))
-                ModeToggle(
-                    mode = vm.mode.value,
-                    onChange = vm::changeMode
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            /* ── 시나리오 선택(학습 모드만) ── */
-            if (vm.mode.value == BotMode.LEARN) {
-                Text("시나리오 선택", style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    vm.scenarios.forEach { sc ->
-                        val selected = sc.id == vm.selectedScenario.value?.id
-                        val shape = RoundedCornerShape(10.dp)
-                        AssistChip(
-                            modifier = Modifier
-                                .clip(shape)
-                                .then(
-                                    if (selected) Modifier.border(1.dp, Color(0xFF1D4ED8), shape)
-                                    else Modifier
-                                ),
-                            label = { Text(sc.title) },
-                            onClick = { vm.selectScenario(sc) },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = if (selected) Color(0xFFE8EEFF) else Color(0xFFF5F7FA),
-                                labelColor     = if (selected) Color(0xFF1D4ED8) else Color(0xFF111827)
-                            )
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                modifier = Modifier
+                    .statusBarsPadding(),
+                windowInsets = WindowInsets(0),
+                title = { 
+                    Text(
+                        "수어 챗봇", 
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    ) 
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.Filled.ArrowBack, 
+                            contentDescription = "뒤로가기",
+                            tint = Color.Black
                         )
                     }
+                },
+                actions = { /* 설정/새로고침 등 필요시 */ }
+            )
+        },
+        containerColor = ChatTheme.Bg,
+        bottomBar = { 
+            InputBar(
+                onSend = vm::sendUserMessage,
+                modifier = Modifier
+            ) 
+        }
+    ) { inner ->
+        Column(Modifier.padding(inner).fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
+                    val prev = messages.getOrNull(index - 1)
+                    val showAvatarGap =
+                        msg.sender == Sender.BOT && (prev == null || prev.sender != msg.sender)
+                    MessageBubble(
+                        msg = msg,
+                        isMine = msg.sender == Sender.USER,
+                        showAvatarGap = showAvatarGap,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
                 }
-                Spacer(Modifier.height(10.dp))
-            }
-
-            /* ── 메시지 ── */
-            MessagesPanel(messages = vm.messages)
-            Spacer(Modifier.height(10.dp))
-
-            /* ── 좌표 수신 상태 ── */
-            if (vm.receiving.value) {
-                StatusPill("좌표 수신 중…")
-                Spacer(Modifier.height(8.dp))
-            }
-
-            /* ── 손 좌표 렌더(2D) ── */
-            HandCanvas(
-                frame = vm.currentFrame.value,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp))
-                    .padding(8.dp)
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            /* ── 입력창 ── */
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                TextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    placeholder = {
-                        Text(if (vm.mode.value == BotMode.FREE) "텍스트 또는 수어 설명"
-                        else "시나리오에 맞게 답변을 입력해보세요")
-                    },
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    maxLines = 3
-                )
-                Button(
-                    onClick = {
-                        val txt = input.trim()
-                        input = ""
-                        vm.sendUserText(txt)
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = vm.mode.value == BotMode.FREE || vm.selectedScenario.value != null
-                ) { Text("전송") }
-            }
-
-            Spacer(Modifier.height(10.dp))
-        }
-    }
-}
-
-/* ───────────────────── UI 조각들 ───────────────────── */
-
-@Composable
-private fun ModeToggle(
-    mode: BotMode,
-    onChange: (BotMode) -> Unit
-) {
-    val blue = Color(0xFF1D4ED8)
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        modifier = Modifier
-            .clip(shape)
-            .background(Color(0xFFE9EEF9))
-            .padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        @Composable
-        fun Tab(text: String, selected: Boolean, onClick: () -> Unit) {
-            Text(
-                text = text,
-                color = if (selected) Color.White else blue,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (selected) blue else Color.Transparent)
-                    .clickable { onClick() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            )
-        }
-        Tab("학습 모드", mode == BotMode.LEARN) { onChange(BotMode.LEARN) }
-        Tab("자유 모드",  mode == BotMode.FREE)  { onChange(BotMode.FREE)  }
-    }
-}
-
-@Composable
-private fun MessagesPanel(messages: List<ChatMessage>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(16.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        messages.forEach { m ->
-            val bubbleColor = if (m.isBot) Color(0xFFEFF4FF) else Color(0xFFE7F7EC)
-            val textColor   = if (m.isBot) Color(0xFF1D4ED8) else Color(0xFF166534)
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = if (m.isBot) Arrangement.Start else Arrangement.End
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(bubbleColor)
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                        .widthIn(max = 280.dp)
-                ) { Text(m.text, color = textColor) }
+                item {
+                    AnimatedVisibility(visible = typing, enter = fadeIn(), exit = fadeOut()) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                            Spacer(Modifier.width(38.dp))
+                            TypingDots()
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StatusPill(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) { Text(text, color = Color(0xFF6B7280)) }
-}
-
-/** 손 21포인트를 캔버스에 라인 + 포인트로 그리는 간단한 2D 렌더러 */
-@Composable
-private fun HandCanvas(
-    frame: HandFrame?,
+private fun MessageBubble(
+    msg: ChatMessage,
+    isMine: Boolean,
+    showAvatarGap: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val edges = remember {
-        // 대략적인 손 연결 (Mediapipe 스타일)
-        listOf(
-            0 to 5, 5 to 9, 9 to 13, 13 to 17, 17 to 0,          // 손바닥
-            1 to 2, 2 to 3, 3 to 4,                              // 엄지
-            5 to 6, 6 to 7, 7 to 8,                              // 검지
-            9 to 10, 10 to 11, 11 to 12,                         // 중지
-            13 to 14, 14 to 15, 15 to 16,                        // 약지
-            17 to 18, 18 to 19, 19 to 20                         // 새끼
-        )
-    }
-    Canvas(modifier = modifier) {
-        val lm = frame?.landmarks ?: return@Canvas
-        fun map(p: Pt) = Offset(p.x * size.width, p.y * size.height)
+    val shape = if (isMine)
+        RoundedCornerShape(topStart = 20.dp, topEnd = 4.dp, bottomEnd = 20.dp, bottomStart = 20.dp)
+    else
+        RoundedCornerShape(topStart = 4.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp)
 
-        // 라인
-        edges.forEach { (a, b) ->
-            if (a in lm.indices && b in lm.indices) {
-                drawLine(
-                    color = Color(0xFF2563EB),
-                    start = map(lm[a]),
-                    end   = map(lm[b]),
-                    strokeWidth = 6f,
-                    cap = StrokeCap.Round
+    val bubbleColor = if (isMine) ChatTheme.MyBubble else ChatTheme.OtherBubble
+
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        if (!isMine) {
+            if (showAvatarGap) AvatarStub() else Spacer(Modifier.width(32.dp))
+            Spacer(Modifier.width(6.dp))
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
+
+        Column(horizontalAlignment = if (isMine) Alignment.End else Alignment.Start) {
+            Surface(
+                color = bubbleColor, 
+                shape = shape, 
+                tonalElevation = 2.dp,
+                shadowElevation = 2.dp
+            ) {
+                Text(
+                    text = msg.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isMine) Color.White else Color.Black,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = com.ssafy.a602.chatbot.ChatViewModel.formatTime(msg.createdAt),
+                style = MaterialTheme.typography.labelSmall,
+                color = ChatTheme.Time
+            )
         }
-        // 포인트
-        lm.forEach { p ->
-            drawCircle(
-                color = Color(0xFF10B981),
-                radius = 6f,
-                center = map(p),
-                style  = Stroke(width = 6f)
+
+        if (isMine) Spacer(Modifier.width(6.dp)) else Spacer(Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun AvatarStub() {
+    val sharkPainter: Painter = painterResource(id = R.drawable.babyshark)
+    Box(
+        modifier = Modifier.size(32.dp).clip(CircleShape),
+        contentAlignment = Alignment.Center
+    ) { 
+        Image(
+            painter = sharkPainter,
+            contentDescription = "AI 챗봇",
+            modifier = Modifier.size(32.dp)
+        )
+    }
+}
+
+@Composable
+private fun TypingDots() {
+    val t1 = rememberInfiniteTransition()
+    val a1 by t1.animateFloat(initialValue = .2f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse))
+    val a2 by t1.animateFloat(initialValue = 1f, targetValue = .2f,
+        animationSpec = infiniteRepeatable(tween(650, delayMillis = 220), RepeatMode.Reverse))
+    val a3 by t1.animateFloat(initialValue = .2f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(650, delayMillis = 440), RepeatMode.Reverse))
+    Row(
+        Modifier.padding(8.dp).clip(RoundedCornerShape(16.dp)).background(Color.White)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Dot(a1); Spacer(Modifier.width(6.dp)); Dot(a2); Spacer(Modifier.width(6.dp)); Dot(a3)
+    }
+}
+
+@Composable private fun Dot(alpha: Float) {
+    Box(Modifier.size(8.dp).clip(CircleShape).background(Color.Gray.copy(alpha = alpha)))
+}
+
+@Composable
+private fun InputBar(
+    onSend: (String) -> Unit,
+    hint: String = "메시지를 입력하세요",
+    modifier: Modifier = Modifier
+) {
+    var text by remember { mutableStateOf("") }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(8.dp)
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            placeholder = { Text(hint) },
+            modifier = Modifier.weight(1f),
+            maxLines = 4,
+            shape = RoundedCornerShape(24.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ChatTheme.MyBubble,
+                unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        IconButton(
+            onClick = {
+                val t = text.trim()
+                if (t.isNotEmpty()) { onSend(t); text = "" }
+            },
+            modifier = Modifier
+                .background(
+                    color = ChatTheme.MyBubble,
+                    shape = CircleShape
+                )
+        ) {
+            Icon(
+                Icons.Outlined.Send, 
+                contentDescription = "전송",
+                tint = Color.White
             )
         }
     }

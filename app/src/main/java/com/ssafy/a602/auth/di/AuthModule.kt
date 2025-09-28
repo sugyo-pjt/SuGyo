@@ -8,6 +8,7 @@ import com.ssafy.a602.game.api.RhythmApi
 import com.ssafy.a602.game.api.RhythmResultApi
 import com.ssafy.a602.learning.api.StudyApiService
 import com.ssafy.a602.term.data.remote.TermApi
+import com.ssafy.a602.chatbot.ChatApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -99,5 +100,17 @@ object AuthModule {
         val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
         val retrofit = RetrofitClient.createRetrofit(okHttpClient)
         return retrofit.create(TermApi::class.java)
+    }
+
+    // === 챗봇 API 서비스 (인증 포함) =========================================
+    @Provides
+    @Singleton
+    fun provideChatApi(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: TokenAuthenticator
+    ): ChatApi {
+        val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
+        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
+        return retrofit.create(ChatApi::class.java)
     }
 }

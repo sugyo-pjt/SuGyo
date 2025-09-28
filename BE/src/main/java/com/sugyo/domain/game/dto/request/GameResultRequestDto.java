@@ -8,7 +8,6 @@ import java.util.List;
 @Getter
 @NoArgsConstructor
 public class GameResultRequestDto {
-    private Long musicId;
-    private List<AllFramesDto> clientCoordinates;
-    private List<ClientCalculate> clientCalculate;
+    private AllFramesDto clientCoordinates;
+    private Long clientCalculateScore;
 }

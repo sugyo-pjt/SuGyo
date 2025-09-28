@@ -4,20 +4,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.CommonErrorCode;
 import com.sugyo.common.exception.GlobalErrorCode;
+import com.sugyo.domain.game.domain.GameSessionContext;
+import com.sugyo.domain.game.domain.Judgment;
 import com.sugyo.domain.game.dto.MotionFrame;
-import com.sugyo.domain.game.dto.request.AllFramesDto;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
+import com.sugyo.domain.game.dto.request.GameResultRequestDto;
 import com.sugyo.domain.game.entity.FrameCoordinates;
+import com.sugyo.domain.game.entity.GameResult;
+import com.sugyo.domain.game.exception.WebSocketException;
+import com.sugyo.domain.game.repository.GameResultRepository;
 import com.sugyo.domain.music.domain.Music;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.music.repository.MusicRepository;
+import com.sugyo.domain.user.domain.User;
+import com.sugyo.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static com.sugyo.domain.game.domain.GameState.FINISHED;
+import static com.sugyo.domain.game.domain.Judgment.*;
+import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_MUSIC_ID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +39,8 @@ import java.util.Optional;
 @Log4j2
 public class FrameCoordinatesService {
 
+    private final GameResultRepository gameResultRepository;
+    private final UserRepository userRepository;
     private final FrameCoordinatesRepository frameCoordinatesRepository;
     private final MusicRepository musicRepository;
     private final ObjectMapper objectMapper;
@@ -32,25 +48,44 @@ public class FrameCoordinatesService {
     private static final Long MUSIC_ID = 1L;
     private static final int DEFAULT_WIDTH = 640;
     private static final int DEFAULT_HEIGHT = 480;
+    private static final double PERFECT_RATIO_THRESHOLD = 0.9;
+    private static final double GOOD_RATIO_THRESHOLD = 0.7;
 
-    public void saveFrameCoordinates(AllFramesDto requestDto) {
-        Music music = musicRepository.findById(requestDto.getMusicId())
-                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+    public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) {
 
-        int isMusicExist = frameCoordinatesRepository.findByMusic(music).size();
-        if (isMusicExist != 0) {
-            throw new ApplicationException(CommonErrorCode.ALREADY_EXIST_MUSIC);
-        }
+        Long musicId =requestDto.getClientCoordinates().getMusicId();
 
+        GameSessionContext context = initializeGameSession(userId, musicId);
+        List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
 
-        for (GameActionRequest gameAction : requestDto.getAllFrames()) {
-            FrameCoordinates frameCoordinates = FrameCoordinates.builder()
-                    .music(music)
-                    .timePassed(gameAction.timestamp())
-                    .frameData(gameAction.frames())
-                    .build();
-            log.debug("[save] {}", frameCoordinates.getTimePassed());
-            frameCoordinatesRepository.save(frameCoordinates);
+        Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
+                .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
+
+        for (GameActionRequest gameAction : requestDto.getClientCoordinates().getAllFrames()) {
+            FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
+
+            // 유사도 계산
+            double similarity = JsonSimilarityComparator.calculateMotionSimilarity(
+                    gameAction.frames(), correctCurrentFrames.getFrameData(), DEFAULT_WIDTH, DEFAULT_HEIGHT);
+
+            Judgment judgment = judgeByRatio(similarity);
+
+            // 점수 계산
+            int points = calculatePoints(judgment, context.getCombo().get());
+
+            log.debug("[CHECK] {} {} {} {} {}",gameAction.timestamp(),points,judgment,similarity,judgment);
+
+            context.applyJudgment(points, judgment);
+
+            if (context.getLastNoteTimestamp() <= gameAction.timestamp()) {
+                // 검증
+                if(context.getScore().get()==requestDto.getClientCalculateScore()){
+                    finishGame(context);
+                }else{
+                    throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
+                }
+            }
+
         }
     }
 
@@ -85,4 +120,52 @@ public class FrameCoordinatesService {
         return similarity;
     }
 
+    private Judgment judgeByRatio(double ratio) {
+        if (PERFECT_RATIO_THRESHOLD <= ratio) return PERFECT;
+        if (GOOD_RATIO_THRESHOLD <= ratio) return GOOD;
+        return MISS;
+    }
+
+    private int calculatePoints(Judgment judgment, int combo) {
+        return switch (judgment) {
+            case PERFECT -> 100 + (combo / 10);
+            case GOOD -> 70 + (combo / 20);
+            case MISS -> 0;
+        };
+    }
+
+    private GameSessionContext initializeGameSession(Long userId, Long musicId)  {
+        FrameCoordinates frameCoordinates = frameCoordinatesRepository.findTop1ByMusicIdOrderByTimePassedDesc(musicId)
+                .orElseThrow(() -> new WebSocketException(INVALID_MUSIC_ID));
+
+        double lastNoteTimestamp = frameCoordinates.getTimePassed();
+
+        return new GameSessionContext(userId, musicId, lastNoteTimestamp);
+    }
+
+    @Transactional
+    public void finishGame(GameSessionContext context) {
+        context.changeState(FINISHED);
+
+        User user = userRepository.findById(Long.valueOf(context.getUserId()))
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+        Music music = musicRepository.findById(context.getMusicId())
+                .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
+        int finalScore = context.getScore().get();
+
+        Optional<GameResult> existingResult = gameResultRepository.findByUserAndMusic(user, music);
+        if (existingResult.isPresent()) {
+            GameResult gameResult = existingResult.get();
+            boolean updated = gameResult.updateScoreIfHigher(finalScore);
+            if (updated) {
+                log.info("최고점 갱신: UserId={}, MusicId={}, New Score={}", user.getId(), music.getId(), finalScore);
+            }
+        } else {
+            GameResult newResult = GameResult.create(user, music, finalScore);
+            gameResultRepository.save(newResult);
+            log.info("최초 점수 기록: UserId={}, MusicId={}, Score={}", user.getId(), music.getId(), finalScore);
+        }
+
+            log.info("게임 정상 종료 및 결과 저장: UserId={}, Score={}", context.getUserId(), context.getScore().get());
+    }
 }

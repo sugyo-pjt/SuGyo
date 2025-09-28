@@ -13,10 +13,8 @@ import static com.sugyo.domain.game.domain.GameState.PLAYING;
 @ToString
 public class GameSessionContext {
 
-    private final String userId;
+    private final Long userId;
     private final Long musicId;
-    private final String webSocketSessionId;
-    private final WebSocketSession webSocketSession;
 
     private final AtomicInteger score;      // 누적 점수
     private final AtomicInteger combo;      // 현재 콤보
@@ -29,11 +27,9 @@ public class GameSessionContext {
     private final double lastNoteTimestamp; // 노래의 마지막 노트 시작 시간
 
 
-    public GameSessionContext(String userId, Long songId, WebSocketSession session, double lastNoteTimestamp) {
+    public GameSessionContext(Long userId, Long songId, double lastNoteTimestamp) {
         this.userId = userId;
         this.musicId = songId;
-        this.webSocketSessionId = session.getId();
-        this.webSocketSession = session;
 
         this.score = new AtomicInteger(0);
         this.combo = new AtomicInteger(0);

@@ -19,7 +19,7 @@ public interface FrameCoordinatesRepository extends JpaRepository<FrameCoordinat
 
     List<FrameCoordinates> findByMusicId(@Param("musicId") Long musicId);
 
+
     Optional<FrameCoordinates> findTop1ByMusicIdOrderByTimePassedDesc(Long musicId);
 
-    List<FrameCoordinates> findByMusic(Music music);
 }

@@ -21,7 +21,7 @@ import java.util.List;
 public class JsonSimilarityComparator {
 
     /**
-     * 0.3초 프레임 전부에 대한 평균 유사도 계산
+     * 0.3초 프레임 전부에 대한 최고 유사도 계산
      */
     public static double calculateMotionSimilarity(List<MotionFrame> againstChart, List<MotionFrame> correctChart, int width, int height) {
         int minFrames = Math.min(againstChart.size(), correctChart.size());

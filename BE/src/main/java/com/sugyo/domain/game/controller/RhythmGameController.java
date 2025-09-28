@@ -1,9 +1,9 @@
 package com.sugyo.domain.game.controller;
 
 import com.sugyo.auth.dto.CustomUserDetails;
-import com.sugyo.domain.game.dto.request.FrameSaveRequestDto;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
+import com.sugyo.domain.game.dto.request.GameResultRequestDto;
 import com.sugyo.domain.game.dto.response.GameSimilarityResponseDto;
 import com.sugyo.domain.game.dto.response.MusicChartResponseDto;
 import com.sugyo.domain.game.dto.response.MusicListResponseDto;
@@ -427,13 +427,13 @@ public class RhythmGameController {
 //                    )
 //            )
 //    })
-    @PostMapping("/play")
-    public ResponseEntity<String> processGamePlay(
-            @RequestBody GamePlayRequestDto request,
-            @AuthenticationPrincipal CustomUserDetails user) {
-        rhythmGameService.processGamePlay(request, user.getId());
-        return ResponseEntity.ok("OK");
-    }
+//    @PostMapping("/play")
+//    public ResponseEntity<String> processGamePlay(
+//            @RequestBody GamePlayRequestDto request,
+//            @AuthenticationPrincipal CustomUserDetails user) {
+//        rhythmGameService.processGamePlay(request, user.getId());
+//        return ResponseEntity.ok("OK");
+//    }
 
     @Operation(
             summary = "프레임 좌표 데이터 저장",
@@ -474,10 +474,11 @@ public class RhythmGameController {
                     )
             )
     })
-    @PostMapping("/save")
-    public ResponseEntity<String> saveFrameCoordinates(
-            @RequestBody FrameSaveRequestDto request) {
-        frameCoordinatesService.saveFrameCoordinates(request);
+    @PostMapping("/result")
+    public ResponseEntity<String> checkFrameCoordinates(
+            @RequestBody GameResultRequestDto request,
+            @AuthenticationPrincipal CustomUserDetails user) {
+        frameCoordinatesService.checkFrameCoordinates(request,user.getId());
         return ResponseEntity.ok("Frame data saved successfully");
     }
 

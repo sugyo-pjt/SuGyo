@@ -332,6 +332,11 @@ fun NavGraph(
                     navController.navigate(Screen.Game.route) {
                         popUpTo(Screen.Game.route) { inclusive = true }
                     }
+                },
+                onGoToSongStudy = {
+                    navController.navigate(Screen.SongStudyDetail.route(songId)) {
+                        popUpTo(Screen.Game.route) { inclusive = true }
+                    }
                 }
             )
         }

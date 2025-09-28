@@ -287,7 +287,19 @@ object GameDataManager {
         val song = getSongById(songId) ?: throw IllegalArgumentException("Song not found: $songId")
         
         // 백엔드에서 계산된 결과를 받아와서 사용
-        return getCurrentApiService().calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
+        val result = getCurrentApiService().calculateGameResult(songId, score, correctCount, missCount, maxCombo, missWords)
+        
+        // 현재 게임 모드에 따라 gameMode 설정
+        val currentMode = _currentGameMode.value
+        val gameModeString = when (currentMode) {
+            GameMode.EASY -> "EASY"
+            GameMode.HARD -> "HARD"
+            else -> "EASY"
+        }
+        
+        android.util.Log.d("GameDataManager", "게임 결과 생성: 모드=$gameModeString, songId=$songId")
+        
+        return result.copy(gameMode = gameModeString)
     }
     
     /**

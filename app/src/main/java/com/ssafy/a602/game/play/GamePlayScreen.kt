@@ -337,7 +337,7 @@ fun GamePlayScreen(
                     val position = player.currentPosition
                     if (position == C.TIME_UNSET) 0L else position
                 }
-                vm.startGame(songId, totalWords = sections.size, mode = gameMode, playerPositionMs = actualPlayerPositionMs)
+                vm.startGame(songId, totalWords = sections.size, mode = currentGameMode ?: GameMode.EASY, playerPositionMs = actualPlayerPositionMs)
             } ?: Log.e("GamePlayScreen", "GamePlayViewModel이 null입니다!")
         } else {
             Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")

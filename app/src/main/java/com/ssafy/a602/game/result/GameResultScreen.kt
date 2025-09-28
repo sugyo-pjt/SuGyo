@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -50,7 +51,8 @@ fun GameResultScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onSubmitRanking: () -> Unit,
-    onBackToList: () -> Unit
+    onBackToList: () -> Unit,
+    onGoToSongStudy: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -117,6 +119,11 @@ fun GameResultScreen(
                 // 미스 단어 목록(보기 전용) - EASY 모드에서만 표시
                 if (result.gameMode == "EASY") {
                     MissWordListCard(words = result.missWords)
+                }
+                
+                // 하드모드일 때 노래학습 버튼 표시
+                if (result.gameMode == "HARD") {
+                    SongStudyButton(onGoToSongStudy = onGoToSongStudy)
                 }
                 
                 // 액션 버튼들
@@ -596,6 +603,72 @@ private fun MissWordItem(word: String) {
     }
 }
 
+// --- 컴포넌트: 노래학습 버튼 (하드모드 전용) ---
+@Composable
+private fun SongStudyButton(onGoToSongStudy: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground.copy(alpha = 0.8f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.School,
+                    contentDescription = "학습",
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "노래학습하러 가기", 
+                    style = MaterialTheme.typography.titleMedium, 
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+            
+            Text(
+                text = "이 노래를 더 자세히 학습해보세요!",
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            
+            Button(
+                onClick = onGoToSongStudy,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.School,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "노래학습 시작하기",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
 // --- 하단 액션 ---
 @Composable
 private fun ResultActions(
@@ -711,7 +784,8 @@ private fun GameResultScreenPreview() {
             onBack = {},
             onRetry = {},
             onSubmitRanking = {},
-            onBackToList = {}
+            onBackToList = {},
+            onGoToSongStudy = {}
         )
     }
 }

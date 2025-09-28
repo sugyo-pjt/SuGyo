@@ -53,14 +53,19 @@ public class FrameCoordinatesService {
 
     public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) {
 
+        log.debug("DTO : {}",requestDto);
         Long musicId =requestDto.getClientCoordinates().getMusicId();
+        log.debug("UserId {} MusicId : {}",userId,musicId);
 
         GameSessionContext context = initializeGameSession(userId, musicId);
+        log.debug("Context : {}",context);
         List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
 
+        log.debug("correctFrames : {}",correctFrames);
         Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
                 .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
 
+        log.debug("frameMap : {}",frameMap);
         for (GameActionRequest gameAction : requestDto.getClientCoordinates().getAllFrames()) {
             FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
 

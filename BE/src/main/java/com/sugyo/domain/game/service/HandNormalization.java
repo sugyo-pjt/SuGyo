@@ -38,9 +38,15 @@ public class HandNormalization {
         double[][] points = new double[handCoordinates.size()][3];
         for (int i = 0; i < handCoordinates.size(); i++) {
             Coordinate coordinate = handCoordinates.get(i);
-            points[i][0] = coordinate.x() * W;  // x 좌표
-            points[i][1] = coordinate.y() * H;  // y 좌표
-            points[i][2] = coordinate.z() * W;  // z 좌표 (깊이)
+            if(coordinate == null){
+                points[i][0] = 0;  // x 좌표
+                points[i][1] = 0;  // y 좌표
+                points[i][2] = 0;  // z 좌표 (깊이)
+            }else{
+                points[i][0] = coordinate.x() * W;  // x 좌표
+                points[i][1] = coordinate.y() * H;  // y 좌표
+                points[i][2] = coordinate.z() * W;  // z 좌표 (깊이)
+            }
         }
         return new Array2DRowRealMatrix(points);
     }

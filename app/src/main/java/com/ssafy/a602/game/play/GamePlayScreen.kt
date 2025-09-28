@@ -684,6 +684,10 @@ fun GamePlayScreen(
                                         android.util.Log.d("GamePlayScreen", "  - 판정 타입: MISS")
                                         JudgmentType.MISS
                                     }
+                                    "" -> {
+                                        android.util.Log.d("GamePlayScreen", "  - 판정 타입: 빈 문자열 (UI 숨김)")
+                                        return@Box // UI 숨김 처리
+                                    }
                                     else -> {
                                         android.util.Log.w("GamePlayScreen", "  - ⚠️ 알 수 없는 판정: '${gameUi.currentGrade}' -> MISS로 처리")
                                         JudgmentType.MISS

@@ -180,6 +180,16 @@ class GamePlayViewModel @Inject constructor(
                 }
             }
             
+            // 기존 리듬 수집기도 유지 (호환성)
+            rhythmCollector = RhythmCollector(
+                musicId = currentMusicId.toInt(),
+                coroutineScope = viewModelScope
+            )
+            rhythmCollector?.startCollection()
+            
+            // 🎯 Easy 모드에서도 루프 시작 (answerTimeline 로드와 독립적으로)
+            startLoopIfNeeded()
+            
             android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 로컬 판정 시스템 초기화 완료")
         }
         
@@ -766,7 +776,7 @@ class GamePlayViewModel @Inject constructor(
         // 🎯 판정 UI가 0.2초 후에 사라지도록 타이머 설정
         viewModelScope.launch {
             delay(200) // 0.2초 대기
-            gameStats.lastGrade = "" // 판정 UI 숨김
+            // gameStats.lastGrade = "" // 판정 UI 숨김 - 주석 처리하여 UI MISS 문제 해결
             updateUI()
         }
         

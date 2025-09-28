@@ -1,5 +1,6 @@
 package com.sugyo.domain.game.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.sugyo.domain.game.converter.MotionFrameListConverter;
 import com.sugyo.domain.game.dto.MotionFrame;
 import com.sugyo.domain.music.domain.Music;
@@ -32,5 +33,6 @@ public class FrameCoordinates {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "music_id", nullable = false)
+    @JsonIgnore
     private Music music;
 }

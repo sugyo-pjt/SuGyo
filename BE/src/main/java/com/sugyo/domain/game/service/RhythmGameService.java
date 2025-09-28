@@ -25,6 +25,7 @@ import com.sugyo.domain.game.entity.ChartAnswer;
 import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.repository.ChartAnswerRepository;
+import com.sugyo.domain.game.repository.ChartRepository;
 import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.game.repository.RankRepository;
 import com.sugyo.domain.music.domain.Music;
@@ -50,11 +51,7 @@ public class RhythmGameService {
     private final MusicRepository musicRepository;
     private final ObjectStorageRepository objectStorageRepository;
     private final RankRepository rankRepository;
-    private final UserRepository userRepository;
-    private final ChartAnswerRepository chartAnswerRepository;
-    private final FrameCoordinatesRepository frameCoordinatesRepository;
-    private final WebClient webClient;
-    private final ObjectMapper objectMapper;
+    private final ChartRepository chartRepository;
 
 //    @Transactional
 //    public List<MusicListResponseDto> getAllMusic() {
@@ -109,8 +106,7 @@ public class RhythmGameService {
         Music music = musicRepository.findById(musicId)
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
 
-        List<Chart> charts = music.getChart().stream()
-                .toList();
+        List<Chart> charts = chartRepository.findAllByMusicId(musicId);
 
         log.info(music.toString());
 

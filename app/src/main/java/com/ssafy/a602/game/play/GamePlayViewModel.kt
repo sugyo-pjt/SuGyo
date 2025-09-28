@@ -596,7 +596,7 @@ class GamePlayViewModel @Inject constructor(
         val answerFrames = convertAnswerFrameToMotionFrames(answerFrame)
         
         // JsonSimilarityComparator를 사용한 유사도 계산
-        val similarity = JsonSimilarityComparator.calculateMotionSimilarity(userFrames, answerFrames, 640, 480)
+        val similarity = JsonSimilarityComparator.calculateMotionSimilarity(userFrames, answerFrames, 640, 480).toFloat()
         
         // LocalJudgeEngine을 사용한 판정
         val judgment = judge.judgeByRatio(similarity)

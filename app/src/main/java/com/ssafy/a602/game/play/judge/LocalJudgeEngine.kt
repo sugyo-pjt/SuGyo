@@ -36,7 +36,7 @@ class LocalJudgeEngine {
     fun calculateFrameSimilarity(userFrames: List<MotionFrame>, answerFrames: List<MotionFrame>): Float {
         return JsonSimilarityComparator.calculateMotionSimilarity(
             userFrames, answerFrames, 640, 480
-        )
+        ).toFloat()
     }
 
     /**

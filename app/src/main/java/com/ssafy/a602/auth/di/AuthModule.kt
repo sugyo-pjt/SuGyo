@@ -110,7 +110,7 @@ object AuthModule {
         tokenAuthenticator: TokenAuthenticator
     ): ChatApi {
         val okHttpClient = RetrofitClient.createOkHttpClient(authInterceptor, tokenAuthenticator)
-        val retrofit = RetrofitClient.createRetrofit(okHttpClient)
+        val retrofit = RetrofitClient.createRetrofit(okHttpClient, RetrofitClient.JsonEngine.GSON)
         return retrofit.create(ChatApi::class.java)
     }
 }

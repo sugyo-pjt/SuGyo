@@ -36,7 +36,4 @@ public class Music {
 
     @Column
     private String songUrl;
-
-    @OneToMany(mappedBy = "music", fetch = FetchType.LAZY)
-    private List<Chart> chart;
 }

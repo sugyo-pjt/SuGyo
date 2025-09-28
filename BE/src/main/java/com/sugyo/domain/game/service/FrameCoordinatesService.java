@@ -57,19 +57,20 @@ public class FrameCoordinatesService {
         try{
 
             log.debug("[inService]");
-            log.debug("DTO : {}",objectMapper.writeValueAsString(requestDto));
+            log.debug("DTO :s" +
+                    "",objectMapper.writeValueAsString(requestDto));
             Long musicId =requestDto.getClientCoordinates().getFirst().getMusicId();
             log.debug("UserId {} MusicId : {}",userId,musicId);
 
             GameSessionContext context = initializeGameSession(userId, musicId);
-            log.debug("Context : {}",objectMapper.writeValueAsString(context));
+            log.debug("Context : ",objectMapper.writeValueAsString(context));
             List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
 
-            log.debug("correctFrames : {}",objectMapper.writeValueAsString(correctFrames));
+            log.debug("correctFrames : ",objectMapper.writeValueAsString(correctFrames));
             Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
                     .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
 
-            log.debug("frameMap : {}",objectMapper.writeValueAsString(frameMap));
+            log.debug("frameMap : ",objectMapper.writeValueAsString(frameMap));
             for (GameActionRequest gameAction : requestDto.getClientCoordinates().getFirst().getAllFrames()) {
                 FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
 
@@ -96,7 +97,7 @@ public class FrameCoordinatesService {
                 }
             }
         } catch (Exception e) {
-            log.debug(e.getMessage());
+            log.debug("[ERROR]",e.getMessage());
             e.printStackTrace();
         }
     }

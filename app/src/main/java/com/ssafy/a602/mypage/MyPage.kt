@@ -280,15 +280,27 @@ fun MyPageScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // 상단 제목
-                    ElevatedCard(
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.elevatedCardElevation(2.dp),
+                    // 새로운 상단바 디자인 - 그라데이션 배경
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFFF8FAFF),
+                                        Color(0xFFE8F2FF)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "마이페이지",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF1A1A1A),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
                     }
 

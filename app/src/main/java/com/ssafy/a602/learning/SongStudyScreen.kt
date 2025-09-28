@@ -134,19 +134,43 @@ fun SongStudyListScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로")
+            // 새로운 상단바 디자인 - 그라데이션 배경
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFF8FAFF),
+                                Color(0xFFE8F2FF)
+                            )
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.Filled.ArrowBack, 
+                            contentDescription = "뒤로",
+                            tint = Color(0xFF1A1A1A)
+                        )
+                    }
+                    Text(
+                        text = "노래 학습",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF1A1A1A),
+                        modifier = Modifier.weight(1f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
-                Text(
-                    text = "노래 학습",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF1A1A1A)
-                )
-                Spacer(Modifier.weight(1f))
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(20.dp))
 
             OutlinedTextField(
                 value = state.query,

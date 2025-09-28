@@ -43,30 +43,60 @@ fun Total_RoadMap(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = Modifier.fillMaxSize()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF1FBF4))
     ) {
-        // 상단바
-        CenterAlignedTopAppBar(
-            modifier = Modifier
-                .statusBarsPadding()
-                .background(Color(0xFFF1FBF4)),
-            windowInsets = WindowInsets(0),
-            title = { Text("로드맵", fontWeight = FontWeight.Bold) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로가기")
-                }
-            }
-        )
-        
-        // 로드맵 내용 (초록 배경)
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF1FBF4))
-                .padding(bottom = 24.dp) // 하단 네비게이션 여백
+                .padding(horizontal = 16.dp)
         ) {
+            Spacer(Modifier.height(16.dp))
+            
+            // 새로운 상단바 디자인 - 그라데이션 배경
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFF1FBF4),
+                                Color(0xFFE8F5E8)
+                            )
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.Filled.ArrowBack, 
+                            contentDescription = "뒤로가기",
+                            tint = Color(0xFF1A1A1A)
+                        )
+                    }
+                    Text(
+                        "로드맵", 
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF1A1A1A),
+                        modifier = Modifier.weight(1f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 24.dp) // 하단 네비게이션 여백
+            ) {
             when (val s = uiState) {
                 is RoadmapUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -89,6 +119,7 @@ fun Total_RoadMap(
                 is RoadmapUiState.Success -> {
                     CuteRoadmapList(items = s.items, onDayClick = onDayClick)
                 }
+            }
             }
         }
     }

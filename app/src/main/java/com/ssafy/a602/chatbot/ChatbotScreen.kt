@@ -24,9 +24,6 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,63 +70,79 @@ fun ChatbotScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ChatTheme.Bg)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(Modifier.height(16.dp))
+            
+            // 새로운 상단바 디자인 - 그라데이션 배경
+            Box(
                 modifier = Modifier
-                    .statusBarsPadding(),
-                windowInsets = WindowInsets(0),
-                title = { 
-                    Text(
-                        "수어 챗봇", 
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Filled.ArrowBack, 
-                            contentDescription = "뒤로가기",
-                            tint = Color.Black
+                    .fillMaxWidth()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFF1FBF4),
+                                Color(0xFFE8F5E8)
+                            )
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    "수어 챗봇", 
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF1A1A1A),
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
+                        val prev = messages.getOrNull(index - 1)
+                        val showAvatarGap =
+                            msg.sender == Sender.BOT && (prev == null || prev.sender != msg.sender)
+                        MessageBubble(
+                            msg = msg,
+                            isMine = msg.sender == Sender.USER,
+                            showAvatarGap = showAvatarGap,
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
-                },
-                actions = { /* 설정/새로고침 등 필요시 */ }
-            )
-        },
-        containerColor = ChatTheme.Bg,
-        bottomBar = { 
-            InputBar(
-                onSend = vm::sendUserMessage,
-                modifier = Modifier
-            ) 
-        }
-    ) { inner ->
-        Column(Modifier.padding(inner).fillMaxSize()) {
-            LazyColumn(
-                state = listState,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
-                    val prev = messages.getOrNull(index - 1)
-                    val showAvatarGap =
-                        msg.sender == Sender.BOT && (prev == null || prev.sender != msg.sender)
-                    MessageBubble(
-                        msg = msg,
-                        isMine = msg.sender == Sender.USER,
-                        showAvatarGap = showAvatarGap,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-                item {
-                    AnimatedVisibility(visible = typing, enter = fadeIn(), exit = fadeOut()) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                            Spacer(Modifier.width(38.dp))
-                            TypingDots()
+                    item {
+                        AnimatedVisibility(visible = typing, enter = fadeIn(), exit = fadeOut()) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                                Spacer(Modifier.width(38.dp))
+                                TypingDots()
+                            }
                         }
                     }
+                }
+
+                // 동행 채팅과 동일한 입력바 사용
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 50.dp) // 네비게이션 바 위에 표시
+                ) {
+                    InputBar(
+                        onSend = vm::sendUserMessage
+                    )
                 }
             }
         }
@@ -229,14 +242,12 @@ private fun TypingDots() {
 private fun InputBar(
     onSend: (String) -> Unit,
     hint: String = "메시지를 입력하세요",
-    modifier: Modifier = Modifier
 ) {
     var text by remember { mutableStateOf("") }
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .navigationBarsPadding()
-            .imePadding()
+        modifier = Modifier
+            .fillMaxWidth()
             .padding(8.dp)
     ) {
         OutlinedTextField(

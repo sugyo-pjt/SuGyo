@@ -48,10 +48,12 @@ package com.ssafy.a602.search
 // Imports
 // ───────────────────────────────────────────────────────────────────
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 // 아이콘들 (Search, ArrowBack, ArrowForward, Play)
 import androidx.compose.material.icons.Icons
@@ -106,15 +108,33 @@ fun SearchScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // 화면 제목
-        Text(
-            "단어 검색",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-        )
+        // 새로운 상단바 디자인 - 그라데이션 배경
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFF8FAFF),
+                            Color(0xFFE8F2FF)
+                        )
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(
+                "단어 검색",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFF1A1A1A),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
 
         // 검색 입력창
         SearchTextField(

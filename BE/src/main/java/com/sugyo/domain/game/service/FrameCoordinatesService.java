@@ -54,8 +54,9 @@ public class FrameCoordinatesService {
 
     public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) throws JsonProcessingException {
 
+        log.debug("[inService]");
         log.debug("DTO : {}",objectMapper.writeValueAsString(requestDto));
-        Long musicId =requestDto.getClientCoordinates().getMusicId();
+        Long musicId =requestDto.getClientCoordinates().getFirst().getMusicId();
         log.debug("UserId {} MusicId : {}",userId,musicId);
 
         GameSessionContext context = initializeGameSession(userId, musicId);
@@ -67,7 +68,7 @@ public class FrameCoordinatesService {
                 .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
 
         log.debug("frameMap : {}",objectMapper.writeValueAsString(frameMap));
-        for (GameActionRequest gameAction : requestDto.getClientCoordinates().getAllFrames()) {
+        for (GameActionRequest gameAction : requestDto.getClientCoordinates().getFirst().getAllFrames()) {
             FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
 
             // 유사도 계산
@@ -91,7 +92,6 @@ public class FrameCoordinatesService {
                     throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
                 }
             }
-
         }
     }
 

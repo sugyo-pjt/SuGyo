@@ -436,49 +436,11 @@ public class RhythmGameController {
 //        return ResponseEntity.ok("OK");
 //    }
 
-    @Operation(
-            summary = "프레임 좌표 데이터 저장",
-            description = "프레임 좌표 데이터를 저장합니다."
-    )
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "프레임 좌표 데이터 저장 성공",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = {
-                                    @ExampleObject(
-                                            name = "성공 예시",
-                                            value = "\"Frame data saved successfully\""
-                                    )
-                            }
-                    )
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404",
-                    description = "음악을 찾을 수 없음",
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = {
-                                    @ExampleObject(
-                                            name = "실패 예시",
-                                            value =
-                                                    """
-                                                            {
-                                                              "status": 404,
-                                                              "code": "GLOBAL-404-01",
-                                                              "message": "요청한 리소스를 찾을 수 없습니다."
-                                                            }
-                                                            """
-                                    )
-                            }
-                    )
-            )
-    })
     @PostMapping("/result")
     public ResponseEntity<String> checkFrameCoordinates(
             @RequestBody GameResultRequestDto request,
             @AuthenticationPrincipal CustomUserDetails user) throws JsonProcessingException {
+        System.out.println("InController");
         frameCoordinatesService.checkFrameCoordinates(request,user.getId());
         return ResponseEntity.ok("Frame data saved successfully");
     }

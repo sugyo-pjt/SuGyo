@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import List
 
 class ChatRequest(BaseModel):
-    user_id: str
+    user_id: int
     sentence: str
 
 class ChatMessage(BaseModel):

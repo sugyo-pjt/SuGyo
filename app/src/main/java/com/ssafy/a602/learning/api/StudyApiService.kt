@@ -7,25 +7,14 @@ import retrofit2.http.POST
 import retrofit2.http.Body
 
 // ───────────────────────────────────────────────────────────────
-// [1] 메인 화면: 진행도 요약 (progressDay만 필요)
-//    사용처: LearningMainPage (LearningViewModel)
-//    응답 예: {"progressDay": 2}
+// [1] 메인 화면: 진행도 요약
 // ───────────────────────────────────────────────────────────────
 data class ProgressResponse(
     val progressDay: Int
 )
 
 // ───────────────────────────────────────────────────────────────
-// [2] 로드맵 화면: 진행도 상세 (totalDays + progressDay + days[])
-//    사용처: Total_RoadMap (RoadmapViewModel)
-//    Swagger 예:
-//    {
-//      "totalDays": 3,
-//      "progressDay": 2,
-//      "days": [
-//        {"dayId":1,"day":1,"correctCount":6,"totalCount":6}, ...
-//      ]
-//    }
+// [2] 로드맵 화면: 진행도 상세
 // ───────────────────────────────────────────────────────────────
 data class ProgressDetailResponse(
     val totalDays: Int,
@@ -33,45 +22,30 @@ data class ProgressDetailResponse(
     val days: List<DayDetail> = emptyList()
 )
 
-/** 일차별 통계 한 줄(로드맵 카드 계산용) */
 data class DayDetail(
-    val dayId: Long? = null,     // 서버에서 내려오면 사용, 아니면 null
-    val day: Int,                // Day 번호 (1,2,3…)
+    val dayId: Long? = null,
+    val day: Int,
     val correctCount: Int? = null,
     val totalCount: Int
 )
 
 // ───────────────────────────────────────────────────────────────
 // [3] 일차 상세: 단어/영상 목록
-//    사용처: DailyDetailStudyScreen (DailyDetailStudyViewModel)
-//    Swagger 예:
-//    {
-//      "day": 1,
-//      "items": [
-//        {"wordId":1444,"word":"안녕하세요","description":"...","videoUrl":"https://..."},
-//        {"wordId":1633,"word":"나","description":"...","videoUrl":"https://..."}
-//      ]
-//    }
 // ───────────────────────────────────────────────────────────────
 data class DayItemsResponse(
     val day: Int,
     val items: List<DayItemDto>
 )
 
-
-/** 일차 상세의 개별 아이템(단어/영상) */
 data class DayItemDto(
     val wordId: Long,
     val word: String,
-    val description: String?,   // UI에서 안 쓸 수도 있어 nullable
-    val videoUrl: String?       // 영상이 없을 수도 있어 nullable
+    val description: String?,
+    val videoUrl: String?
 )
 
 // ───────────────────────────────────────────────────────────────
 // [4] 퀴즈 결과 저장
-//    요청 바디: { "dayId": 1, "score": 6 }
-//    응답: 200 OK (본문 없음 가정)
-//    Authorization 헤더는 AuthInterceptor가 자동 부착
 // ───────────────────────────────────────────────────────────────
 data class QuizResultRequest(
     val dayId: Int,
@@ -81,9 +55,24 @@ data class QuizResultRequest(
 @JvmInline
 value class EmptyBody private constructor(val nothing: String = "")
 
+// ───────────────────────────────────────────────────────────────
+// [5] 노래학습 목록 조회 (✔️ 이게 핵심: /api/v1/music/study)
+// ───────────────────────────────────────────────────────────────
+data class MusicStudyListResponse(
+    val musics: List<MusicStudyItem>
+)
 
+data class MusicStudyItem(
+    val musicId: Int,
+    val title: String,
+    val singer: String,
+    val albumImageUrl: String?,
+    val countWord: Int
+)
 
-
+// ───────────────────────────────────────────────────────────────
+// [6] 노래학습 상세(단어/영상)
+// ───────────────────────────────────────────────────────────────
 data class SongItemDto(
     val wordId: Int,
     val word: String,
@@ -94,34 +83,36 @@ data class SongItemDto(
 
 // ───────────────────────────────────────────────────────────────
 // Retrofit 인터페이스
-//  - BASE_URL 뒤에 그대로 붙습니다(앞에 슬래시 X)
-//  - Authorization은 AuthInterceptor가 자동 부착
 // ───────────────────────────────────────────────────────────────
 interface StudyApiService {
 
-    /** [1] 진행도 요약: LearningMainPage */
+    /** [1] 진행도 요약 */
     @GET("api/v1/study/progress")
     suspend fun getProgress(): Response<ProgressResponse>
 
-    /** [2] 진행도 상세: Total_RoadMap */
+    /** [2] 진행도 상세 */
     @GET("api/v1/study/progress/detail")
     suspend fun getProgressDetail(): Response<ProgressDetailResponse>
 
-    /** [3] 일차 상세(단어/영상): DailyDetailStudyScreen */
+    /** [3] 일차 상세(단어/영상) */
     @GET("api/v1/study/days/{dayId}")
     suspend fun getDayDetail(
         @Path("dayId") dayId: Int
     ): Response<DayItemsResponse>
 
-    /** [4] 노래학습 상세(단어/영상): SongStudyScreen */
+    /** [5] 노래학습 목록 (✔️ 새로 연결되는 곳) */
+    @GET("api/v1/music/study")
+    suspend fun getMusicStudyList(): Response<MusicStudyListResponse>
+
+    /** [6] 노래학습 상세(단어/영상) */
     @GET("api/v1/study/music/{musicId}")
     suspend fun getSongStudy(
         @Path("musicId") musicId: Int
     ): Response<List<SongItemDto>>
 
-    /** [5] 퀴즈 결과 저장 */
+    /** [4] 퀴즈 결과 저장 */
     @POST("api/v1/study/result")
     suspend fun postQuizResult(
         @Body body: QuizResultRequest
-    ): Response<Unit> // 200 OK 예상
+    ): Response<Unit>
 }

@@ -18,7 +18,9 @@ enum class DayStatus { DONE, CURRENT, LOCKED }
 
 data class DayItem(
     val day: Int,
-    val status: DayStatus
+    val status: DayStatus,
+    val correctCount: Int? = null,
+    val totalCount: Int? = null
 )
 
 sealed interface RoadmapUiState {
@@ -82,7 +84,16 @@ class RoadmapViewModel @Inject constructor(
                 day == progress + 1   -> DayStatus.CURRENT
                 else                  -> DayStatus.LOCKED
             }
-            DayItem(day, status)
+            
+            // 해당 Day의 퀴즈 결과 찾기
+            val dayResult = meta.days.find { it.day == day }
+            
+            DayItem(
+                day = day,
+                status = status,
+                correctCount = dayResult?.correctCount,
+                totalCount = dayResult?.totalCount
+            )
         }
     }
 }

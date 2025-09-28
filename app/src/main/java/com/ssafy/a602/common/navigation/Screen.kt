@@ -43,9 +43,10 @@ sealed class Screen(val route: String) {
 
     object SongStudyDetail {
         const val ARG_ID = "songId"
+        const val ARG_TITLE = "songTitle"
         private const val BASE = "learning/songstudy/detail"
-        const val route = "$BASE/{$ARG_ID}"
-        fun route(id: String) = "$BASE/$id"
+        const val route = "$BASE/{$ARG_ID}/{$ARG_TITLE}"
+        fun route(id: String, title: String) = "$BASE/$id/$title"
     }
 
     // ── 약관 관련 라우트 ───────────────────────────────────────────────────────

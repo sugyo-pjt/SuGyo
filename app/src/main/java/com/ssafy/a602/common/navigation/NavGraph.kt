@@ -194,8 +194,8 @@ fun NavGraph(
         composable(Screen.SongStudyList.route) {
             SongStudyListScreen(
                 onBack = { navController.popBackStack() },
-                onOpenDetail = { songId ->
-                    navController.navigate(Screen.SongStudyDetail.route(songId))
+                onOpenDetail = { songId, songTitle ->
+                    navController.navigate(Screen.SongStudyDetail.route(songId, songTitle))
                 }
             )
         }
@@ -203,11 +203,16 @@ fun NavGraph(
         /* ---------- Song Study : 상세 ---------- */
         composable(
             route = Screen.SongStudyDetail.route,
-            arguments = listOf(navArgument(Screen.SongStudyDetail.ARG_ID) { type = NavType.StringType })
+            arguments = listOf(
+                navArgument(Screen.SongStudyDetail.ARG_ID) { type = NavType.StringType },
+                navArgument(Screen.SongStudyDetail.ARG_TITLE) { type = NavType.StringType }
+            )
         ) { backStackEntry ->
             val songId = backStackEntry.arguments?.getString(Screen.SongStudyDetail.ARG_ID)!!
+            val songTitle = backStackEntry.arguments?.getString(Screen.SongStudyDetail.ARG_TITLE)!!
             SongStudyDetailScreen(
                 musicId = songId,
+                songTitle = songTitle,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -334,7 +339,8 @@ fun NavGraph(
                     }
                 },
                 onGoToSongStudy = {
-                    navController.navigate(Screen.SongStudyDetail.route(songId)) {
+                    // 게임에서 노래학습으로 이동할 때는 기본 제목 사용
+                    navController.navigate(Screen.SongStudyDetail.route(songId, "노래 학습")) {
                         popUpTo(Screen.Game.route) { inclusive = true }
                     }
                 }

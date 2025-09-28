@@ -1,12 +1,11 @@
 @file:OptIn(
     androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.media3.common.util.UnstableApi::class   // ⬅ 추가
+    androidx.media3.common.util.UnstableApi::class
 )
-
-
 
 package com.ssafy.a602.learning
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,9 +13,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,12 +33,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
@@ -43,31 +49,83 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.PlayerView
-import com.ssafy.a602.game.data.GameDataManager
-import com.ssafy.a602.game.songs.SongCard      // ✅ 게임 카드 재사용 (룩앤필 통일)
-import com.ssafy.a602.game.songs.SongItem
-import com.ssafy.a602.game.songs.SongsViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import androidx.lifecycle.viewModelScope
+import com.ssafy.a602.learning.api.MusicStudyItem
+import com.ssafy.a602.learning.api.MusicStudyListResponse
+import com.ssafy.a602.learning.api.StudyApiService
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import android.util.Log
+
+// ─────────────────────────────────────────────────────────────
+// 목록 화면 전용 UiState / ViewModel
+// ─────────────────────────────────────────────────────────────
+data class SongStudyListUiState(
+    val isLoading: Boolean = true,
+    val query: String = "",
+    val items: List<MusicStudyItem> = emptyList(),
+    val error: String? = null
+)
+
+@HiltViewModel
+class SongStudyListViewModel @Inject constructor(
+    private val api: StudyApiService
+) : androidx.lifecycle.ViewModel() {
+
+    private val _state = MutableStateFlow(SongStudyListUiState())
+    val state: StateFlow<SongStudyListUiState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun onQueryChange(q: String) {
+        _state.update { it.copy(query = q) }
+    }
+
+    fun load() {
+        _state.update { it.copy(isLoading = true, error = null) }
+        viewModelScope.launch {
+            try {
+                val res = api.getMusicStudyList()
+                if (res.isSuccessful) {
+                    val list = res.body()?.musics ?: emptyList()
+                    _state.update { it.copy(isLoading = false, items = list) }
+                } else {
+                    _state.update {
+                        it.copy(isLoading = false, error = "HTTP ${res.code()} ${res.message()}")
+                    }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLoading = false, error = e.message ?: "알 수 없는 오류") }
+            }
+        }
+    }
+}
 
 /* ─────────────────────────────────────────────────────────────
-   노래 학습: 목록 화면 (게임 SongsScreen 과 동일한 톤/스타일)
-   - 뒤로가기 + 타이틀은 Row로 구성 (TopAppBar 미사용)
-   - 검색창과 카드 스타일은 게임 화면과 동일
-   - 카드 클릭 시 onOpenDetail(musicId)
+   노래 학습: 목록 화면
+   ✔️ /api/v1/music/study 결과를 뿌리도록 수정
    ───────────────────────────────────────────────────────────── */
 @Composable
 fun SongStudyListScreen(
     onBack: () -> Unit,
-    onOpenDetail: (String) -> Unit
+    onOpenDetail: (String, String) -> Unit,  // songId, songTitle
+    vm: SongStudyListViewModel = hiltViewModel()
 ) {
-    val vm: SongsViewModel = viewModel()
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+
+    val filtered = remember(state.items, state.query) {
+        val q = state.query.trim()
+        if (q.isBlank()) state.items
+        else state.items.filter {
+            it.title.contains(q, ignoreCase = true) || it.singer.contains(q, ignoreCase = true)
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFF)) // 게임 화면과 동일 배경
+            .background(Color(0xFFF8FAFF))
     ) {
         Column(
             modifier = Modifier
@@ -76,7 +134,6 @@ fun SongStudyListScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // 상단: 뒤로가기 + 타이틀 (게임과 같은 타이틀 톤)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "뒤로")
@@ -86,11 +143,11 @@ fun SongStudyListScreen(
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color(0xFF1A1A1A)
                 )
+                Spacer(Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // 검색창 (게임과 동일 스타일)
             OutlinedTextField(
                 value = state.query,
                 onValueChange = vm::onQueryChange,
@@ -115,80 +172,165 @@ fun SongStudyListScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // 곡 목록
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                items(state.filtered, key = { it.id }) { song ->
-                    // 게임 UI와 완전 동일하게 보여주기 위해 카드 재사용
-                    SongCard(song) { onOpenDetail(song.id) }
+            when {
+                state.isLoading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                state.error != null -> {
+                    Column(
+                        Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(state.error!!, color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = vm::load) { Text("다시 시도") }
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        items(filtered, key = { it.musicId }) { item ->
+                            MusicStudyCard(
+                                item = item,
+                                onClick = { onOpenDetail(item.musicId.toString(), item.title) }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+@Composable
+private fun MusicStudyCard(
+    item: MusicStudyItem,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        )
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // 학습 아이콘 (앨범 이미지 대신)
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF3B82F6),
+                                Color(0xFF8B5CF6)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Outlined.School,
+                    contentDescription = "학습 아이콘",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color(0xFF1F2937),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = item.singer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF6B7280),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(8.dp))
+                
+                // 단어 개수만 표시
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF0F9FF)
+                ) {
+                    Text(
+                        text = "단어 ${item.countWord}개",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFF0369A1),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // 화살표 아이콘
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = "이동",
+                tint = Color(0xFF9CA3AF),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
 /* ─────────────────────────────────────────────────────────────
-   노래 학습: 상세 화면
-   - 간단 정보 카드들로 구성 (필요 시 영상/가사/구간연습 추가)
-   - 목록과 배경/톤 통일
+   노래 학습: 상세 화면 (기존과 동일 UI)
    ───────────────────────────────────────────────────────────── */
 @Composable
 fun SongStudyDetailScreen(
     musicId: String,
+    songTitle: String,
     onBack: () -> Unit,
     viewModel: SongStudyDetailViewModel = hiltViewModel()
 ) {
-    // 배경 그라데이션
     val bg = Brush.verticalGradient(listOf(Color(0xFFEFFAF2), Color.White))
-
-    // ViewModel의 상태 스트림을 Compose에서 구독
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    // 리스트 스크롤/코루틴 스코프 준비 (선택 단어로 스크롤 맞출 때 사용)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // var song by remember { mutableStateOf<SongItem?>(null) }
-
-    // 간단히 전체 목록에서 찾아오기 (실서비스면 캐시/DI 추천)
-    LaunchedEffect(musicId) {
-        viewModel.load(musicId)
-    }
+    LaunchedEffect(musicId, songTitle) { viewModel.load(musicId, songTitle) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(bg)
-            // .background(Color(0xFFF8FAFF))
             .padding(horizontal = 16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                // .padding(horizontal = 16.dp)
-        ) {
-            Column( Modifier.fillMaxWidth()) {
-                // 상단바
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxWidth()) {
                 TopBarWithSongTitle(
-                    songTitle = when(val s = uiState) {
+                    songTitle = when (val s = uiState) {
                         is SongStudyDetailUiState.Success -> s.songTitle
                         else -> "노래 학습"
                     },
                     onBack = onBack
                 )
-                
+
                 Spacer(Modifier.height(12.dp))
 
-                // 상태에 따라 본문 렌더
                 when (val s = uiState) {
                     SongStudyDetailUiState.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
                     }
@@ -201,25 +343,20 @@ fun SongStudyDetailScreen(
                         ) {
                             Text(s.message, color = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.height(12.dp))
-                            Button(onClick = { viewModel.load(musicId) }) { Text("다시 시도") }
+                            Button(onClick = { viewModel.load(musicId, songTitle) }) { Text("다시 시도") }
                         }
                     }
-                
 
                     is SongStudyDetailUiState.Success -> {
                         val words = s.words
-
-                        // 선택된 인덱스
                         var selectedIndex by remember(words) { mutableStateOf(0) }
 
                         if (words.isNotEmpty()) {
                             val currentWord = words[selectedIndex]
 
-                            // 현재 단어 카드
                             CurrentWordCard(word = currentWord.word)
                             Spacer(Modifier.height(12.dp))
 
-                            // 영상 섹션
                             VideoSection(
                                 videoUrl = currentWord.videoUrl,
                                 page = selectedIndex + 1,
@@ -240,7 +377,6 @@ fun SongStudyDetailScreen(
 
                             Spacer(Modifier.height(16.dp))
 
-                            // 단어 목록
                             SongWordListSection(
                                 songTitle = s.songTitle,
                                 words = words,
@@ -263,12 +399,9 @@ fun SongStudyDetailScreen(
     }
 }
 
-
-
 // --------------------------------------------------------------------------------
 // 상단바 + 곡 제목
 // --------------------------------------------------------------------------------
-
 @Composable
 private fun TopBarWithSongTitle(
     songTitle: String,
@@ -281,7 +414,7 @@ private fun TopBarWithSongTitle(
             .padding(top = 12.dp)
     ) {
         Text(
-            text="←",
+            text = "←",
             fontSize = 20.sp,
             modifier = Modifier
                 .clip(RoundedCornerShape(10.dp))
@@ -298,9 +431,9 @@ private fun TopBarWithSongTitle(
     }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 현재 단어 카드 (DailyDetailStudyScreen과 동일)
- * ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+ * 현재 단어 카드
+ * ───────────────────────────────────────────────────────────── */
 @Composable
 private fun CurrentWordCard(word: String) {
     val green = Color(0xFF16A34A)
@@ -337,9 +470,10 @@ private fun CurrentWordCard(word: String) {
     }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 영상 섹션 (DailyDetailStudyScreen과 동일)
- * ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+ * 영상 섹션 (수동 재생)
+ * ───────────────────────────────────────────────────────────── */
+@OptIn(UnstableApi::class)
 @Composable
 private fun VideoSection(
     videoUrl: String?,
@@ -392,9 +526,9 @@ private fun VideoSection(
     }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * ExoPlayer: 수동 재생 (DailyDetailStudyScreen과 동일)
- * ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+ * ExoPlayer: 수동 재생
+ * ───────────────────────────────────────────────────────────── */
 @OptIn(UnstableApi::class)
 @Composable
 private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
@@ -467,10 +601,10 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable { 
+                    .clickable {
                         if (ended) exoplayer.seekTo(0)
                         exoplayer.playWhenReady = true
-                        exoplayer.play() 
+                        exoplayer.play()
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -488,9 +622,9 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
     }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 노래 단어 목록 리스트 (DailyDetailStudyScreen의 StudyListSection과 동일)
- * ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+ * 노래 단어 목록 리스트
+ * ───────────────────────────────────────────────────────────── */
 @Composable
 private fun SongWordListSection(
     songTitle: String,
@@ -548,9 +682,6 @@ private fun SongWordListSection(
     }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 유틸: 리스트 중앙 스크롤
- * ────────────────────────────────────────────────────────────────────────── */
 private suspend fun LazyListState.centerOnItem(index: Int) {
     animateScrollToItem(index, scrollOffset = 0)
 }

@@ -2,15 +2,15 @@ package com.sugyo.domain.study.entity;
 
 import com.sugyo.domain.user.domain.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Table(name = "user_daily_vocabulary")
 @Getter
 @Setter
 @NoArgsConstructor
+@Builder
+@AllArgsConstructor
 public class UserDailyVocabulary {
     
     @Id

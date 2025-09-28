@@ -26,4 +26,6 @@ public interface UserDailyVocabularyRepository extends JpaRepository<UserDailyVo
             "JOIN u.daily d " +
             "WHERE u.user.id = :userId")
     Integer findMaxProgressDayByUserId(@Param("userId") Long userId);
+
+    Optional<UserDailyVocabulary> findByUserIdAndDailyId(Long userId, Long dailyId);
 }

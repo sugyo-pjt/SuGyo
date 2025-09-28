@@ -18,6 +18,8 @@ public enum CommonErrorCode implements ErrorCode {
 
     LOCK_ACQUISITION_FAILED(HttpStatus.CONFLICT, "LOCK-409-01", "다른 요청이 처리 중입니다."),
 
+    TAMPERED_VALUE(HttpStatus.UNPROCESSABLE_ENTITY, "GAME-422-01", "점수 조작이 감지되었습니다."),
+
 
     // 500
     LOCK_INTERRUPTED(HttpStatus.INTERNAL_SERVER_ERROR, "LOCK-500-01", "락을 대기하는 도중 스레드가 중단되었습니다."),
@@ -26,7 +28,9 @@ public enum CommonErrorCode implements ErrorCode {
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE-500-02", "스토리지에 파일을 업로드하는 데 실패했습니다."),
     FILE_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FILE-500-03", "스토리지에서 파일을 삭제하는 데 실패했습니다."),
 
-    FAILED_TO_EXTRACT_PATH(HttpStatus.INTERNAL_SERVER_ERROR, "URL-500-02", "URL에서 경로를 추출하는 데 실패했습니다.");
+    FAILED_TO_EXTRACT_PATH(HttpStatus.INTERNAL_SERVER_ERROR, "URL-500-02", "URL에서 경로를 추출하는 데 실패했습니다."),
+
+    ALREADY_EXIST_MUSIC(HttpStatus.INTERNAL_SERVER_ERROR, "MUSIC-500-01", "이미 존재하는 채보입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -29,4 +29,8 @@ public class ChartAnswer {
     
     @Column(nullable = false)
     private Integer endedIndex;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chart_id", nullable = false)
+    private Chart chart;
 }

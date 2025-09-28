@@ -180,6 +180,7 @@ fun GamePlayScreen(
     val player = remember {
         Log.d("GamePlayScreen", "ExoPlayer 인스턴스 생성 시작")
         ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_OFF   // ✅ 리플레이 방지
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     val stateText = when (playbackState) {
@@ -302,43 +303,19 @@ fun GamePlayScreen(
         else -> uploader // 기본값
     }
 
-    // 곡 선택 및 게임 초기화
+    // ✅ startGame 중복 호출 제거됨 (songId 쪽에서만 호출)
     LaunchedEffect(songId) {
-        Log.d("GamePlayScreen", "🎵 게임 초기화 시작: songId=$songId")
-        
         val song = GameDataManager.getSongById(songId)
-        Log.d("GamePlayScreen", "곡 조회 결과: ${song?.title ?: "null"}")
-        
         if (song != null) {
-            Log.d("GamePlayScreen", "곡 선택: ${song.title}")
             GameDataManager.selectSong(song)
-            
-            // 게임 시작 (섹션 데이터 로드)
-            Log.d("GamePlayScreen", "게임 시작 - 섹션 데이터 로드...")
             GameDataManager.startGame()
 
-            // GamePlayViewModel 초기화
-            gamePlayViewModel?.let { vm ->
-                Log.d("GamePlayScreen", "채보 데이터 로드 시작...")
-                val sections = GameDataManager.getSongSections(songId)
-                Log.d("GamePlayScreen", "채보 데이터 로드 완료: ${sections.size}개 섹션")
-                sections.forEach { section ->
-                    Log.d("GamePlayScreen", "섹션 ${section.id}: '${section.text}' (${section.startTime}s~${section.endTime}s)")
-                }
-
-                if (sections.isEmpty()) {
-                    Log.e("GamePlayScreen", "⚠️ 채보 데이터가 비어있습니다!")
-                } else {
-                    Log.d("GamePlayScreen", "✅ 채보 데이터 로드 성공, 게임 시작")
-                }
-
-                // ExoPlayer의 실제 위치를 사용하도록 수정
-                val actualPlayerPositionMs: () -> Long = { 
-                    val position = player.currentPosition
-                    if (position == C.TIME_UNSET) 0L else position
-                }
-                vm.startGame(songId, totalWords = sections.size, mode = currentGameMode ?: GameMode.EASY, playerPositionMs = actualPlayerPositionMs)
-            } ?: Log.e("GamePlayScreen", "GamePlayViewModel이 null입니다!")
+            val sections = GameDataManager.getSongSections(songId)
+            val actualPlayerPositionMs: () -> Long = {
+                val position = player.currentPosition
+                if (position == C.TIME_UNSET) 0L else position
+            }
+            gamePlayViewModel?.startGame(songId, sections.size, GameDataManager.currentGameMode.value ?: GameMode.EASY, actualPlayerPositionMs)
         } else {
             Log.e("GamePlayScreen", "songId에 해당하는 곡 없음: $songId")
         }
@@ -390,20 +367,23 @@ fun GamePlayScreen(
         Log.d("GamePlayScreen", "ExoPlayer 최종 상태: mediaItemCount=${player.mediaItemCount}, isPlaying=${player.isPlaying}, playbackState=${player.playbackState}")
     }
 
-    // 재생/일시정지 토글 반영
+    // ✅ 재생/일시정지 제어 수정
     LaunchedEffect(isPaused, isScreenVisible) {
         if (!isScreenVisible) return@LaunchedEffect
         if (player.mediaItemCount == 0) return@LaunchedEffect
-        
-        // 게임 완료 시 ExoPlayer 완전 정지
+
         if (isPaused && completeUi.submitted) {
-            Log.d("GamePlayScreen", "게임 완료: ExoPlayer 완전 정지")
             player.pause()
             player.stop()
-        } else if (isPaused) {
+            return@LaunchedEffect
+        }
+
+        if (isPaused) {
             player.pause()
         } else {
-            player.play()
+            if (player.playbackState != Player.STATE_ENDED) { // ✅ ENDED 상태일 땐 play() 금지
+                player.play()
+            }
         }
     }
 
@@ -483,9 +463,13 @@ fun GamePlayScreen(
         }
     }
 
+    // 게임 완료 상태 추적을 위한 플래그
+    var isGameCompleted by remember { mutableStateOf(false) }
+    
     // 게임 진행 상태 업데이트 및 완료 체크 (통합)
     LaunchedEffect(gameTime, totalTime, isScreenVisible) {
         if (!isScreenVisible) return@LaunchedEffect
+        if (isGameCompleted) return@LaunchedEffect // 이미 완료된 경우 중복 실행 방지
         
         // 게임 진행 상태 업데이트
         GameDataManager.updateGameProgress(gameTime)
@@ -499,12 +483,14 @@ fun GamePlayScreen(
         
         if (isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: ExoPlayer 재생 완료 (gameTime=${gameTime}s, totalTime=${totalTime}s)")
+            isGameCompleted = true // 완료 상태로 설정하여 중복 실행 방지
             // ExoPlayer 정지
             player.pause()
             player.stop()
             gamePlayViewModel?.finishGameAndPost()
         } else if (isTimeFinished && !isPlayerFinished) {
             Log.d("GamePlayScreen", "게임 완료: 시간 조건 만족 (gameTime=${gameTime}s >= totalTime=${totalTime}s)")
+            isGameCompleted = true // 완료 상태로 설정하여 중복 실행 방지
             // ExoPlayer 정지
             player.pause()
             player.stop()

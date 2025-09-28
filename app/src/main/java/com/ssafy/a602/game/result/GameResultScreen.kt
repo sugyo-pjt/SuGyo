@@ -343,9 +343,9 @@ private fun HardModeJudgementDistributionCard(
     avgSimilarity: Float
 ) {
     val totalCount = total.coerceAtLeast(1)
-    val perfectRatio = perfect / totalCount.toFloat()
-    val goodRatio = good / totalCount.toFloat()
-    val missRatio = miss / totalCount.toFloat()
+    val perfectRatio = (perfect / totalCount.toFloat()).coerceIn(0f, 1f)
+    val goodRatio = (good / totalCount.toFloat()).coerceIn(0f, 1f)
+    val missRatio = (miss / totalCount.toFloat()).coerceIn(0f, 1f)
 
     val perfectPct = String.format("%.1f%%", perfectRatio * 100)
     val goodPct = String.format("%.1f%%", goodRatio * 100)
@@ -367,18 +367,12 @@ private fun HardModeJudgementDistributionCard(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "판정 분포 (HARD 모드)",
+                text = "판정 분포",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
             )
 
-            // 평균 유사도 표시
-            Text(
-                text = "평균 유사도: ${String.format("%.2f", avgSimilarity)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.8f)
-            )
 
             HardModeJudgmentRow(
                 label = "PERFECT",

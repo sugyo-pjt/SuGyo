@@ -88,8 +88,8 @@ class GamePlayViewModel @Inject constructor(
 
     private lateinit var calc: GameScoreCalculator
     
-    // 중복 호출 방지 플래그
-    private var isUploading = false
+    private val isUploading = java.util.concurrent.atomic.AtomicBoolean(false) // ✅ CAS 가드
+    private var loopStarted = false // ✅ 루프 중복 방지
     private var songId: String = ""
     private var currentMusicId: Long = -1L
     private var gameMode: GameMode = GameMode.EASY
@@ -170,7 +170,7 @@ class GamePlayViewModel @Inject constructor(
                     answerTimeline = AnswerLoader.load(context, currentMusicId)
                     if (answerTimeline != null) {
                         android.util.Log.d("GamePlayViewModel", "✅ Easy 모드: 정답 타임라인 로드 성공: ${answerTimeline!!.frames.size}개 프레임")
-                        startRealTimeLoop()
+                        startLoopIfNeeded() // ✅ 중복 방지
                     } else {
                         android.util.Log.e("GamePlayViewModel", "❌ Easy 모드: 정답 타임라인 로드 실패")
                     }
@@ -223,7 +223,7 @@ class GamePlayViewModel @Inject constructor(
                     answerTimeline = AnswerLoader.load(context, currentMusicId)
                     if (answerTimeline != null) {
                         android.util.Log.d("GamePlayViewModel", "✅ 정답 타임라인 로드 성공: ${answerTimeline!!.frames.size}개 프레임")
-                        startRealTimeLoop()
+                        startLoopIfNeeded() // ✅ 중복 방지
                     } else {
                         android.util.Log.e("GamePlayViewModel", "❌ 정답 타임라인 로드 실패")
                     }
@@ -372,75 +372,37 @@ class GamePlayViewModel @Inject constructor(
     }
 
     fun finishGameAndPost() {
-        android.util.Log.d("GamePlayViewModel", "🎯 게임 완료 처리 시작: mode=$gameMode")
-        if (_complete.value.submitting) return // 더블탭 방지
-        
-        // 중복 호출 방지
-        if (isUploading) {
-            android.util.Log.d("GamePlayViewModel", "🎯 이미 업로드 중 - 중복 호출 방지")
+        if (!isUploading.compareAndSet(false, true)) {
+            android.util.Log.d("GamePlayViewModel", "이미 업로드 중 - 중복 호출 방지")
             return
         }
-        
-        // 게임 완료 상태로 변경하여 ExoPlayer 정지 신호
+
         _ui.value = _ui.value.copy(isPaused = true)
-        
-        if (gameMode == GameMode.EASY) {
-            android.util.Log.d("GamePlayViewModel", "📊 Easy 모드: 하드모드와 동일한 좌표 기반 결과 전송")
-            // Easy 모드: 하드모드와 동일한 좌표 기반 결과 전송 사용
-            isUploading = true
-            viewModelScope.launch {
+
+        viewModelScope.launch {
+            try {
                 _complete.value = _complete.value.copy(submitting = true, submitError = null)
-                
-                try {
-                    // 좌표 기반 결과 전송
-                    finishAndSendResult()
-                    
-                    _complete.value = _complete.value.copy(
-                        submitting = false,
-                        submitted = true,
-                        isBestRecord = false // TODO: 서버 응답에서 확인
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e("GamePlayViewModel", "📊 Easy 모드: 결과 전송 중 오류 발생", e)
-                    _complete.value = _complete.value.copy(
-                        submitting = false,
-                        submitted = true,
-                        submitError = e.message ?: "결과 전송 중 오류 발생"
-                    )
-                } finally {
-                    isUploading = false
-                }
-            }
-        } else {
-            android.util.Log.d("GamePlayViewModel", "🔥 Hard 모드: 좌표 기반 결과 전송")
-            // 🔥 Hard 모드: 좌표 기반 결과 전송 사용
-            isUploading = true
-            viewModelScope.launch {
-                _complete.value = _complete.value.copy(submitting = true, submitError = null)
-                
-                try {
-                    // 좌표 기반 결과 전송
-                    finishAndSendResult()
-                    
-                    _complete.value = _complete.value.copy(
-                        submitting = false,
-                        submitted = true,
-                        isBestRecord = false // TODO: 서버 응답에서 확인
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e("GamePlayViewModel", "🔥 Hard 모드: 결과 전송 중 오류 발생", e)
-                    _complete.value = _complete.value.copy(
-                        submitting = false,
-                        submitted = true,
-                        submitError = e.message ?: "결과 전송 중 오류 발생"
-                    )
-                } finally {
-                    isUploading = false
-                }
+                finishAndSendResult() // ✅ suspend 직접 호출
+                _complete.value = _complete.value.copy(submitting = false, submitted = true)
+            } catch (e: Exception) {
+                _complete.value = _complete.value.copy(
+                    submitting = false,
+                    submitted = true,
+                    submitError = e.message ?: "결과 전송 중 오류 발생"
+                )
+            } finally {
+                isUploading.set(false)
             }
         }
     }
     
+    // ✅ 루프 시작 중복 방지
+    private fun startLoopIfNeeded() {
+        if (loopStarted) return
+        loopStarted = true
+        startRealTimeLoop()
+    }
+
     /**
      * 실시간 판정 루프 시작 (16ms 간격)
      */
@@ -830,54 +792,24 @@ class GamePlayViewModel @Inject constructor(
     /**
      * 게임 종료 시 서버로 결과 전송
      */
-    fun finishAndSendResult() = viewModelScope.launch {
+    private suspend fun finishAndSendResult() {
         if (coordinatesRecorder == null) {
             android.util.Log.w("GamePlayViewModel", "좌표 수집기가 없음")
-            return@launch
+            return
         }
-        
         try {
-            android.util.Log.d("GamePlayViewModel", "🎯 게임 결과 서버 전송 시작")
-            
-            // 좌표 데이터 DTO 생성
             val coordinatesDto = coordinatesRecorder!!.buildDto()
-            
-            // 결과 요청 생성
             val request = RhythmResultRequest(
                 clientCoordinates = listOf(coordinatesDto),
                 clientCalculateScore = gameStats.totalScore
             )
-            
-            // JSON 구조 로그 출력
-            android.util.Log.d("GamePlayViewModel", "📤 JSON 구조 로그:")
-            android.util.Log.d("GamePlayViewModel", "  - musicId: ${coordinatesDto.musicId}")
-            android.util.Log.d("GamePlayViewModel", "  - segments: ${coordinatesDto.allFrames.size}개")
-            android.util.Log.d("GamePlayViewModel", "  - clientCalculateScore: ${request.clientCalculateScore}")
-            
-            // 좌표 데이터 상세 로그
-            coordinatesDto.allFrames.forEachIndexed { index, segment ->
-                android.util.Log.d("GamePlayViewModel", "  - segment[$index]: timestamp=${segment.timestamp}ms, frames=${segment.frames.size}개")
-                segment.frames.forEachIndexed { frameIndex, frame ->
-                    android.util.Log.d("GamePlayViewModel", "    - frame[$frameIndex]: poses=${frame.poses.size}개")
-                    frame.poses.forEach { pose ->
-                        android.util.Log.d("GamePlayViewModel", "      - ${pose.part}: coordinates=${pose.coordinates.size}개")
-                    }
-                }
-            }
-            
-            // 서버로 전송 (인증은 인터셉터에서 자동 처리)
             val response = rhythmResultApi.postResult("", request)
-            
             if (response.isSuccessful) {
-                android.util.Log.d("GamePlayViewModel", "✅ 서버 전송 성공")
                 _ui.value = _ui.value.copy(submitted = true)
             } else {
-                android.util.Log.e("GamePlayViewModel", "❌ 서버 전송 실패: ${response.code()} ${response.message()}")
                 _ui.value = _ui.value.copy(error = "서버 전송 실패: ${response.code()}")
             }
-            
         } catch (e: Exception) {
-            android.util.Log.e("GamePlayViewModel", "❌ 서버 전송 오류", e)
             _ui.value = _ui.value.copy(error = "서버 전송 오류: ${e.message}")
         }
     }

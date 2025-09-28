@@ -37,7 +37,7 @@ spring:
         cdn-url: ${SPRING_CLOUD_AWS_S3_CDN_URL}
 
   jwt:
-    access-token-validity-in-ms: 3600000 #1시간
+    access-token-validity-in-ms: 360000000 #100시간
     refresh-token-validity-in-ms: 604800000 #7일
     secret: ${SPRING_JWT_SECRET}
 

@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 data class GameUiState(
@@ -703,6 +704,13 @@ class GamePlayViewModel @Inject constructor(
         gameStats.lastGrade = grade
         gameStats.lastJudgment = grade
         gameStats.lastSimilarity = similarity
+        
+        // 🎯 판정 UI가 0.2초 후에 사라지도록 타이머 설정
+        viewModelScope.launch {
+            delay(200) // 0.2초 대기
+            gameStats.lastGrade = "" // 판정 UI 숨김
+            updateUI()
+        }
         
         when (grade) {
             "PERFECT" -> {

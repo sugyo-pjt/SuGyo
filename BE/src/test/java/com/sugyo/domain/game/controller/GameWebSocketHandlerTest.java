@@ -137,8 +137,8 @@ class GameWebSocketHandlerTest {
         @BeforeEach
         void setupSession() {
             // 모든 메시지 핸들링 테스트 전에 세션이 이미 저장되어 있다고 가정
-            GameSessionContext context = new GameSessionContext("1", 1L, session, 100.0);
-            sessions.put(session, context);
+//            GameSessionContext context = new GameSessionContext("1", 1L, session, 100.0);
+//            sessions.put(session, context);
         }
 
         @Test

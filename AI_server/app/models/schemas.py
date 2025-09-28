@@ -14,6 +14,6 @@ class ChatResponse(BaseModel):
     history: List[ChatMessage]
     
 class ChatbotOutput(BaseModel):
-    user_id: str
+    # user_id: str
     result: str
-    history: List[ChatMessage]
+    # history: List[ChatMessage]

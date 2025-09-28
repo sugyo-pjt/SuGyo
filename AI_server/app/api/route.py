@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import ChatMessage, ChatRequest, ChatResponse, ChatbotOutput
-from app.services.chatbot import chatting, chat_histories
+from app.services.chatbot import chatting
 import numpy as np
 
 router = APIRouter()
@@ -15,21 +15,20 @@ async def health():
 @router.post("/chat", response_model=ChatbotOutput)
 async def text_chat(input_data: ChatRequest):
     try:
-        reply, history = await chatting(input_data.user_id, input_data.sentence)
+        reply = await chatting(input_data.sentence)
         return ChatbotOutput(
             user_id = input_data.user_id,
-            result=reply,
-            history=[ChatMessage(**h) for h in history[-5:]]  # 최근 5개만 반환. 사실 이거 5개까지도 애매하긴 한데 그래도 문맥 파악하려면..
-        )
+            result=reply
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"오류 코드는 {e}")
 
 
 #유저별 전체 대화 히스토리 조회. 메모리에 저장해서 받아올거임. 확장하면 db에 저장하거나 json으로 따로 저장할건데 일단은 이렇게 간단하게 해둠
-@router.get("/history/{user_id}", response_model=ChatResponse)
-async def get_history(user_id: str):
-    history = chat_histories.get(user_id, [])
-    return ChatResponse(
-        reply="",
-        history=[ChatMessage(**h) for h in history]
-    )
+# @router.get("/history/{user_id}", response_model=ChatResponse)
+# async def get_history(user_id: str):
+#     history = chat_histories.get(user_id, [])
+#     return ChatResponse(
+#         reply="",
+#         history=[ChatMessage(**h) for h in history]
+#     )

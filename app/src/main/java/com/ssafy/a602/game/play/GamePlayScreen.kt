@@ -668,6 +668,7 @@ fun GamePlayScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 lensFacing = CameraSelector.LENS_FACING_FRONT,
                                 enableAnalysis = true,
+                                manualMirrorFallback = false,
                                 onFrame = { imageProxy -> 
                                     try {
                                         mediaPipeCamera.analyzer.analyze(imageProxy)

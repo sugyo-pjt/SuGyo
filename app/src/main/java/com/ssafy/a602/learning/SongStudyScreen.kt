@@ -453,9 +453,9 @@ private fun VideoPlayerManualPlay(url: String, modifier: Modifier = Modifier) {
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoplayer
-                    useController = true
+                    useController = false
                     setControllerShowTimeoutMs(2000)
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                 }
             },
             update = { it.player = exoplayer },

@@ -5,6 +5,7 @@ package com.ssafy.a602.search
 // ExoPlayer
 import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -234,6 +235,8 @@ private fun VideoCard(
 private fun VideoPlayer(videoUrl: String) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var hasError by remember { mutableStateOf(false) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var playbackState by remember { mutableStateOf(androidx.media3.common.Player.STATE_IDLE) }
     
     val exoPlayer = remember(videoUrl) {
         // DefaultHttpDataSource 설정 (리다이렉트 허용)
@@ -258,6 +261,12 @@ private fun VideoPlayer(videoUrl: String) {
                 addListener(object : androidx.media3.common.Player.Listener {
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         hasError = true
+                    }
+                    override fun onIsPlayingChanged(playing: Boolean) { 
+                        isPlaying = playing 
+                    }
+                    override fun onPlaybackStateChanged(state: Int) { 
+                        playbackState = state 
                     }
                 })
             }
@@ -295,16 +304,48 @@ private fun VideoPlayer(videoUrl: String) {
             Text("URL: $videoUrl", color = Color.Gray, fontSize = 12.sp)
         }
     } else {
-        AndroidView(
-            factory = { context ->
-                PlayerView(context).apply {
-                    player = exoPlayer
-                    useController = true
-                    setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.Black)
+        ) {
+            AndroidView(
+                factory = { context ->
+                    PlayerView(context).apply {
+                        player = exoPlayer
+                        useController = false
+                        setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_NEVER)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // 재생 버튼 오버레이
+            val ended = playbackState == androidx.media3.common.Player.STATE_ENDED
+            if (!isPlaying) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable { 
+                            if (ended) exoPlayer.seekTo(0)
+                            exoPlayer.playWhenReady = true
+                            exoPlayer.play() 
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("▶", color = Color(0xFF22C55E), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+            }
+        }
     }
 }
 

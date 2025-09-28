@@ -1,5 +1,21 @@
+<<<<<<< HEAD
 HELP.md
 .gradle
+=======
+.python-version
+data
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+>>>>>>> 9f34e7837076fba6add2eb68487c383dfb7697a4
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/

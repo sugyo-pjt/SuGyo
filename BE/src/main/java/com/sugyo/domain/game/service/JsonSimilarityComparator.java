@@ -21,21 +21,23 @@ import java.util.List;
 public class JsonSimilarityComparator {
 
     /**
-     * 0.3초 프레임 전부에 대한 평균 유사도 계산
+     * 0.3초 프레임 전부에 대한 최고 유사도 계산
      */
-    public static double calculateMotionSimilarity(List<MotionFrame> frames1, List<MotionFrame> frames2, int width, int height) {
-        int minFrames = Math.min(frames1.size(), frames2.size());
+    public static double calculateMotionSimilarity(List<MotionFrame> againstChart, List<MotionFrame> correctChart, int width, int height) {
+        int minFrames = Math.min(againstChart.size(), correctChart.size());
         if (minFrames == 0) {
             return 0.0;
         }
 
-        double totalSimilarity = 0.0;
-        for (int i = 0; i < minFrames; i++) {
-            double frameSimilarity = calculateFrameSimilarity(frames1.get(i), frames2.get(i), width, height);
-            totalSimilarity += frameSimilarity;
+        double maxSimilarity = 0.0;
+        for (int i = 0; i < againstChart.size(); i++) {
+            for(int j = 0; j < correctChart.size(); j++) {
+                double frameSimilarity = calculateFrameSimilarity(againstChart.get(i), correctChart.get(i), width, height);
+                maxSimilarity =Math.max(frameSimilarity, maxSimilarity);
+            }
         }
 
-        return totalSimilarity / minFrames;
+        return maxSimilarity;
     }
 
     /**

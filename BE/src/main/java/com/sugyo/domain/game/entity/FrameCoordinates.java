@@ -1,5 +1,6 @@
 package com.sugyo.domain.game.entity;
 
+import com.sugyo.domain.game.converter.MotionFrameListConverter;
 import com.sugyo.domain.game.dto.MotionFrame;
 import com.sugyo.domain.music.domain.Music;
 import jakarta.persistence.*;
@@ -26,6 +27,7 @@ public class FrameCoordinates {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "frame_data", nullable = false, columnDefinition = "json")
+    @Convert(converter = MotionFrameListConverter.class)
     private List<MotionFrame> frameData;
 
     @ManyToOne(fetch = FetchType.LAZY)

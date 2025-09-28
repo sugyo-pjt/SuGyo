@@ -3,9 +3,11 @@ package com.sugyo.domain.game.dto.request;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Getter
 @NoArgsConstructor
 public class GameResultRequestDto {
-    private Long musicId;
-    private Integer score;
+    private AllFramesDto clientCoordinates;
+    private Long clientCalculateScore;
 }

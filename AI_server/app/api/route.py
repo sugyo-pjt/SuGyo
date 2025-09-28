@@ -2,7 +2,6 @@
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import ChatMessage, ChatRequest, ChatResponse, ChatbotOutput
 from app.services.chatbot import chatting, chat_histories
-from app.services.Dense import classification
 import numpy as np
 
 router = APIRouter()

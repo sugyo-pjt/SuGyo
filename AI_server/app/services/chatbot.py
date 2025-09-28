@@ -59,8 +59,8 @@ async def chatting(user_id: str, sentence: str) -> str:
     payload = {
         "model": "gpt-4.1-mini",
         "messages": messages,
-        "max_tokens": 1200,
-        "temperature": 0.5
+        "max_tokens": 600,
+        "temperature": 0.4
     }
 
     async with httpx.AsyncClient(verify=False, timeout=10.0) as client:
@@ -76,7 +76,7 @@ async def chatting(user_id: str, sentence: str) -> str:
     )
 
     if not reply:
-        reply = "죄송해요. 응답을 생성하지 못 했습니다. 다시 한 번 질문해주세요."
+        reply = "죄송합니다. 응답을 생성하지 못 했습니다. 다시 한 번 질문해주세요."
 
     # 챗봇 메시지 기록
     chat_histories[user_id].append({"role": "assistant", "content": reply})

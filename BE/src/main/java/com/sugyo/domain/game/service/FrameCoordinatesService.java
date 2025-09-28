@@ -57,8 +57,7 @@ public class FrameCoordinatesService {
         try{
 
             log.debug("[inService]");
-            log.debug("DTO :s" +
-                    "",objectMapper.writeValueAsString(requestDto));
+            log.debug("DTO :{}" ,objectMapper.writeValueAsString(requestDto));
             Long musicId =requestDto.getClientCoordinates().getFirst().getMusicId();
             log.debug("UserId {} MusicId : {}",userId,musicId);
 

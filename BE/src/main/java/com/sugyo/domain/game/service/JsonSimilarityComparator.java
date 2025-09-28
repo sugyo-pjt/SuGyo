@@ -32,7 +32,7 @@ public class JsonSimilarityComparator {
         double maxSimilarity = 0.0;
         for (int i = 0; i < againstChart.size(); i++) {
             for(int j = 0; j < correctChart.size(); j++) {
-                double frameSimilarity = calculateFrameSimilarity(againstChart.get(i), correctChart.get(i), width, height);
+                double frameSimilarity = calculateFrameSimilarity(againstChart.get(i), correctChart.get(j), width, height);
                 maxSimilarity =Math.max(frameSimilarity, maxSimilarity);
             }
         }
@@ -49,10 +49,32 @@ public class JsonSimilarityComparator {
         double rightArmSimilarity = calculateArmSimilarity(frame1, frame2, "Right", width, height);
         double handSimilarity = calculateHandSimilarity(frame1, frame2, width, height);
 
-        // 가중 평균: 팔(왼40% + 오른40%) + 손(20%)
-        double totalSimilarity = (leftArmSimilarity * 0.2 + rightArmSimilarity * 0.2 + handSimilarity * 0.6);
+        // 동적 가중치 계산: 유효한 데이터가 있는 부위만 가중치 적용
+        double totalWeight = 0.0;
+        double weightedSum = 0.0;
 
-        return totalSimilarity;
+        return Math.max(Math.max(leftArmSimilarity, rightArmSimilarity), handSimilarity);
+
+        // 왼팔 데이터가 유효한 경우
+//        if (hasValidArmData(frame1, frame2, "Left")) {
+//            weightedSum += leftArmSimilarity * 0.2;
+//            totalWeight += 0.2;
+//        }
+//
+//        // 오른팔 데이터가 유효한 경우
+//        if (hasValidArmData(frame1, frame2, "Right")) {
+//            weightedSum += rightArmSimilarity * 0.2;
+//            totalWeight += 0.2;
+//        }
+//
+//        // 손 데이터가 유효한 경우
+//        if (hasValidHandData(frame1, frame2)) {
+//            weightedSum += handSimilarity * 0.6;
+//            totalWeight += 0.6;
+//        }
+//
+//        // 유효한 데이터가 없으면 0, 있으면 가중 평균 계산
+//        return totalWeight > 0 ? weightedSum / totalWeight : 0.0;
     }
 
 
@@ -99,7 +121,7 @@ public class JsonSimilarityComparator {
         double leftSimilarity = calculateSingleHandSimilarity(leftHand1, leftHand2, width, height);
         double rightSimilarity = calculateSingleHandSimilarity(rightHand1, rightHand2, width, height);
 
-        return (leftSimilarity + rightSimilarity) / 2.0;
+        return Math.max(leftSimilarity, rightSimilarity);
     }
 
     /**
@@ -118,6 +140,40 @@ public class JsonSimilarityComparator {
         double[] handFeature2 = HandNormalization.handFeatureVector(hand2, width, height);
 
         return HandNormalization.cosineSimilarity(handFeature1, handFeature2);
+    }
+
+    /**
+     * 팔 데이터가 유효한지 확인
+     */
+    private static boolean hasValidArmData(MotionFrame frame1, MotionFrame frame2, String side) {
+        List<Pose> poses1 = frame1.poses();
+        List<Pose> poses2 = frame2.poses();
+
+        double[] armFeature1 = HandNormalization.armFeatureVector(poses1, 640, 480, side);
+        double[] armFeature2 = HandNormalization.armFeatureVector(poses2, 640, 480, side);
+
+        return armFeature1 != null && armFeature2 != null;
+    }
+
+    /**
+     * 손 데이터가 유효한지 확인
+     */
+    private static boolean hasValidHandData(MotionFrame frame1, MotionFrame frame2) {
+        // 왼손과 오른손 중 하나라도 유효하면 true
+        List<Coordinate> leftHand1 = getHandCoordinates(frame1, BodyPart.LEFT_HAND);
+        List<Coordinate> rightHand1 = getHandCoordinates(frame1, BodyPart.RIGHT_HAND);
+        List<Coordinate> leftHand2 = getHandCoordinates(frame2, BodyPart.LEFT_HAND);
+        List<Coordinate> rightHand2 = getHandCoordinates(frame2, BodyPart.RIGHT_HAND);
+
+        boolean hasLeftHand = leftHand1 != null && leftHand2 != null &&
+                             !leftHand1.isEmpty() && !leftHand2.isEmpty() &&
+                             leftHand1.size() == leftHand2.size();
+
+        boolean hasRightHand = rightHand1 != null && rightHand2 != null &&
+                              !rightHand1.isEmpty() && !rightHand2.isEmpty() &&
+                              rightHand1.size() == rightHand2.size();
+
+        return hasLeftHand || hasRightHand;
     }
 
     /**

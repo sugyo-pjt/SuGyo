@@ -27,9 +27,15 @@ class HandNormalization private constructor() {
             val pts = Array(handCoordinates.size) { DoubleArray(3) }
             for (i in handCoordinates.indices) {
                 val c = handCoordinates[i]
-                pts[i][0] = c.x * W
-                pts[i][1] = c.y * H
-                pts[i][2] = c.z * W
+                if (c == null) {
+                    pts[i][0] = 0.0  // x 좌표
+                    pts[i][1] = 0.0  // y 좌표
+                    pts[i][2] = 0.0  // z 좌표 (깊이)
+                } else {
+                    pts[i][0] = c.x * W
+                    pts[i][1] = c.y * H
+                    pts[i][2] = c.z * W
+                }
             }
             return pts
         }

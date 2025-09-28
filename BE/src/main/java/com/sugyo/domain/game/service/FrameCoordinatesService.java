@@ -54,44 +54,50 @@ public class FrameCoordinatesService {
 
     public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) throws JsonProcessingException {
 
-        log.debug("[inService]");
-        log.debug("DTO : {}",objectMapper.writeValueAsString(requestDto));
-        Long musicId =requestDto.getClientCoordinates().getFirst().getMusicId();
-        log.debug("UserId {} MusicId : {}",userId,musicId);
+        try{
 
-        GameSessionContext context = initializeGameSession(userId, musicId);
-        log.debug("Context : {}",objectMapper.writeValueAsString(context));
-        List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
+            log.debug("[inService]");
+            log.debug("DTO : {}",objectMapper.writeValueAsString(requestDto));
+            Long musicId =requestDto.getClientCoordinates().getFirst().getMusicId();
+            log.debug("UserId {} MusicId : {}",userId,musicId);
 
-        log.debug("correctFrames : {}",objectMapper.writeValueAsString(correctFrames));
-        Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
-                .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
+            GameSessionContext context = initializeGameSession(userId, musicId);
+            log.debug("Context : {}",objectMapper.writeValueAsString(context));
+            List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
 
-        log.debug("frameMap : {}",objectMapper.writeValueAsString(frameMap));
-        for (GameActionRequest gameAction : requestDto.getClientCoordinates().getFirst().getAllFrames()) {
-            FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
+            log.debug("correctFrames : {}",objectMapper.writeValueAsString(correctFrames));
+            Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
+                    .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
 
-            // 유사도 계산
-            double similarity = JsonSimilarityComparator.calculateMotionSimilarity(
-                    gameAction.frames(), correctCurrentFrames.getFrameData(), DEFAULT_WIDTH, DEFAULT_HEIGHT);
+            log.debug("frameMap : {}",objectMapper.writeValueAsString(frameMap));
+            for (GameActionRequest gameAction : requestDto.getClientCoordinates().getFirst().getAllFrames()) {
+                FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
 
-            Judgment judgment = judgeByRatio(similarity);
+                // 유사도 계산
+                double similarity = JsonSimilarityComparator.calculateMotionSimilarity(
+                        gameAction.frames(), correctCurrentFrames.getFrameData(), DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-            // 점수 계산
-            int points = calculatePoints(judgment, context.getCombo().get());
+                Judgment judgment = judgeByRatio(similarity);
 
-            log.debug("[CHECK] {} {} {} {} {}",gameAction.timestamp(),points,judgment,similarity,judgment);
+                // 점수 계산
+                int points = calculatePoints(judgment, context.getCombo().get());
 
-            context.applyJudgment(points, judgment);
+                log.debug("[CHECK] {} {} {} {} {}",gameAction.timestamp(),points,judgment,similarity,judgment);
 
-            if (context.getLastNoteTimestamp() <= gameAction.timestamp()) {
-                // 검증
-                if(context.getScore().get()==requestDto.getClientCalculateScore()){
-                    finishGame(context);
-                }else{
-                    throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
+                context.applyJudgment(points, judgment);
+
+                if (context.getLastNoteTimestamp() <= gameAction.timestamp()) {
+                    // 검증
+                    if(context.getScore().get()==requestDto.getClientCalculateScore()){
+                        finishGame(context);
+                    }else{
+                        throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
+                    }
                 }
             }
+        } catch (Exception e) {
+            log.debug(e.getMessage());
+            e.printStackTrace();
         }
     }
 

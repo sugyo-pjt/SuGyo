@@ -303,7 +303,6 @@ fun NavGraph(
                     }
                 },
                 onOpenSettings = { openSettings?.invoke() },
-                judgmentResult = null, // TODO: ViewModel 연동 시 교체
                 gamePlayViewModel = gamePlayViewModel
             )
         }

@@ -960,13 +960,6 @@ fun GamePlayScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 
-                // 🔥 하드 모드일 때만 웹소켓 판정 결과 표시 (기존 GameJudgmentToast 활용)
-                if (gameMode == GameMode.HARD) {
-                    GameJudgmentToast(
-                        result = currentJudgment,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
                 
             }
         }

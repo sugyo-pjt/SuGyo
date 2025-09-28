@@ -61,6 +61,8 @@ services:
     container_name: fastapi-app
     expose:
       - "8000"
+    env_file:
+      - ./.env
     networks:
       - sugyo-network
 

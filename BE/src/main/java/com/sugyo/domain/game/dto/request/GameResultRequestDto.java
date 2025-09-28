@@ -8,6 +8,6 @@ import java.util.List;
 @Getter
 @NoArgsConstructor
 public class GameResultRequestDto {
-    private AllFramesDto clientCoordinates;
+    private List<AllFramesDto> clientCoordinates;
     private Long clientCalculateScore;
 }

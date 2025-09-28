@@ -1,5 +1,6 @@
 package com.sugyo.domain.game.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sugyo.auth.dto.CustomUserDetails;
 import com.sugyo.domain.game.dto.request.GameActionRequest;
 import com.sugyo.domain.game.dto.request.GamePlayRequestDto;
@@ -477,7 +478,7 @@ public class RhythmGameController {
     @PostMapping("/result")
     public ResponseEntity<String> checkFrameCoordinates(
             @RequestBody GameResultRequestDto request,
-            @AuthenticationPrincipal CustomUserDetails user) {
+            @AuthenticationPrincipal CustomUserDetails user) throws JsonProcessingException {
         frameCoordinatesService.checkFrameCoordinates(request,user.getId());
         return ResponseEntity.ok("Frame data saved successfully");
     }

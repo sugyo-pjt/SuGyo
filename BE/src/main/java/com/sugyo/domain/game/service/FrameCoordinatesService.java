@@ -1,5 +1,6 @@
 package com.sugyo.domain.game.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.CommonErrorCode;
@@ -51,21 +52,21 @@ public class FrameCoordinatesService {
     private static final double PERFECT_RATIO_THRESHOLD = 0.9;
     private static final double GOOD_RATIO_THRESHOLD = 0.7;
 
-    public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) {
+    public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) throws JsonProcessingException {
 
-        log.debug("DTO : {}",requestDto);
+        log.debug("DTO : {}",objectMapper.writeValueAsString(requestDto));
         Long musicId =requestDto.getClientCoordinates().getMusicId();
         log.debug("UserId {} MusicId : {}",userId,musicId);
 
         GameSessionContext context = initializeGameSession(userId, musicId);
-        log.debug("Context : {}",context);
+        log.debug("Context : {}",objectMapper.writeValueAsString(context));
         List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
 
-        log.debug("correctFrames : {}",correctFrames);
+        log.debug("correctFrames : {}",objectMapper.writeValueAsString(correctFrames));
         Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
                 .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
 
-        log.debug("frameMap : {}",frameMap);
+        log.debug("frameMap : {}",objectMapper.writeValueAsString(frameMap));
         for (GameActionRequest gameAction : requestDto.getClientCoordinates().getAllFrames()) {
             FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
 

@@ -106,15 +106,12 @@ public class FrameCoordinatesService {
                 }
                 log.debug("[CHECK] timestamp={}, score={}, judgment={}, similarity={}", gameAction.timestamp(), score, judgment, similarity);
 
-                // 검증
-                if (lastNoteTimestamp <= gameAction.timestamp()) {
-                    if( score != requestDto.getClientCalculateScore()) {
-                        throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
-                    }
-
-                    finishGame(userId, musicId, score);
-                }
             }
+            if( score != requestDto.getClientCalculateScore()) {
+                throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
+            }
+
+            finishGame(userId, musicId, score);
         } catch (Exception e) {
             log.debug("[ERROR]", e.getMessage());
             e.printStackTrace();

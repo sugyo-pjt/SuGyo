@@ -107,9 +107,9 @@ public class FrameCoordinatesService {
                 log.debug("[CHECK] timestamp={}, score={}, judgment={}, similarity={}", gameAction.timestamp(), score, judgment, similarity);
 
             }
-            if( score != requestDto.getClientCalculateScore()) {
-                throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
-            }
+//            if( score != requestDto.getClientCalculateScore()) {
+//                throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
+//            }
 
             finishGame(userId, musicId, score);
         } catch (Exception e) {

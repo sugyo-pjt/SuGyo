@@ -1,15 +1,127 @@
-*.iml
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+############################
+# Android / Gradle (Front)
+############################
+# IDE/Project metadata
+*.iml
+.idea/
+
+# Gradle
+.gradle/
+.gradle
+/.gradle
 local.properties
+/local.properties
+
+# Build outputs
+/build
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+**/.cxx/
+
+# Keep Gradle Wrapper in VCS
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# Misc OS / Tools
+.DS_Store
+Thumbs.db
+
+# Keystore (개인키는 절대 커밋 금지)
+*.jks
+*.keystore
+
+############################
+# Python (master)
+############################
+.python-version
+data
+hand_lang
+langv/
+langv
+.pdm-python
+.pdm-build/
+.pixi
+__pypackages__/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtualenv / env
+.venv
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+.env
+.envrc
+
+# Packaging / build
+dist/
+build/            # (Android와 중복 무시 OK)
+pip-wheel-metadata/
+*.spec
+.Python
+target/
+
+# Test / coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+cover/
+htmlcov/
+
+# Tools / linters / type-checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# Web / frameworks
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+
+# DB / logs
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Jupyter / IPython
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+############################
+# JetBrains / VS Code
+############################
+# JetBrains 전용 규칙은 .idea/로 대체
+# VS Code
+.vscode/
+
+############################
+# Project-specific
+############################
+HELP.md

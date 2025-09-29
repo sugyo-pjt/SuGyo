@@ -13,9 +13,9 @@ import com.sugyo.domain.game.dto.request.GameResultRequestDto;
 import com.sugyo.domain.game.entity.FrameCoordinates;
 import com.sugyo.domain.game.entity.GameResult;
 import com.sugyo.domain.game.exception.WebSocketException;
+import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.game.repository.GameResultRepository;
 import com.sugyo.domain.music.domain.Music;
-import com.sugyo.domain.game.repository.FrameCoordinatesRepository;
 import com.sugyo.domain.music.repository.MusicRepository;
 import com.sugyo.domain.user.domain.User;
 import com.sugyo.domain.user.repository.UserRepository;
@@ -31,7 +31,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.sugyo.domain.game.domain.GameState.FINISHED;
-import static com.sugyo.domain.game.domain.Judgment.*;
+import static com.sugyo.domain.game.domain.Judgment.GOOD;
+import static com.sugyo.domain.game.domain.Judgment.MISS;
+import static com.sugyo.domain.game.domain.Judgment.PERFECT;
 import static com.sugyo.domain.game.exception.WebSocketErrorCode.INVALID_MUSIC_ID;
 
 @Service
@@ -52,24 +54,30 @@ public class FrameCoordinatesService {
     private static final double PERFECT_RATIO_THRESHOLD = 0.9;
     private static final double GOOD_RATIO_THRESHOLD = 0.7;
 
-    public void checkFrameCoordinates(GameResultRequestDto requestDto,Long userId) throws JsonProcessingException {
+    public void checkFrameCoordinates(GameResultRequestDto requestDto, Long userId) throws JsonProcessingException {
 
-        try{
+        try {
 
             log.debug("[inService]");
-            log.debug("DTO :{}" ,objectMapper.writeValueAsString(requestDto));
-            Long musicId =requestDto.getClientCoordinates().getFirst().getMusicId();
-            log.debug("UserId {} MusicId : {}",userId,musicId);
+            log.debug("DTO :{}", objectMapper.writeValueAsString(requestDto));
+            Long musicId = requestDto.getClientCoordinates().getFirst().getMusicId();
+            log.debug("UserId {} MusicId : {}", userId, musicId);
 
-            GameSessionContext context = initializeGameSession(userId, musicId);
-            log.debug("Context : ",objectMapper.writeValueAsString(context));
-            List<FrameCoordinates> correctFrames =frameCoordinatesRepository.findByMusicId(musicId);
+            List<FrameCoordinates> correctFrames = frameCoordinatesRepository.findByMusicId(musicId);
 
-            log.debug("correctFrames : ",objectMapper.writeValueAsString(correctFrames));
+            log.debug("correctFrames : ", objectMapper.writeValueAsString(correctFrames));
             Map<Double, FrameCoordinates> frameMap = correctFrames.stream()
                     .collect(Collectors.toMap(FrameCoordinates::getTimePassed, Function.identity()));
 
-            log.debug("frameMap : ",objectMapper.writeValueAsString(frameMap));
+            Double lastNoteTimestamp = getLastNoteTimestamp(musicId);
+
+            int score = 0;
+            int combo = 0;
+//            int perfectCount = 0;
+//            int goodCount = 0;
+//            int missCount = 0;
+
+            log.debug("frameMap : ", objectMapper.writeValueAsString(frameMap));
             for (GameActionRequest gameAction : requestDto.getClientCoordinates().getFirst().getAllFrames()) {
                 FrameCoordinates correctCurrentFrames = frameMap.get(gameAction.timestamp());
 
@@ -80,23 +88,35 @@ public class FrameCoordinatesService {
                 Judgment judgment = judgeByRatio(similarity);
 
                 // 점수 계산
-                int points = calculatePoints(judgment, context.getCombo().get());
+                score += calculatePoints(judgment, combo);
 
-                log.debug("[CHECK] {} {} {} {} {}",gameAction.timestamp(),points,judgment,similarity,judgment);
+                switch (judgment) {
+                    case PERFECT -> {
+                        combo++;
+//                        perfectCount++;
+                    }
+                    case GOOD -> {
+                        combo++;
+//                        goodCount++;
+                    }
+                    case MISS -> {
+                        combo = 0;
+//                        missCount++;
+                    }
+                }
+                log.debug("[CHECK] timestamp={}, score={}, judgment={}, similarity={}", gameAction.timestamp(), score, judgment, similarity);
 
-                context.applyJudgment(points, judgment);
-
-                if (context.getLastNoteTimestamp() <= gameAction.timestamp()) {
-                    // 검증
-                    if(context.getScore().get()==requestDto.getClientCalculateScore()){
-                        finishGame(context);
-                    }else{
+                // 검증
+                if (lastNoteTimestamp <= gameAction.timestamp()) {
+                    if( score != requestDto.getClientCalculateScore()) {
                         throw new ApplicationException(CommonErrorCode.TAMPERED_VALUE);
                     }
+
+                    finishGame(userId, musicId, score);
                 }
             }
         } catch (Exception e) {
-            log.debug("[ERROR]",e.getMessage());
+            log.debug("[ERROR]", e.getMessage());
             e.printStackTrace();
         }
     }
@@ -146,38 +166,34 @@ public class FrameCoordinatesService {
         };
     }
 
-    private GameSessionContext initializeGameSession(Long userId, Long musicId)  {
+    private Double getLastNoteTimestamp(Long musicId) {
         FrameCoordinates frameCoordinates = frameCoordinatesRepository.findTop1ByMusicIdOrderByTimePassedDesc(musicId)
                 .orElseThrow(() -> new WebSocketException(INVALID_MUSIC_ID));
 
-        double lastNoteTimestamp = frameCoordinates.getTimePassed();
-
-        return new GameSessionContext(userId, musicId, lastNoteTimestamp);
+        return frameCoordinates.getTimePassed();
     }
 
     @Transactional
-    public void finishGame(GameSessionContext context) {
-        context.changeState(FINISHED);
+    public void finishGame(Long userId, Long musicId, int score) {
 
-        User user = userRepository.findById(Long.valueOf(context.getUserId()))
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
-        Music music = musicRepository.findById(context.getMusicId())
+        Music music = musicRepository.findById(musicId)
                 .orElseThrow(() -> new ApplicationException(GlobalErrorCode.RESOURCE_NOT_FOUND));
-        int finalScore = context.getScore().get();
 
         Optional<GameResult> existingResult = gameResultRepository.findByUserAndMusic(user, music);
         if (existingResult.isPresent()) {
             GameResult gameResult = existingResult.get();
-            boolean updated = gameResult.updateScoreIfHigher(finalScore);
+            boolean updated = gameResult.updateScoreIfHigher(score);
             if (updated) {
-                log.info("최고점 갱신: UserId={}, MusicId={}, New Score={}", user.getId(), music.getId(), finalScore);
+                log.info("최고점 갱신: UserId={}, MusicId={}, New Score={}", user.getId(), music.getId(), score);
             }
         } else {
-            GameResult newResult = GameResult.create(user, music, finalScore);
+            GameResult newResult = GameResult.create(user, music, score);
             gameResultRepository.save(newResult);
-            log.info("최초 점수 기록: UserId={}, MusicId={}, Score={}", user.getId(), music.getId(), finalScore);
+            log.info("최초 점수 기록: UserId={}, MusicId={}, Score={}", user.getId(), music.getId(), score);
         }
 
-            log.info("게임 정상 종료 및 결과 저장: UserId={}, Score={}", context.getUserId(), context.getScore().get());
+        log.info("게임 정상 종료 및 결과 저장: UserId={}, Score={}", userId, score);
     }
 }

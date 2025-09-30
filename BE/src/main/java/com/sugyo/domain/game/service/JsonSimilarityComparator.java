@@ -53,7 +53,13 @@ public class JsonSimilarityComparator {
         double totalWeight = 0.0;
         double weightedSum = 0.0;
 
-        return Math.max(Math.max(leftArmSimilarity, rightArmSimilarity), handSimilarity);
+        double leftArmWeight = 0.3;
+        double rightArmWeight = 0.3;
+        double handWeight = 0.4;
+
+        return (leftArmWeight*leftArmSimilarity) + (rightArmWeight*rightArmSimilarity) + (handWeight * handSimilarity);
+
+//        return Math.max(Math.max(leftArmSimilarity, rightArmSimilarity), handSimilarity);
 
         // 왼팔 데이터가 유효한 경우
 //        if (hasValidArmData(frame1, frame2, "Left")) {

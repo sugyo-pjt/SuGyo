@@ -1,0 +1,7 @@
+warning: in the working copy of 'app/src/main/java/com/ssafy/a602/MainScreen.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/main/java/com/ssafy/a602/game/data/FakeSongs.kt', LF will be replaced by CRLF the next time Git touches it
+.idea/deploymentTargetSelector.xml
+app/build.gradle.kts
+app/src/main/java/com/ssafy/a602/game/data/FakeSongs.kt
+app/src/main/java/com/ssafy/a602/game/play/GamePlayScreen.kt
+app/src/main/java/com/ssafy/a602/game/songs/SongItem.kt

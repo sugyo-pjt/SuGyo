@@ -1,20 +1,23 @@
 package com.sugyo.domain.study.service;
 
 import com.sugyo.auth.dto.CustomUserDetails;
+import com.sugyo.common.annotation.CacheableWithTTL;
 import com.sugyo.common.exception.ApplicationException;
 import com.sugyo.common.exception.GlobalErrorCode;
+import com.sugyo.domain.study.dto.request.QuizResultRequest;
 import com.sugyo.domain.study.dto.response.DayProgressDto;
 import com.sugyo.domain.study.dto.response.SearchKeywordResponse;
 import com.sugyo.domain.study.dto.response.StudyDayResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressDetailsResponseDto;
 import com.sugyo.domain.study.dto.response.StudyProgressResponseDto;
-import com.sugyo.domain.study.dto.request.QuizResultRequest;
 import com.sugyo.domain.study.dto.response.StudyWordItemDto;
 import com.sugyo.domain.study.entity.Daily;
+import com.sugyo.domain.study.entity.MusicVocabulary;
 import com.sugyo.domain.study.entity.UserDailyVocabulary;
 import com.sugyo.domain.study.entity.Vocabulary;
 import com.sugyo.domain.study.repository.DailyRepository;
 import com.sugyo.domain.study.repository.DailyVocabularyRepository;
+import com.sugyo.domain.study.repository.MusicVocabularyRepository;
 import com.sugyo.domain.study.repository.UserDailyVocabularyRepository;
 import com.sugyo.domain.study.repository.VocabularyRepository;
 import com.sugyo.domain.user.domain.User;
@@ -23,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -39,6 +43,7 @@ public class StudyService {
     private final DailyRepository dailyRepository;
     private final DailyVocabularyRepository dailyVocabularyRepository;
     private final VocabularyRepository vocabularyRepository;
+    private final MusicVocabularyRepository musicVocabularyRepository;
 
     public StudyProgressResponseDto getStudyProgress(CustomUserDetails user) {
 
@@ -154,5 +159,13 @@ public class StudyService {
                 .collect(Collectors.toSet());
     }
 
-
+    @CacheableWithTTL(cacheName = "MUSIC-VOCABULARY", ttl = 1, unit = ChronoUnit.HOURS)
+    public List<StudyWordItemDto> getAllMusicVocabulary(long musicId) {
+        List<MusicVocabulary> musicVocabularies = musicVocabularyRepository.findAllByMusicId(musicId);
+        return musicVocabularies.stream()
+                .map(musicVocabulary -> {
+                    return getWordItem(musicVocabulary.getVocabulary().getId());
+                })
+                .toList();
+    }
 }

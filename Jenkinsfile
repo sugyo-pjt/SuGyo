@@ -86,6 +86,9 @@ pipeline {
                     string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
                     string(credentialsId: 'aws-s3-bucket', variable: 'SPRING_CLOUD_AWS_S3_BUCKET'),
                     string(credentialsId: 'aws-s3-cdn-url', variable: 'SPRING_CLOUD_AWS_S3_CDN_URL'),
+                    string(credentialsId: 'gms-key', variable: 'GMS_KEY'),
+                    string(credentialsId: 'chat-llm-url', variable: 'CHAT_LLM_URL'),
+                    string(credentialsId: 'chat-model', variable: 'CHAT_MODEL'),
                     string(credentialsId: 'jwt-secret', variable: 'SPRING_JWT_SECRET')
                 ]){
                 script {
@@ -99,6 +102,9 @@ pipeline {
                         echo "AWS_REGION=${env.AWS_REGION}" >> .env
                         echo "AWS_S3_BUCKET=${env.SPRING_CLOUD_AWS_S3_BUCKET}" >> .env
                         echo "AWS_S3_CDN_URL=${env.SPRING_CLOUD_AWS_S3_CDN_URL}" >> .env
+                        echo "GMS_KEY=${env.GMS_KEY}" >> .env
+                        echo "CHAT_LLM_URL=${env.CHAT_LLM_URL}" >> .env
+                        echo "CHAT_MODEL=${env.CHAT_MODEL}" >> .env
                         echo "SPRING_JWT_SECRET='${env.SPRING_JWT_SECRET}'" >> .env
                     """
                     if (env.RESTART_INFRA == 'true') {
@@ -143,6 +149,9 @@ pipeline {
                         string(credentialsId: 'aws-region', variable: 'AWS_REGION'),
                         string(credentialsId: 'aws-s3-bucket', variable: 'SPRING_CLOUD_AWS_S3_BUCKET'),
                         string(credentialsId: 'aws-s3-cdn-url', variable: 'SPRING_CLOUD_AWS_S3_CDN_URL'),
+                        string(credentialsId: 'gms-key', variable: 'GMS_KEY'),
+                        string(credentialsId: 'chat-llm-url', variable: 'CHAT_LLM_URL'),
+                        string(credentialsId: 'chat-model', variable: 'CHAT_MODEL'),
                         string(credentialsId: 'jwt-secret', variable: 'SPRING_JWT_SECRET')
                         ]) {
                             script {
@@ -156,6 +165,9 @@ pipeline {
                                     echo "AWS_REGION=${env.AWS_REGION}" >> .env
                                     echo "AWS_S3_BUCKET=${env.SPRING_CLOUD_AWS_S3_BUCKET}" >> .env
                                     echo "AWS_S3_CDN_URL=${env.SPRING_CLOUD_AWS_S3_CDN_URL}" >> .env
+                                    echo "GMS_KEY=${env.GMS_KEY}" >> .env
+                                    echo "CHAT_LLM_URL=${env.CHAT_LLM_URL}" >> .env
+                                    echo "CHAT_MODEL=${env.CHAT_MODEL}" >> .env
                                     echo "SPRING_JWT_SECRET='${env.SPRING_JWT_SECRET}'" >> .env
                                 """
                                 if (env.RESTART_INFRA == 'true') {

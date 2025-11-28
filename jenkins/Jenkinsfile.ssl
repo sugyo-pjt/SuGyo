@@ -1,0 +1,42 @@
+pipeline {
+    agent any
+
+    // 매월 1일 새벽 3시경에 실행
+    triggers {
+        cron('H 3 1 * *')
+    }
+
+    stages {
+        stage('Renew SSL Certificate') {
+            steps {
+                script {
+                    echo "Attempting to renew SSL certificate for j13a602.p.ssafy.io..."
+
+                    def webroot_path = "/var/www/certbot"
+                    sh "mkdir -p ${webroot_path}"
+
+                    sh """
+                    docker run --rm \\
+                        -v "/etc/letsencrypt:/etc/letsencrypt" \\
+                        -v "/var/lib/letsencrypt:/var/lib/letsencrypt" \\
+                        -v "${webroot_path}:${webroot_path}" \\
+                        certbot/certbot renew \\
+                        --webroot -w ${webroot_path} \\
+                        --non-interactive \\
+                        --quiet \\
+                        --agree-tos \\
+                        --email your-email@example.com \\
+                        --deploy-hook "docker exec nginx nginx -s reload"
+                    """
+                    
+                    echo "Certificate renewal process completed."
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo 'SSL certificate renewal check finished.'
+        }
+    }
+}

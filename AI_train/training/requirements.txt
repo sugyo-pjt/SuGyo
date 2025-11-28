@@ -1,6 +1,5 @@
 # 핵심 ML 라이브러리
 tensorflow==2.14.0
-keras==2.14.0
 tensorboard==2.14.0
 mediapipe==0.10.21
 protobuf==4.25.3

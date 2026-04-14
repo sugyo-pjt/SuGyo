@@ -41,7 +41,8 @@
 
 ## 🧬 System Archetacture
 
-<img width="1087" height="574" alt="diagram-export-2026 -2 -25 -오전-1_05_56" src="https://github.com/user-attachments/assets/fed83086-b854-47cb-ac03-ff5ed1319125" />
+<img width="960" height="569" alt="diagram-export-2026 -4 -15 -오전-1_53_26" src="https://github.com/user-attachments/assets/f8f259b2-5b5a-4087-b687-2eba7fc3480b" />
+
 
 ## API 명세서
 
